@@ -2,7 +2,7 @@ library("dplyr")
 library("igraph")
 
 # Load isoform-isoform interaction network
-isoform_network_df <- read.csv("data-raw/results_PHYSICAL_Prob_Model_22_01_26.csv",
+isoform_network_df <- read.csv("data-raw/results_PHYSICAL_Prob_Model_16_02_26.csv",
                                encoding = "utf-8")
 
 # Create vertex table from both sides

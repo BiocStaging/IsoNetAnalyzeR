@@ -1,9 +1,14 @@
 Package: IsoNetAnalyzeR
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Isoform-Level Protein Interaction Network Analysis
+Version: 0.1.0
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+    person("Nikolas", "Mumm", , "s242825@dtu.dk", role = c("aut", "cre"))
+Description: Provides tools for constructing, analyzing, and querying
+    isoform-level protein interaction networks. Includes functions for
+    network summary statistics, degree distribution analysis, sticky
+    isoform and gene detection, and virtual pulldown simulations.
+    Developed as part of a master's thesis at the Technical University
+    of Denmark (DTU).
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

@@ -5,6 +5,7 @@
 #' @param order order of neighbors that should be looked at
 #'
 #' @returns graph object with the degree of neighbor assigned
+#' @export
 get_neighbor <- function(network_graph, seed_vertices, order) {
   layer_map <- vector("list", order)
   layer_map[[1]] <- igraph::V(network_graph)[name %in% seed_vertices]  # store vertex objects, not names
@@ -14,7 +15,7 @@ get_neighbor <- function(network_graph, seed_vertices, order) {
     .x = seq_len(order),
     .f = function(acc, i) {
       prev <- acc[[i]]  # vertex objects in previous layer
-      new <- unique(unlist(neighbors(network_graph, prev, mode = "all")))
+      new <- unique(unlist(igraph::neighbors(network_graph, prev, mode = "all")))
       new <- setdiff(new, unlist(acc))  # remove already seen
 
       # DEBUG: check if no new neighbors found
@@ -56,7 +57,7 @@ get_neighbor <- function(network_graph, seed_vertices, order) {
 virtual_pulldown <- function(network_graph, seed_vertices, order, cutoff) {
   network_graph <- get_neighbor(network_graph, seed_vertices, order)
 
-  sub_network_names <- purrr::keep(V(network_graph),
+  sub_network_names <- purrr::keep(igraph::V(network_graph),
                                    ~ !is.na(.x$order) && .x$order <= order)$name
 
   sub_network_graph <- igraph::induced_subgraph(network_graph,
@@ -77,9 +78,9 @@ virtual_pulldown <- function(network_graph, seed_vertices, order, cutoff) {
 
   nodes_to_keep <- res$node[!is.na(res$frac_internal) & res$frac_internal >= cutoff]
 
-  filteredSubGraph <- igraph::induced_subgraph(sub_network_graph, vids = V(sub_network_graph)[name %in% nodes_to_keep])
+  filteredSubGraph <- igraph::induced_subgraph(sub_network_graph, vids = igraph::V(sub_network_graph)[name %in% nodes_to_keep])
 
-  igraph::V(filteredSubGraph)$frac_internal <- res$frac_internal[match(V(filteredSubGraph)$name, res$node)]
+  igraph::V(filteredSubGraph)$frac_internal <- res$frac_internal[match(igraph::V(filteredSubGraph)$name, res$node)]
 
   filteredSubGraph
 }

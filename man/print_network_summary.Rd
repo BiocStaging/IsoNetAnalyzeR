@@ -2,21 +2,19 @@
 % Please edit documentation in R/graph_stats.R
 \name{print_network_summary}
 \alias{print_network_summary}
-\title{Comprehensive network statistics}
+\title{Print a formatted network summary}
 \usage{
 print_network_summary(g = NULL)
 }
 \arguments{
-\item{g}{An igraph object. If NULL, the internal package network is used.}
+\item{g}{An igraph object. If \code{NULL}, the internal package graph is
+used.}
 }
 \value{
-A named list of statistics.
+Invisibly returns the summary list produced by
+\code{\link{network_summary}}.
 }
 \description{
-Reports summary statistics for:
-\itemize{
-\item Full isoform network
-\item Predicted interaction subnetwork
-\item Gene-level predicted network
-}
+A thin wrapper around \code{\link{network_summary}} that writes a
+human-readable summary to the console.
 }

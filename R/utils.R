@@ -1,3 +1,5 @@
+utils::globalVariables(c("name", "order"))
+
 #' Resolve the graph argument
 #'
 #' Returns \code{g} unchanged if provided, otherwise falls back to the graph

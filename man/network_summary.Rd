@@ -2,21 +2,22 @@
 % Please edit documentation in R/graph_stats.R
 \name{network_summary}
 \alias{network_summary}
-\title{Comprehensive network statistics}
+\title{Comprehensive network summary statistics}
 \usage{
 network_summary(g = NULL)
 }
 \arguments{
-\item{g}{An igraph object. If NULL, the internal package network is used.}
+\item{g}{An igraph object. If \code{NULL}, the internal graph is used.}
 }
 \value{
-A named list of statistics.
+A named list with three sublists: \code{full_network},
+\code{predicted_isoform_network}, and \code{gene_level_predicted_network}.
 }
 \description{
-Reports summary statistics for:
+Reports summary statistics for three views of the network:
 \itemize{
-\item Full isoform network
-\item Predicted interaction subnetwork
-\item Gene-level predicted network
+\item The full isoform network (all edges).
+\item The predicted-interaction isoform subnetwork (\code{interact == 1}).
+\item The gene-level collapse of the predicted subnetwork.
 }
 }

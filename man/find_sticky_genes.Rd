@@ -2,20 +2,28 @@
 % Please edit documentation in R/graph_stats.R
 \name{find_sticky_genes}
 \alias{find_sticky_genes}
-\title{find_sticky_genes}
+\title{Identify sticky genes}
 \usage{
 find_sticky_genes(g = NULL, method = "sd", cutoff = 2)
 }
 \arguments{
-\item{g}{graph object}
+\item{g}{An igraph object. If \code{NULL}, the internal package graph is
+used.}
 
-\item{method}{one of sd or quantile for cutoff calculation}
+\item{method}{Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
+\code{"quantile"} (the \code{cutoff} quantile).}
 
-\item{cutoff}{cutoff to classify sticky genes}
+\item{cutoff}{Numeric scalar. SD multiplier for \code{"sd"}, or probability
+in [0, 1] for \code{"quantile"}.}
 }
 \value{
-all sticky genes and the calculated cutoff number
+A named list with:
+\describe{
+\item{sticky_genes}{Named integer vector of degrees for sticky genes.}
+\item{threshold}{The numeric threshold used.}
+}
 }
 \description{
-find_sticky_genes
+A gene is classified as "sticky" if its degree in the predicted gene-level
+network exceeds a threshold derived from the overall degree distribution.
 }

@@ -2,16 +2,18 @@
 % Please edit documentation in R/graph_stats.R
 \name{gene_degree_distribution}
 \alias{gene_degree_distribution}
-\title{gene_degree_distribution}
+\title{Gene degree distribution in the predicted subnetwork}
 \usage{
 gene_degree_distribution(g = NULL)
 }
 \arguments{
-\item{g}{graph object}
+\item{g}{An igraph object. If \code{NULL}, the internal package graph is
+used.}
 }
 \value{
-number of interaction partner per gene
+A named integer vector of degrees (names are gene IDs).
 }
 \description{
-gene_degree_distribution
+Collapses the predicted isoform subnetwork to gene resolution, then returns
+the number of unique gene-level interaction partners per gene.
 }

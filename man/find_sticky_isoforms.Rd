@@ -2,20 +2,28 @@
 % Please edit documentation in R/graph_stats.R
 \name{find_sticky_isoforms}
 \alias{find_sticky_isoforms}
-\title{find_sticky_isoforms}
+\title{Identify sticky isoforms}
 \usage{
 find_sticky_isoforms(g = NULL, method = "sd", cutoff = 2)
 }
 \arguments{
-\item{g}{graph object}
+\item{g}{An igraph object. If \code{NULL}, the internal package graph is
+used.}
 
-\item{method}{one of sd or quantile}
+\item{method}{Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
+\code{"quantile"} (the \code{cutoff} quantile).}
 
-\item{cutoff}{cutoff value}
+\item{cutoff}{Numeric scalar. SD multiplier for \code{"sd"}, or probability
+in [0, 1] for \code{"quantile"}.}
 }
 \value{
-a list of isoforms that are classified as sticky and the used cutoff
+A named list with:
+\describe{
+\item{sticky_isoforms}{Named integer vector of degrees for sticky isoforms.}
+\item{threshold}{The numeric threshold used.}
+}
 }
 \description{
-find_sticky_isoforms
+An isoform is classified as "sticky" if its degree in the predicted isoform
+subnetwork exceeds a threshold derived from the overall degree distribution.
 }

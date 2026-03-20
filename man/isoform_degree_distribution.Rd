@@ -2,16 +2,18 @@
 % Please edit documentation in R/graph_stats.R
 \name{isoform_degree_distribution}
 \alias{isoform_degree_distribution}
-\title{isoform_degree_distribution}
+\title{Isoform degree distribution in the predicted subnetwork}
 \usage{
 isoform_degree_distribution(g = NULL)
 }
 \arguments{
-\item{g}{graph object}
+\item{g}{An igraph object. If \code{NULL}, the internal package graph is
+used.}
 }
 \value{
-number of interaction aprtners for each isoform
+A named integer vector of degrees (names are transcript IDs).
 }
 \description{
-isoform_degree_distribution
+Returns the number of predicted interaction partners for each isoform that
+appears in the predicted (\code{interact == 1}) subnetwork.
 }

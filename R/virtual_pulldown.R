@@ -2,7 +2,7 @@
 ## Functions for performing a virtual pulldown on an isoform interaction network.
 ##
 ## Internal helpers (prefixed with ".") are not exported.
-## Public API: virtual_pulldown
+## Export functions: virtual_pulldown
 
 
 #-- Helper functions -----------------------------------------------------------

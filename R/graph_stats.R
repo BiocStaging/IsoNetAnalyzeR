@@ -2,8 +2,9 @@
 ## Network summary statistics and degree distribution utilities
 ##
 ## Internal helpers (starts with a ".") are not exported
-## Export functions:
-##
+## Export functions: network_summary, print_network_summary,
+##  isoform_degree_distribution, gene_degree_distribution, find_sticky_isoforms,
+##  find_sticky_genes
 
 
 #-- Helper functions -----------------------------------------------------------

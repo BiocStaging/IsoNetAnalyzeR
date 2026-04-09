@@ -59,11 +59,14 @@ setValidity("IsoNetAnalyzeR", function(object) {
     msgs <- c(msgs, "@created_at must be a length-1 POSIXct.")
 
   # Every element of @analyses must carry the right S4 class
+  allowed <- c("DifferentialPulldownAnalysis")
+
   bad_analyses <- vapply(
     object@analyses,
-    function(x) !is(x, "VirtualPulldownAnalysis"),
+    function(x) !any(vapply(allowed, function(cls) is(x, cls), logical(1))),
     logical(1)
   )
+
   if (any(bad_analyses))
     msgs <- c(msgs, paste0(
       "@analyses contains unsupported object(s): ",

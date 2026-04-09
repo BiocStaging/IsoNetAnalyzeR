@@ -485,3 +485,189 @@ setMethod(
     stop("Package 'ggplot2' is required: install.packages('ggplot2').",
          call. = FALSE)
 }
+
+# ==============================================================================
+#  plot_network methods
+# ==============================================================================
+
+#' Plot the subgraph(s) of a GeneDiffPulldown result
+#'
+#' Dispatches on \linkS4class{GeneDiffPulldown}.  Two display modes are
+#' available via the \code{direction} argument:
+#' \itemize{
+#'   \item \code{"up"} or \code{"down"} — renders a single subgraph,
+#'     highlighting the seed isoforms.
+#'   \item \code{"both"} (default) — renders the two subgraphs side-by-side
+#'     as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
+#' }
+#'
+#' All other arguments are forwarded to the underlying \code{.render_plot()}
+#' helper and have the same meaning as in the
+#' \linkS4class{IsoNetAnalyzeR} and \linkS4class{VirtualPulldownLookup}
+#' methods.
+#'
+#' @param object    A \linkS4class{GeneDiffPulldown} object.
+#' @param direction Character scalar: \code{"up"}, \code{"down"}, or
+#'   \code{"both"} (default).
+#' @param level     \code{"isoform"} (default) or \code{"gene"}.
+#' @param layout    ggraph layout string.  Default \code{"stress"}.
+#' @param node_size Numeric. Base node size.  Default \code{3}.
+#' @param label_size Numeric. Label text size.  Default \code{2.5}.
+#' @param edge_alpha Numeric in \[0, 1\].  Default \code{0.4}.
+#' @param title     Character scalar or \code{NULL} (auto-generated).
+#' @param ...       Forwarded to \code{ggraph::ggraph()}.
+#'
+#' @return A \code{ggplot} / \code{patchwork} object, invisibly.
+#'
+#' @examples
+#' \dontrun{
+#' # Plot both directions side-by-side
+#' plot_network(gene_result)
+#'
+#' # Plot only the up-regulated subgraph
+#' plot_network(gene_result, direction = "up")
+#' }
+#'
+#' @describeIn plot_network Plot a \linkS4class{GeneDiffPulldown} result.
+setMethod(
+  "plot_network",
+  "GeneDiffPulldown",
+  function(object,
+           direction  = c("both", "up", "down"),
+           level      = "isoform",
+           layout     = "stress",
+           node_size  = 3,
+           label_size = 2.5,
+           edge_alpha = 0.4,
+           title      = NULL,
+           ...) {
+
+    direction <- match.arg(direction)
+    level     <- match.arg(level, c("isoform", "gene"))
+    .check_plot_pkgs()
+
+    if (direction == "both") {
+      return(.plot_gene_both(object, level, layout,
+                             node_size, label_size, edge_alpha, title, ...))
+    }
+
+    # Single-direction plot
+    g_slot   <- if (direction == "up") object@up_graph else object@down_graph
+    iso_seed <- if (direction == "up") object@up_isoforms else object@down_isoforms
+
+    if (is.null(g_slot))
+      stop(sprintf(
+        "No %s-regulated subgraph available for gene '%s'.",
+        direction, object@gene_id
+      ), call. = FALSE)
+
+    g <- .build_plot_graph(
+      graph     = g_slot,
+      level     = level,
+      all_edges = FALSE,
+      threshold = NULL        # graph is already interaction-filtered
+    )
+
+    if (is.null(title))
+      title <- sprintf("%s  —  %s  (%s level)",
+                       object@gene_id, direction, level)
+
+    seed_vertices <- if (level == "gene") {
+      unique(stats::na.omit(
+        igraph::V(g_slot)$gene[igraph::V(g_slot)$name %in% iso_seed]
+      ))
+    } else {
+      iso_seed
+    }
+
+    p <- .render_plot(
+      g             = g,
+      level         = level,
+      group_by_gene = FALSE,
+      layout        = layout,
+      node_size     = node_size,
+      label_size    = label_size,
+      edge_alpha    = edge_alpha,
+      title         = title,
+      seed_vertices = seed_vertices,
+      ...
+    )
+
+    invisible(p)
+  }
+)
+
+
+#' Render the two-panel combined plot for a GeneDiffPulldown
+#'
+#' @param object     GeneDiffPulldown.
+#' @param level      "isoform" or "gene".
+#' @param layout     ggraph layout.
+#' @param node_size  Numeric.
+#' @param label_size Numeric.
+#' @param edge_alpha Numeric.
+#' @param title      Character or NULL.
+#' @param ...        Forwarded to ggraph.
+#' @return patchwork object, invisibly.
+#' @noRd
+.plot_gene_both <- function(object, level, layout,
+                            node_size, label_size, edge_alpha, title, ...) {
+
+  if (!requireNamespace("patchwork", quietly = TRUE))
+    stop("Package 'patchwork' is required for direction = 'both': ",
+         "install.packages('patchwork').", call. = FALSE)
+
+  make_panel <- function(g_slot, iso_seed, dir_label) {
+    if (is.null(g_slot)) {
+      # Return an empty annotated ggplot when the direction has no subgraph
+      return(
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = paste("No", dir_label, "subgraph"),
+                            colour = "grey60", size = 4) +
+          ggplot2::theme_void() +
+          ggplot2::labs(title = paste(object@gene_id, "—", dir_label))
+      )
+    }
+
+    g <- .build_plot_graph(
+      graph     = g_slot,
+      level     = level,
+      all_edges = FALSE,
+      threshold = NULL
+    )
+
+    seed_vertices <- if (level == "gene") {
+      unique(stats::na.omit(
+        igraph::V(g_slot)$gene[igraph::V(g_slot)$name %in% iso_seed]
+      ))
+    } else {
+      iso_seed
+    }
+
+    .render_plot(
+      g             = g,
+      level         = level,
+      group_by_gene = FALSE,
+      layout        = layout,
+      node_size     = node_size,
+      label_size    = label_size,
+      edge_alpha    = edge_alpha,
+      title         = paste(object@gene_id, "—", dir_label),
+      seed_vertices = seed_vertices,
+      ...
+    )
+  }
+
+  p_up   <- make_panel(object@up_graph,   object@up_isoforms,   "up-regulated")
+  p_down <- make_panel(object@down_graph, object@down_isoforms, "down-regulated")
+
+  combined <- p_up + p_down +
+    patchwork::plot_annotation(
+      title   = title %||% sprintf("Differential pulldown  —  %s", object@gene_id),
+      caption = sprintf("level: %s", level)
+    )
+
+  print(combined)
+  invisible(combined)
+}

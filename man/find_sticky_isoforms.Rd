@@ -2,19 +2,27 @@
 % Please edit documentation in R/graph_stats.R
 \name{find_sticky_isoforms}
 \alias{find_sticky_isoforms}
+\alias{find_sticky_isoforms,IsoNetAnalyzeR-method}
+\alias{find_sticky_isoforms,igraph-method}
 \title{Identify sticky isoforms}
 \usage{
-find_sticky_isoforms(g = NULL, method = "sd", cutoff = 2)
+find_sticky_isoforms(obj, method = "sd", cutoff = 2, ...)
+
+\S4method{find_sticky_isoforms}{IsoNetAnalyzeR}(obj, method = "sd", cutoff = 2, ...)
+
+\S4method{find_sticky_isoforms}{igraph}(obj, method = "sd", cutoff = 2, ...)
 }
 \arguments{
-\item{g}{An igraph object. If \code{NULL}, the internal package graph is
-used.}
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+object.}
 
 \item{method}{Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
 \code{"quantile"} (the \code{cutoff} quantile).}
 
 \item{cutoff}{Numeric scalar. SD multiplier for \code{"sd"}, or probability
 in [0, 1] for \code{"quantile"}.}
+
+\item{...}{Currently unused; reserved for future arguments.}
 }
 \value{
 A named list with:
@@ -26,4 +34,24 @@ A named list with:
 \description{
 An isoform is classified as "sticky" if its degree in the predicted isoform
 subnetwork exceeds a threshold derived from the overall degree distribution.
+}
+\section{Functions}{
+\itemize{
+\item \code{find_sticky_isoforms(IsoNetAnalyzeR)}: Method for \linkS4class{IsoNetAnalyzeR}
+objects.
+
+\item \code{find_sticky_isoforms(igraph)}: Method for igraph objects.
+
+}}
+\examples{
+\dontrun{
+obj <- IsoNetAnalyzeR("demo")
+sticky <- find_sticky_isoforms(obj)
+sticky$threshold
+head(sort(sticky$sticky_isoforms, decreasing = TRUE))
+
+# With quantile method
+sticky_q <- find_sticky_isoforms(obj, method = "quantile", cutoff = 0.95)
+}
+
 }

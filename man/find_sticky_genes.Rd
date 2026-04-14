@@ -2,19 +2,27 @@
 % Please edit documentation in R/graph_stats.R
 \name{find_sticky_genes}
 \alias{find_sticky_genes}
+\alias{find_sticky_genes,IsoNetAnalyzeR-method}
+\alias{find_sticky_genes,igraph-method}
 \title{Identify sticky genes}
 \usage{
-find_sticky_genes(g = NULL, method = "sd", cutoff = 2)
+find_sticky_genes(obj, method = "sd", cutoff = 2, ...)
+
+\S4method{find_sticky_genes}{IsoNetAnalyzeR}(obj, method = "sd", cutoff = 2, ...)
+
+\S4method{find_sticky_genes}{igraph}(obj, method = "sd", cutoff = 2, ...)
 }
 \arguments{
-\item{g}{An igraph object. If \code{NULL}, the internal package graph is
-used.}
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+object.}
 
 \item{method}{Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
 \code{"quantile"} (the \code{cutoff} quantile).}
 
 \item{cutoff}{Numeric scalar. SD multiplier for \code{"sd"}, or probability
 in [0, 1] for \code{"quantile"}.}
+
+\item{...}{Currently unused; reserved for future arguments.}
 }
 \value{
 A named list with:
@@ -26,4 +34,24 @@ A named list with:
 \description{
 A gene is classified as "sticky" if its degree in the predicted gene-level
 network exceeds a threshold derived from the overall degree distribution.
+}
+\section{Functions}{
+\itemize{
+\item \code{find_sticky_genes(IsoNetAnalyzeR)}: Method for \linkS4class{IsoNetAnalyzeR}
+objects.
+
+\item \code{find_sticky_genes(igraph)}: Method for igraph objects.
+
+}}
+\examples{
+\dontrun{
+obj <- IsoNetAnalyzeR("demo")
+sticky <- find_sticky_genes(obj)
+sticky$threshold
+head(sort(sticky$sticky_genes, decreasing = TRUE))
+
+# With quantile method
+sticky_q <- find_sticky_genes(obj, method = "quantile", cutoff = 0.95)
+}
+
 }

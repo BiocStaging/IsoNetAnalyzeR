@@ -4,28 +4,37 @@
 \alias{virtual_pulldown}
 \title{Virtual pulldown}
 \usage{
-virtual_pulldown(network_graph = NULL, seed_vertices, order, cutoff)
+virtual_pulldown(obj, seed_vertices, order, cutoff = NULL)
 }
 \arguments{
-\item{network_graph}{An igraph object. If \code{NULL}, the internal package
-graph is used.}
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
-\item{seed_vertices}{Character vector of seed isoform vertex names.}
+\item{seed_vertices}{Character vector of seed isoform vertex names.
+All supplied vertices are treated as order-0 anchors.}
 
-\item{order}{Integer. Number of interaction hops to expand from the seed.}
+\item{order}{Integer. Number of interaction hops to expand from
+the seeds.}
 
-\item{cutoff}{Numeric scalar in [0, 1]. Minimum fraction of edges that must
-be internal to the subnetwork for a node to be retained. Nodes below this
-threshold are considered non-specific and removed.}
+\item{cutoff}{Numeric scalar in [0, 1]. Minimum fraction of edges
+that must be internal to the subnetwork for a node to be retained. When
+\code{NULL} (default) the value stored in
+\code{obj@metadata[["network_cutoff"]]} is used.}
 }
 \value{
 An igraph object representing the filtered virtual pulldown
-subnetwork. Vertices carry a \code{frac_internal} attribute indicating
-their fraction of internal edges.
+subnetwork. Vertices carry an \code{order} attribute (hop distance from
+the nearest seed) and a \code{frac_internal} attribute (fraction of
+their interaction edges that remain internal to the subnetwork).
 }
 \description{
-Performs a virtual pulldown by expanding a set of seed isoforms up to
-\code{order} hops in the network, then filtering out highly connected
-(non-specific) nodes based on the fraction of their edges that remain
-internal to the subnetwork.
+Performs a virtual pulldown by first restricting the network to predicted
+interaction edges (\code{interact == 1}), expanding from a set of seed
+isoforms up to \code{order} hops, then filtering out non-specific nodes
+whose edges are predominantly external to the subnetwork.
+}
+\details{
+The network is taken directly from the \linkS4class{IsoNetAnalyzeR} session
+object. The cutoff defaults to the value stored in
+\code{obj@metadata[["network_cutoff"]]} but can be overridden to explore
+alternative thresholds.
 }

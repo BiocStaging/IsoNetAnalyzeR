@@ -1,11 +1,16 @@
 ## graph_stats.R
 ## Network summary statistics and degree distribution utilities
 ##
-## Internal helpers (starts with a ".") are not exported
-## Export functions: network_summary, print_network_summary,
-##  isoform_degree_distribution, gene_degree_distribution, find_sticky_isoforms,
-##  find_sticky_genes
+## Internal helpers (prefixed with ".") are not exported.
+## Exported generics: network_summary, print_network_summary,
+##   isoform_degree_distribution, gene_degree_distribution,
+##   find_sticky_isoforms, find_sticky_genes
+##
+## Each generic dispatches on IsoNetAnalyzeR (extracts @network) and igraph
+## (runs the computation directly).
 
+#' @include isonetanalyzer_class.R
+NULL
 
 #-- Helper functions -----------------------------------------------------------
 
@@ -18,7 +23,7 @@
 #' @return An igraph object containing only predicted-interaction edges.
 #' @noRd
 .get_predicted_subgraph <- function(g) {
-  interact_vec <- igraph::E(g, "interact")
+  interact_vec <- igraph::edge_attr(g, "interact")
 
   if (is.null(interact_vec)) {
     stop("Graph has no edge attribute 'interact'.", call. = FALSE)
@@ -99,7 +104,9 @@
 }
 
 
-#-- Exported functions ---------------------------------------------------------
+# ==============================================================================
+#  network_summary
+# ==============================================================================
 
 #' Comprehensive network summary statistics
 #'
@@ -110,22 +117,44 @@
 #'   \item The gene-level collapse of the predicted subnetwork.
 #' }
 #'
-#' @param g An igraph object. If \code{NULL}, the internal graph is used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
+#' @param ... Currently unused; reserved for future arguments.
 #'
 #' @return A named list with three sublists: \code{full_network},
 #'   \code{predicted_isoform_network}, and \code{gene_level_predicted_network}.
+#'
+#' @examples
+#' \dontrun{
+#' # Typical usage — pass the session object
+#' obj <- IsoNetAnalyzeR("demo")
+#' network_summary(obj)
+#'
+#' # Advanced — pass a plain igraph directly
+#' network_summary(my_igraph)
+#' }
+#'
 #' @export
-network_summary <- function(g = NULL) {
-  g <- .resolve_graph(g)
+setGeneric("network_summary", function(obj, ...) standardGeneric("network_summary"))
+
+#' @describeIn network_summary Method for \linkS4class{IsoNetAnalyzeR} objects.
+#'   Extracts the session network and delegates to the igraph method.
+setMethod("network_summary", "IsoNetAnalyzeR", function(obj, ...) {
+  network_summary(obj@network)
+})
+
+#' @describeIn network_summary Method for igraph objects.  Computes the summary
+#'   statistics directly.
+setMethod("network_summary", "igraph", function(obj, ...) {
 
   # Full network
-  full_isoforms <- igraph::vcount(g)
-  full_genes    <- length(unique(igraph::V(g)$gene))
-  full_edges    <- igraph::ecount(g)
-  full_predicted <- sum(igraph::E(g)$interact == 1, na.rm = TRUE)
+  full_isoforms  <- igraph::vcount(obj)
+  full_genes     <- length(unique(igraph::V(obj)$gene))
+  full_edges     <- igraph::ecount(obj)
+  full_predicted <- sum(igraph::E(obj)$interact == 1, na.rm = TRUE)
 
   # Predicted isoform subnetwork
-  g_pred      <- .get_predicted_subgraph(g)
+  g_pred        <- .get_predicted_subgraph(obj)
   pred_isoforms <- igraph::vcount(g_pred)
   pred_genes    <- length(unique(igraph::V(g_pred)$gene))
   pred_edges    <- igraph::ecount(g_pred)
@@ -152,21 +181,44 @@ network_summary <- function(g = NULL) {
       edges = gene_edges
     )
   )
-}
+})
 
+
+# ==============================================================================
+#  print_network_summary
+# ==============================================================================
 
 #' Print a formatted network summary
 #'
 #' A thin wrapper around \code{\link{network_summary}} that writes a
 #' human-readable summary to the console.
 #'
-#' @param g An igraph object. If \code{NULL}, the internal package graph is
-#'   used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
+#' @param ... Currently unused; reserved for future arguments.
+#'
 #' @return Invisibly returns the summary list produced by
 #'   \code{\link{network_summary}}.
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("demo")
+#' print_network_summary(obj)
+#' }
+#'
 #' @export
-print_network_summary <- function(g = NULL) {
-  s <- network_summary(g)
+setGeneric("print_network_summary", function(obj, ...) standardGeneric("print_network_summary"))
+
+#' @describeIn print_network_summary Method for \linkS4class{IsoNetAnalyzeR}
+#'   objects.  Extracts the session network and delegates to the igraph method.
+setMethod("print_network_summary", "IsoNetAnalyzeR", function(obj, ...) {
+  print_network_summary(obj@network)
+})
+
+#' @describeIn print_network_summary Method for igraph objects.  Computes and
+#'   prints the summary statistics.
+setMethod("print_network_summary", "igraph", function(obj, ...) {
+  s <- network_summary(obj)
 
   cat("Isoform Interaction Network Summary\n")
   cat("====================================\n\n")
@@ -191,89 +243,187 @@ print_network_summary <- function(g = NULL) {
   cat(sprintf("  Predicted edges  : %d\n", s$gene_level_predicted_network$edges))
 
   invisible(s)
-}
+})
 
+
+# ==============================================================================
+#  isoform_degree_distribution
+# ==============================================================================
 
 #' Isoform degree distribution in the predicted subnetwork
 #'
 #' Returns the number of predicted interaction partners for each isoform that
 #' appears in the predicted (\code{interact == 1}) subnetwork.
 #'
-#' @param g An igraph object. If \code{NULL}, the internal package graph is
-#'   used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
+#' @param ... Currently unused; reserved for future arguments.
 #'
 #' @return A named integer vector of degrees (names are transcript IDs).
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("demo")
+#' deg <- isoform_degree_distribution(obj)
+#' hist(deg)
+#' }
+#'
 #' @export
-isoform_degree_distribution <- function(g = NULL) {
-  g <- .resolve_graph(g)
-  g_pred <- .get_predicted_subgraph(g)
-  igraph::degree(g_pred)
-}
+setGeneric("isoform_degree_distribution", function(obj, ...) standardGeneric("isoform_degree_distribution"))
 
+#' @describeIn isoform_degree_distribution Method for
+#'   \linkS4class{IsoNetAnalyzeR} objects.
+setMethod("isoform_degree_distribution", "IsoNetAnalyzeR", function(obj, ...) {
+  isoform_degree_distribution(obj@network)
+})
+
+#' @describeIn isoform_degree_distribution Method for igraph objects.
+setMethod("isoform_degree_distribution", "igraph", function(obj, ...) {
+  g_pred <- .get_predicted_subgraph(obj)
+  igraph::degree(g_pred)
+})
+
+
+# ==============================================================================
+#  gene_degree_distribution
+# ==============================================================================
 
 #' Gene degree distribution in the predicted subnetwork
 #'
 #' Collapses the predicted isoform subnetwork to gene resolution, then returns
 #' the number of unique gene-level interaction partners per gene.
 #'
-#' @param g An igraph object. If \code{NULL}, the internal package graph is
-#'   used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
+#' @param ... Currently unused; reserved for future arguments.
 #'
 #' @return A named integer vector of degrees (names are gene IDs).
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("demo")
+#' deg <- gene_degree_distribution(obj)
+#' hist(deg)
+#' }
+#'
 #' @export
-gene_degree_distribution <- function(g = NULL) {
-  g <- .resolve_graph(g)
-  g_pred <- .get_predicted_subgraph(g)
+setGeneric("gene_degree_distribution", function(obj, ...) standardGeneric("gene_degree_distribution"))
+
+#' @describeIn gene_degree_distribution Method for
+#'   \linkS4class{IsoNetAnalyzeR} objects.
+setMethod("gene_degree_distribution", "IsoNetAnalyzeR", function(obj, ...) {
+  gene_degree_distribution(obj@network)
+})
+
+#' @describeIn gene_degree_distribution Method for igraph objects.
+setMethod("gene_degree_distribution", "igraph", function(obj, ...) {
+  g_pred <- .get_predicted_subgraph(obj)
   g_gene <- .build_gene_graph(g_pred)
   igraph::degree(g_gene)
-}
+})
 
+
+# ==============================================================================
+#  find_sticky_isoforms
+# ==============================================================================
 
 #' Identify sticky isoforms
 #'
 #' An isoform is classified as "sticky" if its degree in the predicted isoform
 #' subnetwork exceeds a threshold derived from the overall degree distribution.
 #'
-#' @param g An igraph object. If \code{NULL}, the internal package graph is
-#'   used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
 #' @param method Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
 #'   \code{"quantile"} (the \code{cutoff} quantile).
 #' @param cutoff Numeric scalar. SD multiplier for \code{"sd"}, or probability
 #'   in \[0, 1\] for \code{"quantile"}.
+#' @param ... Currently unused; reserved for future arguments.
 #'
 #' @return A named list with:
 #' \describe{
 #'   \item{sticky_isoforms}{Named integer vector of degrees for sticky isoforms.}
 #'   \item{threshold}{The numeric threshold used.}
 #' }
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("demo")
+#' sticky <- find_sticky_isoforms(obj)
+#' sticky$threshold
+#' head(sort(sticky$sticky_isoforms, decreasing = TRUE))
+#'
+#' # With quantile method
+#' sticky_q <- find_sticky_isoforms(obj, method = "quantile", cutoff = 0.95)
+#' }
+#'
 #' @export
-find_sticky_isoforms <- function(g = NULL, method = "sd", cutoff = 2) {
-  deg    <- isoform_degree_distribution(g)
+setGeneric("find_sticky_isoforms", function(obj, method = "sd", cutoff = 2, ...) {
+  standardGeneric("find_sticky_isoforms")
+})
+
+#' @describeIn find_sticky_isoforms Method for \linkS4class{IsoNetAnalyzeR}
+#'   objects.
+setMethod("find_sticky_isoforms", "IsoNetAnalyzeR", function(obj, method = "sd", cutoff = 2, ...) {
+  find_sticky_isoforms(obj@network, method = method, cutoff = cutoff)
+})
+
+#' @describeIn find_sticky_isoforms Method for igraph objects.
+setMethod("find_sticky_isoforms", "igraph", function(obj, method = "sd", cutoff = 2, ...) {
+  deg    <- isoform_degree_distribution(obj)
   result <- .find_sticky(deg, method, cutoff, node_label = "isoform")
   list(sticky_isoforms = result$sticky, threshold = result$threshold)
-}
+})
 
+
+# ==============================================================================
+#  find_sticky_genes
+# ==============================================================================
 
 #' Identify sticky genes
 #'
 #' A gene is classified as "sticky" if its degree in the predicted gene-level
 #' network exceeds a threshold derived from the overall degree distribution.
 #'
-#' @param g An igraph object. If \code{NULL}, the internal package graph is
-#'   used.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+#'   object.
 #' @param method Threshold method: \code{"sd"} (mean + \code{cutoff} * SD) or
 #'   \code{"quantile"} (the \code{cutoff} quantile).
 #' @param cutoff Numeric scalar. SD multiplier for \code{"sd"}, or probability
 #'   in \[0, 1\] for \code{"quantile"}.
+#' @param ... Currently unused; reserved for future arguments.
 #'
 #' @return A named list with:
 #' \describe{
 #'   \item{sticky_genes}{Named integer vector of degrees for sticky genes.}
 #'   \item{threshold}{The numeric threshold used.}
 #' }
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("demo")
+#' sticky <- find_sticky_genes(obj)
+#' sticky$threshold
+#' head(sort(sticky$sticky_genes, decreasing = TRUE))
+#'
+#' # With quantile method
+#' sticky_q <- find_sticky_genes(obj, method = "quantile", cutoff = 0.95)
+#' }
+#'
 #' @export
-find_sticky_genes <- function(g = NULL, method = "sd", cutoff = 2) {
-  deg    <- gene_degree_distribution(g)
+setGeneric("find_sticky_genes", function(obj, method = "sd", cutoff = 2, ...) {
+  standardGeneric("find_sticky_genes")
+})
+
+#' @describeIn find_sticky_genes Method for \linkS4class{IsoNetAnalyzeR}
+#'   objects.
+setMethod("find_sticky_genes", "IsoNetAnalyzeR", function(obj, method = "sd", cutoff = 2, ...) {
+  find_sticky_genes(obj@network, method = method, cutoff = cutoff)
+})
+
+#' @describeIn find_sticky_genes Method for igraph objects.
+setMethod("find_sticky_genes", "igraph", function(obj, method = "sd", cutoff = 2, ...) {
+  deg    <- gene_degree_distribution(obj)
   result <- .find_sticky(deg, method, cutoff, node_label = "gene")
   list(sticky_genes = result$sticky, threshold = result$threshold)
-}
+})

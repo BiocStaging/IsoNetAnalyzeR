@@ -2,13 +2,21 @@
 % Please edit documentation in R/graph_stats.R
 \name{isoform_degree_distribution}
 \alias{isoform_degree_distribution}
+\alias{isoform_degree_distribution,IsoNetAnalyzeR-method}
+\alias{isoform_degree_distribution,igraph-method}
 \title{Isoform degree distribution in the predicted subnetwork}
 \usage{
-isoform_degree_distribution(g = NULL)
+isoform_degree_distribution(obj, ...)
+
+\S4method{isoform_degree_distribution}{IsoNetAnalyzeR}(obj, ...)
+
+\S4method{isoform_degree_distribution}{igraph}(obj, ...)
 }
 \arguments{
-\item{g}{An igraph object. If \code{NULL}, the internal package graph is
-used.}
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+object.}
+
+\item{...}{Currently unused; reserved for future arguments.}
 }
 \value{
 A named integer vector of degrees (names are transcript IDs).
@@ -16,4 +24,20 @@ A named integer vector of degrees (names are transcript IDs).
 \description{
 Returns the number of predicted interaction partners for each isoform that
 appears in the predicted (\code{interact == 1}) subnetwork.
+}
+\section{Methods (by class)}{
+\itemize{
+\item \code{isoform_degree_distribution(IsoNetAnalyzeR)}: Method for
+\linkS4class{IsoNetAnalyzeR} objects.
+
+\item \code{isoform_degree_distribution(igraph)}: Method for igraph objects.
+
+}}
+\examples{
+\dontrun{
+obj <- IsoNetAnalyzeR("demo")
+deg <- isoform_degree_distribution(obj)
+hist(deg)
+}
+
 }

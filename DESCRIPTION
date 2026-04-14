@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     person("Nikolas", "Mumm", , "s242825@dtu.dk", role = c("aut", "cre"))
 Description: Provides tools for constructing, analyzing, and querying
@@ -16,5 +16,27 @@ RoxygenNote: 7.3.3
 Depends: 
     R (>= 3.5)
 Imports: 
+    methods,
     igraph,
-    purrr
+    cli,
+    stats,
+    utils,
+    ggplot2,
+    ggraph,
+    patchwork,
+    rlang
+Suggests:
+    readxl
+Collate: 
+    'diff_pulldown_gene_class.R'
+    'diff_pulldown_analysis_class.R'
+    'isonetanalyzer_class.R'
+    'graph_stats.R'
+    'lookup_class.R'
+    'lookup_vp.R'
+    'plot_network.R'
+    'print_metadata.R'
+    'run_differential_pulldown.R'
+    'utils.R'
+    'virtual_pulldown.R'
+    'virtual_pulldown_analysis.R'

@@ -7,61 +7,69 @@
 
 #-- Helper functions -----------------------------------------------------------
 
-#' Annotate vertices with their neighbor order relative to seed vertices
+#' Extract the predicted-interaction subgraph
 #'
-#' Performs a breadth-first expansion from \code{seed_vertices} up to
-#' \code{order} hops and assigns each reached vertex its distance from the
-#' seed as the \code{order} vertex attribute. Vertices not reached are left
-#' as \code{NA}.
+#' Filters the network to edges where \code{interact == 1} and returns the
+#' induced subgraph. Isolated vertices are dropped. This is done once upfront
+#' so that all BFS expansion and degree calculations operate only on
+#' interaction edges, never on below-threshold edges.
 #'
-#' @param network_graph An igraph object.
+#' @param g   An igraph object with an \code{interact} edge attribute.
+#' @return    An igraph object containing only predicted-interaction edges,
+#'   with isolated vertices removed.
+#' @noRd
+.filter_interact_edges <- function(g) {
+  interact_vec <- igraph::edge_attr(g, "interact")
+
+  if (is.null(interact_vec))
+    stop("Graph has no edge attribute 'interact'.", call. = FALSE)
+
+  pred_edges <- which(interact_vec == 1L)
+
+  if (length(pred_edges) == 0L)
+    stop("No edges with `interact == 1` found in the graph.", call. = FALSE)
+
+  igraph::subgraph_from_edges(g, pred_edges, delete.vertices = TRUE)
+}
+
+
+#' Annotate vertices with their BFS order relative to seed vertices
+#'
+#' Performs a single BFS from all seed vertices simultaneously using
+#' \code{igraph::distances()}, which runs entirely at the C level and is
+#' substantially faster than looping over \code{igraph::neighbors()} in R.
+#' Each vertex is assigned the shortest-path distance from the nearest seed.
+#' Vertices not reachable within \code{order} hops are left as \code{NA}.
+#'
+#' @param g             An igraph object (interaction-edge filtered).
 #' @param seed_vertices Character vector of seed vertex names.
-#' @param order Integer. Maximum number of hops from the seed.
+#' @param order         Integer. Maximum number of hops from any seed.
 #'
 #' @return The input graph with an \code{order} vertex attribute added.
 #' @noRd
-.get_neighbor <- function(network_graph, seed_vertices, order) {
+.get_neighbor <- function(g, seed_vertices, order) {
 
-  # Initialise layer map: layer 1 holds the seed vertices (order = 0)
-  layer_map <- vector("list", order + 1)
-  layer_map[[1]] <- igraph::V(network_graph)[name %in% seed_vertices]
+  seed_idx <- which(igraph::V(g)$name %in% seed_vertices)
 
-  # Iteratively expand one hop at a time, tracking already-visited vertices
-  layer_map <- purrr::reduce(
-    .x = seq_len(order),
-    .f = function(acc, i) {
-      prev <- acc[[i]]
-      new  <- unique(unlist(igraph::neighbors(network_graph, prev, mode = "all")))
-      # Drop vertices already assigned to an earlier layer
-      new  <- setdiff(new, unlist(acc))
+  if (length(seed_idx) == 0L)
+    stop("None of the seed vertices were found in the (interaction-filtered) network.",
+         call. = FALSE)
 
-      if (length(new) == 0) {
-        message(sprintf("No new neighbors found at layer %d. Stopping expansion.", i + 1))
-        return(acc)
-      }
-
-      acc[[i + 1]] <- new
-      acc
-    },
-    .init = layer_map
+  # igraph::distances() runs BFS entirely in C — one call covers all seeds
+  # simultaneously, returning a (n_seeds x n_vertices) matrix.
+  # Column-wise minimum gives each vertex's distance from its nearest seed.
+  dist_mat <- igraph::distances(
+    g,
+    v         = seed_idx,
+    mode      = "all",
+    algorithm = "unweighted"   # pure BFS — fastest option for unweighted graphs
   )
 
-  # Flatten layer map to a named vector of order values (0 = seed)
-  vertex_order <- unlist(
-    lapply(seq_along(layer_map), function(i) {
-      v <- layer_map[[i]]
-      stats::setNames(
-        rep(i - 1, length(v)),
-        igraph::V(network_graph)[v]$name
-      )
-    })
-  )
+  min_dist <- if (is.matrix(dist_mat)) apply(dist_mat, 2L, min) else as.vector(dist_mat)
 
-  # Assign order as a vertex attribute; unreached vertices remain NA
-  igraph::V(network_graph)$order <- NA
-  igraph::V(network_graph)[names(vertex_order)]$order <- vertex_order
-
-  network_graph
+  # Vertices unreachable within `order` hops stay NA
+  igraph::V(g)$order <- ifelse(min_dist <= order, min_dist, NA_real_)
+  g
 }
 
 
@@ -69,59 +77,106 @@
 
 #' Virtual pulldown
 #'
-#' Performs a virtual pulldown by expanding a set of seed isoforms up to
-#' \code{order} hops in the network, then filtering out highly connected
-#' (non-specific) nodes based on the fraction of their edges that remain
-#' internal to the subnetwork.
+#' Performs a virtual pulldown by first restricting the network to predicted
+#' interaction edges (\code{interact == 1}), expanding from a set of seed
+#' isoforms up to \code{order} hops, then filtering out non-specific nodes
+#' whose edges are predominantly external to the subnetwork.
 #'
-#' @param network_graph An igraph object. If \code{NULL}, the internal package
-#'   graph is used.
+#' The network is taken directly from the \linkS4class{IsoNetAnalyzeR} session
+#' object. The cutoff defaults to the value stored in
+#' \code{obj@@metadata[["network_cutoff"]]} but can be overridden to explore
+#' alternative thresholds.
+#'
+#' @param obj           An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param seed_vertices Character vector of seed isoform vertex names.
-#' @param order Integer. Number of interaction hops to expand from the seed.
-#' @param cutoff Numeric scalar in \[0, 1\]. Minimum fraction of edges that must
-#'   be internal to the subnetwork for a node to be retained. Nodes below this
-#'   threshold are considered non-specific and removed.
+#'   All supplied vertices are treated as order-0 anchors.
+#' @param order         Integer. Number of interaction hops to expand from
+#'   the seeds.
+#' @param cutoff        Numeric scalar in \[0, 1\]. Minimum fraction of edges
+#'   that must be internal to the subnetwork for a node to be retained. When
+#'   \code{NULL} (default) the value stored in
+#'   \code{obj@@metadata[["network_cutoff"]]} is used.
 #'
 #' @return An igraph object representing the filtered virtual pulldown
-#'   subnetwork. Vertices carry a \code{frac_internal} attribute indicating
-#'   their fraction of internal edges.
+#'   subnetwork. Vertices carry an \code{order} attribute (hop distance from
+#'   the nearest seed) and a \code{frac_internal} attribute (fraction of
+#'   their interaction edges that remain internal to the subnetwork).
 #' @export
-virtual_pulldown <- function(network_graph = NULL, seed_vertices, order, cutoff) {
+virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
 
-  network_graph <- .resolve_graph(network_graph)
+  # ── Input validation ────────────────────────────────────────────────────────
+  if (!is(obj, "IsoNetAnalyzeR"))
+    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  # Annotate all vertices with their hop distance from the seed
-  network_graph <- .get_neighbor(network_graph, seed_vertices, order)
+  if (!is.character(seed_vertices) || length(seed_vertices) == 0L ||
+      any(nchar(trimws(seed_vertices)) == 0L))
+    stop("`seed_vertices` must be a non-empty character vector with no blank strings.",
+         call. = FALSE)
 
-  # Extract names of all vertices within the requested hop distance
-  sub_network_names <- purrr::keep(
-    igraph::V(network_graph),
-    ~ !is.na(.x$order) && .x$order <= order
-  )$name
+  if (!is.numeric(order) || length(order) != 1L || order < 1L)
+    stop("`order` must be a positive integer scalar.", call. = FALSE)
 
-  # Build the initial subgraph from those vertices
-  sub_network_graph <- igraph::induced_subgraph(
-    network_graph,
-    vids = igraph::V(network_graph)[name %in% sub_network_names]
-  )
+  order <- as.integer(order)
 
-  # Compute degree in the full network and internally to identify sticky nodes
-  deg_full     <- igraph::degree(network_graph,     v    = sub_network_names, mode = "all")
-  deg_internal <- igraph::degree(sub_network_graph, mode = "all")
+  # ── Cutoff resolution ───────────────────────────────────────────────────────
+  if (is.null(cutoff)) {
+    cutoff <- obj@metadata[["network_cutoff"]]
+    if (is.null(cutoff) || is.na(cutoff))
+      stop(
+        "`cutoff` not supplied and `obj@metadata$network_cutoff` is not set. ",
+        "Please provide a numeric cutoff explicitly.",
+        call. = FALSE
+      )
+  } else {
+    if (!is.numeric(cutoff) || length(cutoff) != 1L ||
+        cutoff < 0 || cutoff > 1)
+      stop("`cutoff` must be a single numeric value in [0, 1].", call. = FALSE)
+  }
 
-  frac_internal <- ifelse(deg_full > 0, deg_internal / deg_full, NA_real_)
+  # ── Step 1: restrict to interaction edges upfront ──────────────────────────
+  # Working on this smaller graph means BFS and degree calculations never
+  # touch below-threshold edges — the single biggest performance win.
+  g_interact <- .filter_interact_edges(obj@network)
 
-  # Retain only nodes whose edges are sufficiently internal (>= cutoff)
-  nodes_to_keep <- sub_network_names[!is.na(frac_internal) & frac_internal >= cutoff]
+  # ── Step 2: BFS expansion — single C-level distances() call ────────────────
+  g_interact <- .get_neighbor(g_interact, seed_vertices, order)
 
-  filtered_graph <- igraph::induced_subgraph(
-    sub_network_graph,
-    vids = igraph::V(sub_network_graph)[name %in% nodes_to_keep]
-  )
+  # ── Step 3: extract subnetwork vertices via integer indices (fast) ──────────
+  sub_idx <- which(!is.na(igraph::V(g_interact)$order))
 
-  # Attach frac_internal as a vertex attribute on the filtered graph
+  if (length(sub_idx) == 0L)
+    stop("No vertices found within the requested hop distance from the seeds.",
+         call. = FALSE)
+
+  sub_names <- igraph::V(g_interact)$name[sub_idx]
+
+  # ── Step 4: compute degrees — one induced_subgraph call, integer indices ────
+  # Degree in the full interaction graph (external + internal edges combined)
+  deg_full <- igraph::degree(g_interact, v = sub_idx, mode = "all")
+
+  # Degree within the candidate subnetwork (internal edges only)
+  g_sub        <- igraph::induced_subgraph(g_interact, vids = sub_idx)
+  deg_internal <- igraph::degree(g_sub, mode = "all")
+
+  frac_internal <- ifelse(deg_full > 0L, deg_internal / deg_full, NA_real_)
+
+  # ── Step 5: apply cutoff — retain nodes with sufficient internal edges ──────
+  keep_mask  <- !is.na(frac_internal) & frac_internal >= cutoff
+  keep_names <- sub_names[keep_mask]
+
+  if (length(keep_names) == 0L)
+    stop(
+      "No nodes passed the cutoff (", round(cutoff, 4L), "). ",
+      "Consider lowering the cutoff or increasing the expansion order.",
+      call. = FALSE
+    )
+
+  keep_idx_sub   <- which(igraph::V(g_sub)$name %in% keep_names)
+  filtered_graph <- igraph::induced_subgraph(g_sub, vids = keep_idx_sub)
+
+  # ── Step 6: attach frac_internal to the filtered graph ─────────────────────
   igraph::V(filtered_graph)$frac_internal <- frac_internal[
-    match(igraph::V(filtered_graph)$name, sub_network_names)
+    match(igraph::V(filtered_graph)$name, sub_names)
   ]
 
   filtered_graph

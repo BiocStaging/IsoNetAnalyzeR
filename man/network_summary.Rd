@@ -2,12 +2,21 @@
 % Please edit documentation in R/graph_stats.R
 \name{network_summary}
 \alias{network_summary}
+\alias{network_summary,IsoNetAnalyzeR-method}
+\alias{network_summary,igraph-method}
 \title{Comprehensive network summary statistics}
 \usage{
-network_summary(g = NULL)
+network_summary(obj, ...)
+
+\S4method{network_summary}{IsoNetAnalyzeR}(obj, ...)
+
+\S4method{network_summary}{igraph}(obj, ...)
 }
 \arguments{
-\item{g}{An igraph object. If \code{NULL}, the internal graph is used.}
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object or an igraph
+object.}
+
+\item{...}{Currently unused; reserved for future arguments.}
 }
 \value{
 A named list with three sublists: \code{full_network},
@@ -20,4 +29,24 @@ Reports summary statistics for three views of the network:
 \item The predicted-interaction isoform subnetwork (\code{interact == 1}).
 \item The gene-level collapse of the predicted subnetwork.
 }
+}
+\section{Methods (by class)}{
+\itemize{
+\item \code{network_summary(IsoNetAnalyzeR)}: Method for \linkS4class{IsoNetAnalyzeR} objects.
+Extracts the session network and delegates to the igraph method.
+
+\item \code{network_summary(igraph)}: Method for igraph objects.  Computes the summary
+statistics directly.
+
+}}
+\examples{
+\dontrun{
+# Typical usage — pass the session object
+obj <- IsoNetAnalyzeR("demo")
+network_summary(obj)
+
+# Advanced — pass a plain igraph directly
+network_summary(my_igraph)
+}
+
 }

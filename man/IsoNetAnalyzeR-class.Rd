@@ -4,9 +4,21 @@
 \name{IsoNetAnalyzeR-class}
 \alias{IsoNetAnalyzeR-class}
 \alias{show,IsoNetAnalyzeR-method}
+\alias{list_analyses,IsoNetAnalyzeR-method}
+\alias{get_analysis,IsoNetAnalyzeR-method}
+\alias{list_lookups,IsoNetAnalyzeR-method}
+\alias{get_lookup,IsoNetAnalyzeR-method}
 \title{IsoNetAnalyzeR — main session object}
 \usage{
 \S4method{show}{IsoNetAnalyzeR}(object)
+
+\S4method{list_analyses}{IsoNetAnalyzeR}(obj)
+
+\S4method{get_analysis}{IsoNetAnalyzeR}(obj, label)
+
+\S4method{list_lookups}{IsoNetAnalyzeR}(obj)
+
+\S4method{get_lookup}{IsoNetAnalyzeR}(obj, label)
 }
 \description{
 The central object of the \pkg{IsoNetAnalyzeR} package. It holds the
@@ -17,6 +29,14 @@ analyses (e.g. virtual pulldown runs), and a named list of quick look-ups.
 \itemize{
 \item \code{show(IsoNetAnalyzeR)}: Print a concise summary of an IsoNetAnalyzeR
 session object.
+
+\item \code{list_analyses(IsoNetAnalyzeR)}: List labels of stored analyses.
+
+\item \code{get_analysis(IsoNetAnalyzeR)}: Retrieve a stored analysis by label.
+
+\item \code{list_lookups(IsoNetAnalyzeR)}: List labels of stored lookups.
+
+\item \code{get_lookup(IsoNetAnalyzeR)}: Retrieve a stored lookup by label.
 
 }}
 \section{Slots}{

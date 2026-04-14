@@ -234,3 +234,73 @@ setMethod("show", "IsoNetAnalyzeR", function(object) {
 #' Return the package name from within the package namespace
 #' @noRd
 packageName <- function() "IsoNetAnalyzeR"
+
+
+# ==============================================================================
+#  Accessor generics and methods
+# ==============================================================================
+
+#' List stored analysis labels
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @return Character vector of analysis labels, or \code{character(0)} if none.
+#' @export
+setGeneric("list_analyses", function(obj) standardGeneric("list_analyses"))
+
+#' @describeIn IsoNetAnalyzeR List labels of stored analyses.
+setMethod("list_analyses", "IsoNetAnalyzeR", function(obj) {
+  names(obj@analyses)
+})
+
+
+#' Retrieve a stored analysis result
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar. The key under which the analysis was stored.
+#'
+#' @return A \linkS4class{DifferentialPulldownAnalysis} object.
+#' @export
+setGeneric("get_analysis", function(obj, label) standardGeneric("get_analysis"))
+
+#' @describeIn IsoNetAnalyzeR Retrieve a stored analysis by label.
+setMethod("get_analysis", "IsoNetAnalyzeR", function(obj, label) {
+  if (!label %in% names(obj@analyses))
+    stop(sprintf(
+      "No analysis labelled '%s'. Available: %s",
+      label, .slot_names_str(obj@analyses)
+    ), call. = FALSE)
+  obj@analyses[[label]]
+})
+
+
+#' List stored lookup labels
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @return Character vector of lookup labels, or \code{character(0)} if none.
+#' @export
+setGeneric("list_lookups", function(obj) standardGeneric("list_lookups"))
+
+#' @describeIn IsoNetAnalyzeR List labels of stored lookups.
+setMethod("list_lookups", "IsoNetAnalyzeR", function(obj) {
+  names(obj@lookups)
+})
+
+
+#' Retrieve a stored lookup result
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar. The key under which the lookup was stored.
+#'
+#' @return A \linkS4class{VirtualPulldownLookup} object.
+#' @export
+setGeneric("get_lookup", function(obj, label) standardGeneric("get_lookup"))
+
+#' @describeIn IsoNetAnalyzeR Retrieve a stored lookup by label.
+setMethod("get_lookup", "IsoNetAnalyzeR", function(obj, label) {
+  if (!label %in% names(obj@lookups))
+    stop(sprintf(
+      "No lookup labelled '%s'. Available: %s",
+      label, .slot_names_str(obj@lookups)
+    ), call. = FALSE)
+  obj@lookups[[label]]
+})

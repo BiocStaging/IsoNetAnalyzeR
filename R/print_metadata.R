@@ -47,15 +47,14 @@ setMethod("print_metadata", "IsoNetAnalyzeR", function(object, ...) {
 
   meta <- object@metadata
 
-  cat("── Metadata  [", object@name, "] ─────────────\n", sep = "")
+  cli::cli_rule("Metadata [{object@name}]")
 
   if (length(meta) == 0L) {
-    cat("  (empty)\n")
-    cat("──────────────────────────────────────────\n")
+    cli::cli_text("(empty)")
+    cli::cli_rule()
     return(invisible(object))
   }
 
-  # Determine padding width from the longest key name
   keys      <- names(meta)
   pad_width <- max(nchar(keys))
 
@@ -67,17 +66,14 @@ setMethod("print_metadata", "IsoNetAnalyzeR", function(object, ...) {
     } else if (length(val) == 0L) {
       "(length-0)"
     } else if (is.list(val)) {
-      # Nested list: show names only, or fallback to type
       if (!is.null(names(val))) {
         paste0("list(", paste(names(val), collapse = ", "), ")")
       } else {
         paste0("list [", length(val), " element(s)]")
       }
     } else if (length(val) == 1L) {
-      # Scalar — format numerics neatly
       if (is.numeric(val)) formatC(val, format = "g", digits = 6) else as.character(val)
     } else {
-      # Vector: first few elements + count
       shown   <- utils::head(val, 4L)
       preview <- if (is.numeric(shown)) {
         paste(formatC(shown, format = "g", digits = 4), collapse = ", ")
@@ -85,13 +81,14 @@ setMethod("print_metadata", "IsoNetAnalyzeR", function(object, ...) {
         paste(shown, collapse = ", ")
       }
       if (length(val) > 4L)
-        preview <- paste0(preview, ", … [", length(val), " total]")
+        preview <- paste0(preview, ", ", cli::symbol$ellipsis, " [", length(val), " total]")
       preview
     }
 
-    cat(sprintf("  %-*s : %s\n", pad_width, key, val_str))
+    padded_key <- formatC(key, width = -pad_width, flag = "-")
+    cli::cli_text("{padded_key} : {val_str}")
   }
 
-  cat("──────────────────────────────────────────\n")
+  cli::cli_rule()
   invisible(object)
 })

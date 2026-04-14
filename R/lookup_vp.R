@@ -4,7 +4,7 @@ NULL
 NULL
 
 # ==============================================================================
-#  lookup_virtual_pulldown — single quick look-up (supports multiple seeds)
+#  lookup_virtual_pulldown - single quick look-up (supports multiple seeds)
 # ==============================================================================
 
 #' Perform a virtual pulldown look-up with one or more seeds

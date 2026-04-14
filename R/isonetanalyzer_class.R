@@ -4,12 +4,15 @@
 ## Exported: IsoNetAnalyzeR (constructor), show method
 
 setOldClass("igraph")
+#' @importFrom methods is new setClass setGeneric setMethod setValidity validObject
+#' @importFrom rlang .data
+NULL
 
 # ==============================================================================
 #  Class definition
 # ==============================================================================
 
-#' IsoNetAnalyzeR — main session object
+#' IsoNetAnalyzeR - main session object
 #'
 #' The central object of the \pkg{IsoNetAnalyzeR} package. It holds the
 #' isoform interaction network, session metadata, a named list of full
@@ -24,7 +27,7 @@ setOldClass("igraph")
 #' @slot metadata    Named list of arbitrary session-level metadata (e.g.
 #'   \code{pi_threshold}, \code{network_cutoff} carried over from internal
 #'   data, or user-supplied fields).
-#' @slot analyses    Named list of \linkS4class{VirtualPulldownAnalysis}
+#' @slot analyses    Named list of \linkS4class{DifferentialPulldownAnalysis}
 #'   objects (and potentially other analysis classes added in the future).
 #' @slot lookups     Named list of \linkS4class{VirtualPulldownLookup} objects
 #'   (and potentially other look-up classes added in the future).
@@ -107,7 +110,7 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   Pass \code{NULL} (the default) to load the package's built-in network.
 #' @param metadata Named list of additional metadata to attach to the session.
 #'   This is merged with any automatically populated fields
-#'   (\code{pi_threshold}, \code{network_cutoff}) — user-supplied values take
+#'   (\code{pi_threshold}, \code{network_cutoff}) - user-supplied values take
 #'   precedence on name collision.
 #'
 #' @return An \linkS4class{IsoNetAnalyzeR} object.
@@ -126,7 +129,7 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
                            network  = NULL,
                            metadata = list()) {
 
-  # ── Network resolution ──────────────────────────────────────────────────────
+  # -- Network resolution ------------------------------------------------------
   auto_meta <- list()
 
   if (is.null(network)) {
@@ -166,7 +169,7 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
   # User metadata wins on collision
   merged_meta <- utils::modifyList(auto_meta, metadata)
 
-  # ── Construct & validate ─────────────────────────────────────────────────────
+  #-- Construct & validate -----------------------------------------------------
   obj <- new(
     "IsoNetAnalyzeR",
     name       = as.character(name),
@@ -188,31 +191,22 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
 
 #' @describeIn IsoNetAnalyzeR Print a concise summary of an IsoNetAnalyzeR
 #'   session object.
+#' @param object An \linkS4class{IsoNetAnalyzeR} object.
 setMethod("show", "IsoNetAnalyzeR", function(object) {
-  cat(
-    "── IsoNetAnalyzeR session ─────────────────────────────────────────────────\n",
-    sprintf("  Name       : %s\n",   object@name),
-    sprintf("  Created    : %s\n",   format(object@created_at, "%Y-%m-%d %H:%M:%S")),
-    sprintf("  Network    : %d vertices / %d edges  [source: %s]\n",
-            igraph::vcount(object@network),
-            igraph::ecount(object@network),
-            object@metadata[["network_source"]] %||% "unknown"),
-    sprintf("  Analyses   : %d stored  [%s]\n",
-            length(object@analyses),
-            .slot_names_str(object@analyses)),
-    sprintf("  Lookups    : %d stored  [%s]\n",
-            length(object@lookups),
-            .slot_names_str(object@lookups)),
-    sep = ""
-  )
+  cli::cli_rule("IsoNetAnalyzeR session")
+  cli::cli_text("Name       : {object@name}")
+  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  cli::cli_text("Network    : {igraph::vcount(object@network)} vertices / {igraph::ecount(object@network)} edges  [source: {object@metadata[['network_source']] %||% 'unknown'}]")
+  cli::cli_text("Analyses   : {length(object@analyses)} stored  [{(.slot_names_str(object@analyses))}]")
+  cli::cli_text("Lookups    : {length(object@lookups)} stored  [{(.slot_names_str(object@lookups))}]")
 
   if (length(object@metadata) > 0L) {
     extra <- setdiff(names(object@metadata), "network_source")
     if (length(extra)) {
-      cat("  Metadata   :", paste(extra, collapse = ", "), "\n")
+      cli::cli_text("Metadata   : {paste(extra, collapse = ', ')}")
     }
   }
-  cat("─────────────────────────────────────────────────────────────────────────\n")
+  cli::cli_rule()
   invisible(object)
 })
 
@@ -249,6 +243,7 @@ packageName <- function() "IsoNetAnalyzeR"
 setGeneric("list_analyses", function(obj) standardGeneric("list_analyses"))
 
 #' @describeIn IsoNetAnalyzeR List labels of stored analyses.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
 setMethod("list_analyses", "IsoNetAnalyzeR", function(obj) {
   names(obj@analyses)
 })
@@ -264,6 +259,8 @@ setMethod("list_analyses", "IsoNetAnalyzeR", function(obj) {
 setGeneric("get_analysis", function(obj, label) standardGeneric("get_analysis"))
 
 #' @describeIn IsoNetAnalyzeR Retrieve a stored analysis by label.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar. The key under which the analysis was stored.
 setMethod("get_analysis", "IsoNetAnalyzeR", function(obj, label) {
   if (!label %in% names(obj@analyses))
     stop(sprintf(
@@ -282,6 +279,7 @@ setMethod("get_analysis", "IsoNetAnalyzeR", function(obj, label) {
 setGeneric("list_lookups", function(obj) standardGeneric("list_lookups"))
 
 #' @describeIn IsoNetAnalyzeR List labels of stored lookups.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
 setMethod("list_lookups", "IsoNetAnalyzeR", function(obj) {
   names(obj@lookups)
 })
@@ -297,6 +295,8 @@ setMethod("list_lookups", "IsoNetAnalyzeR", function(obj) {
 setGeneric("get_lookup", function(obj, label) standardGeneric("get_lookup"))
 
 #' @describeIn IsoNetAnalyzeR Retrieve a stored lookup by label.
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar. The key under which the lookup was stored.
 setMethod("get_lookup", "IsoNetAnalyzeR", function(obj, label) {
   if (!label %in% names(obj@lookups))
     stop(sprintf(

@@ -21,7 +21,7 @@ Defaults to \code{"diff_pulldown_<timestamp>"}.}
 
 \item{input}{One of:
 \itemize{
-\item A character scalar — path to a CSV or Excel file.
+\item A character scalar - path to a CSV or Excel file.
 \item A data frame already loaded into R.
 }}
 

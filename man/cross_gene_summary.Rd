@@ -2,9 +2,12 @@
 % Please edit documentation in R/diff_pulldown_analysis_class.R
 \name{cross_gene_summary}
 \alias{cross_gene_summary}
+\alias{cross_gene_summary,DifferentialPulldownAnalysis-method}
 \title{Get the cross-gene summary table}
 \usage{
 cross_gene_summary(obj)
+
+\S4method{cross_gene_summary}{DifferentialPulldownAnalysis}(obj)
 }
 \arguments{
 \item{obj}{A \linkS4class{DifferentialPulldownAnalysis} object.}
@@ -15,3 +18,8 @@ A data frame with one row per gene.
 \description{
 Get the cross-gene summary table
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{cross_gene_summary(DifferentialPulldownAnalysis)}: Method for DifferentialPulldownAnalysis.
+
+}}

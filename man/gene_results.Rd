@@ -2,9 +2,12 @@
 % Please edit documentation in R/diff_pulldown_analysis_class.R
 \name{gene_results}
 \alias{gene_results}
+\alias{gene_results,DifferentialPulldownAnalysis-method}
 \title{Get per-gene results}
 \usage{
 gene_results(obj, gene_id = NULL)
+
+\S4method{gene_results}{DifferentialPulldownAnalysis}(obj, gene_id = NULL)
 }
 \arguments{
 \item{obj}{A \linkS4class{DifferentialPulldownAnalysis} object.}
@@ -19,3 +22,8 @@ named list of them (all genes).
 \description{
 Get per-gene results
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{gene_results(DifferentialPulldownAnalysis)}: Method for DifferentialPulldownAnalysis.
+
+}}

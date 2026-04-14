@@ -9,7 +9,7 @@
 #  Class definition
 # ==============================================================================
 
-#' GeneDiffPulldown — per-gene differential pulldown result
+#' GeneDiffPulldown - per-gene differential pulldown result
 #'
 #' Stores the virtual pulldown subgraphs and statistics for a single gene's
 #' up- and down-regulated isoforms.  One \linkS4class{GeneDiffPulldown} object
@@ -204,32 +204,37 @@ setValidity("GeneDiffPulldown", function(object) {
 # ==============================================================================
 
 #' @describeIn GeneDiffPulldown Print a concise per-gene summary.
+#' @param object A \linkS4class{GeneDiffPulldown} object.
 setMethod("show", "GeneDiffPulldown", function(object) {
   gs <- object@gene_summary
 
-  cat("── GeneDiffPulldown ─────────────────────────────────────────────\n")
-  cat(sprintf("  Gene       : %s\n", object@gene_id))
+  cli::cli_rule("GeneDiffPulldown")
+  cli::cli_text("Gene       : {object@gene_id}")
 
-  cat(sprintf(
-    "  Up         : %d isoform(s) input  →  %s\n",
-    gs$n_up_input,
-    if (gs$has_up)
-      sprintf("subgraph with %d nodes, %d edges",
-              object@graph_summary$nodes[object@graph_summary$direction == "up"],
-              object@graph_summary$edges[object@graph_summary$direction == "up"])
-    else "no network hits"
-  ))
+  up_desc <- if (gs$has_up) {
+    paste0("subgraph with ",
+           object@graph_summary$nodes[object@graph_summary$direction == "up"],
+           " nodes, ",
+           object@graph_summary$edges[object@graph_summary$direction == "up"],
+           " edges")
+  } else {
+    "no network hits"
+  }
 
-  cat(sprintf(
-    "  Down       : %d isoform(s) input  →  %s\n",
-    gs$n_down_input,
-    if (gs$has_down)
-      sprintf("subgraph with %d nodes, %d edges",
-              object@graph_summary$nodes[object@graph_summary$direction == "down"],
-              object@graph_summary$edges[object@graph_summary$direction == "down"])
-    else "no network hits"
-  ))
+  down_desc <- if (gs$has_down) {
+    paste0("subgraph with ",
+           object@graph_summary$nodes[object@graph_summary$direction == "down"],
+           " nodes, ",
+           object@graph_summary$edges[object@graph_summary$direction == "down"],
+           " edges")
+  } else {
+    "no network hits"
+  }
 
-  cat("────────────────────────────────────────────────────────────────\n")
+  cli::cli_text("Up         : {gs$n_up_input} isoform(s) input
+               {cli::symbol$arrow_right} {up_desc}")
+  cli::cli_text("Down       : {gs$n_down_input} isoform(s) input
+               {cli::symbol$arrow_right} {down_desc}")
+  cli::cli_rule()
   invisible(object)
 })

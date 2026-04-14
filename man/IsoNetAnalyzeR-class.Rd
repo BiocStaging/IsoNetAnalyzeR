@@ -8,7 +8,7 @@
 \alias{get_analysis,IsoNetAnalyzeR-method}
 \alias{list_lookups,IsoNetAnalyzeR-method}
 \alias{get_lookup,IsoNetAnalyzeR-method}
-\title{IsoNetAnalyzeR — main session object}
+\title{IsoNetAnalyzeR - main session object}
 \usage{
 \S4method{show}{IsoNetAnalyzeR}(object)
 
@@ -19,6 +19,13 @@
 \S4method{list_lookups}{IsoNetAnalyzeR}(obj)
 
 \S4method{get_lookup}{IsoNetAnalyzeR}(obj, label)
+}
+\arguments{
+\item{object}{An \linkS4class{IsoNetAnalyzeR} object.}
+
+\item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
+
+\item{label}{Character scalar. The key under which the lookup was stored.}
 }
 \description{
 The central object of the \pkg{IsoNetAnalyzeR} package. It holds the
@@ -55,7 +62,7 @@ was constructed.}
 \code{pi_threshold}, \code{network_cutoff} carried over from internal
 data, or user-supplied fields).}
 
-\item{\code{analyses}}{Named list of \linkS4class{VirtualPulldownAnalysis}
+\item{\code{analyses}}{Named list of \linkS4class{DifferentialPulldownAnalysis}
 objects (and potentially other analysis classes added in the future).}
 
 \item{\code{lookups}}{Named list of \linkS4class{VirtualPulldownLookup} objects

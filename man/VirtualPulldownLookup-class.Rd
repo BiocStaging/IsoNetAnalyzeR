@@ -4,9 +4,12 @@
 \name{VirtualPulldownLookup-class}
 \alias{VirtualPulldownLookup-class}
 \alias{show,VirtualPulldownLookup-method}
-\title{VirtualPulldownLookup — single quick virtual pulldown look-up}
+\title{VirtualPulldownLookup - single quick virtual pulldown look-up}
 \usage{
 \S4method{show}{VirtualPulldownLookup}(object)
+}
+\arguments{
+\item{object}{An \linkS4class{VirtualPulldownLookup} session object.}
 }
 \description{
 Stores the result of a one-shot virtual pulldown query at either isoform or

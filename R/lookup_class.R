@@ -8,7 +8,7 @@
 #  Class definition
 # ==============================================================================
 
-#' VirtualPulldownLookup — single quick virtual pulldown look-up
+#' VirtualPulldownLookup - single quick virtual pulldown look-up
 #'
 #' Stores the result of a one-shot virtual pulldown query at either isoform or
 #' gene level, without running a full analysis across many seeds.  Can
@@ -73,7 +73,7 @@ setValidity("VirtualPulldownLookup", function(object) {
 
 
 # ==============================================================================
-#  Constructor (internal — called by lookup_virtual_pulldown)
+#  Constructor (internal - called by lookup_virtual_pulldown)
 # ==============================================================================
 
 #' Build a VirtualPulldownLookup object
@@ -110,30 +110,26 @@ setValidity("VirtualPulldownLookup", function(object) {
 # ==============================================================================
 
 #' @describeIn VirtualPulldownLookup Print a concise summary.
+#' @param object An \linkS4class{VirtualPulldownLookup} session object.
 setMethod("show", "VirtualPulldownLookup", function(object) {
 
   # Format seed display: single seed inline, multiple seeds on separate lines
-  seed_str <- if (length(object@seed) == 1L) {
-    object@seed
+  cli::cli_rule("VirtualPulldownLookup")
+
+  if (length(object@seed) == 1L) {
+    cli::cli_text("Seed(s)    : {object@seed}  [{object@level} level]")
   } else {
-    paste0(
-      "\n    ", paste(object@seed, collapse = "\n    ")
-    )
+    cli::cli_text("Seed(s)    : [{object@level} level]")
+    for (s in object@seed) {
+      cli::cli_text("    {s}")
+    }
   }
 
-  cat(
-    "── VirtualPulldownLookup ────────────────────────────────────────\n",
-    sprintf("  Seed(s)    : %s  [%s level]\n", seed_str, object@level),
-    sprintf("  Created    : %s\n", format(object@created_at, "%Y-%m-%d %H:%M:%S")),
-    sprintf("  Order      : %s\n", object@params[["order"]]  %||% "?"),
-    sprintf("  Cutoff     : %.4f\n", object@cutoff),
-    sprintf("  Subgraph   : %d vertices, %d edges\n",
-            igraph::vcount(object@subgraph),
-            igraph::ecount(object@subgraph)),
-    sprintf("  Node stats : %d row(s), %d col(s)\n",
-            nrow(object@node_stats), ncol(object@node_stats)),
-    sep = ""
-  )
-  cat("────────────────────────────────────────────────────────────────\n")
+  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  cli::cli_text("Order      : {object@params[['order']] %||% '?'}")
+  cli::cli_text("Cutoff     : {round(object@cutoff, 4)}")
+  cli::cli_text("Subgraph   : {igraph::vcount(object@subgraph)} vertices, {igraph::ecount(object@subgraph)} edges")
+  cli::cli_text("Node stats : {nrow(object@node_stats)} row(s), {ncol(object@node_stats)} col(s)")
+  cli::cli_rule()
   invisible(object)
 })

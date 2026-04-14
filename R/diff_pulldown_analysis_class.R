@@ -11,7 +11,7 @@ NULL
 #  Class definition
 # ==============================================================================
 
-#' DifferentialPulldownAnalysis — full differential pulldown analysis result
+#' DifferentialPulldownAnalysis - full differential pulldown analysis result
 #'
 #' Top-level container produced by \code{\link{run_differential_pulldown}}.
 #' Stores one \linkS4class{GeneDiffPulldown} object per gene, the validated
@@ -179,6 +179,7 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
 # ==============================================================================
 
 #' @describeIn DifferentialPulldownAnalysis Print a concise run summary.
+#' @param object A \linkS4class{DifferentialPulldownAnalysis} object.
 setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 
   n_genes    <- length(object@gene_results)
@@ -187,15 +188,15 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
   n_down_ok  <- sum(vapply(object@gene_results,
                            function(x) x@gene_summary$has_down, logical(1)))
 
-  cat("── DifferentialPulldownAnalysis ─────────────────────────────────────────\n")
-  cat(sprintf("  Label      : %s\n", object@label))
-  cat(sprintf("  Created    : %s\n", format(object@created_at, "%Y-%m-%d %H:%M:%S")))
-  cat(sprintf("  Order      : %d    Cutoff : %.4f\n", object@order, object@cutoff))
-  cat(sprintf("  Genes      : %d total\n", n_genes))
-  cat(sprintf("  Up graphs  : %d / %d genes produced a subgraph\n", n_up_ok,   n_genes))
-  cat(sprintf("  Down graphs: %d / %d genes produced a subgraph\n", n_down_ok, n_genes))
-  cat(sprintf("  Input rows : %d isoform entries\n", nrow(object@input_table)))
-  cat("─────────────────────────────────────────────────────────────────────────\n")
+  cli::cli_rule("DifferentialPulldownAnalysis")
+  cli::cli_text("Label      : {object@label}")
+  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  cli::cli_text("Order      : {object@order}    Cutoff : {round(object@cutoff, 4)}")
+  cli::cli_text("Genes      : {n_genes} total")
+  cli::cli_text("Up graphs  : {n_up_ok} / {n_genes} genes produced a subgraph")
+  cli::cli_text("Down graphs: {n_down_ok} / {n_genes} genes produced a subgraph")
+  cli::cli_text("Input rows : {nrow(object@input_table)} isoform entries")
+  cli::cli_rule()
   invisible(object)
 })
 
@@ -207,6 +208,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #' @export
 setGeneric("cross_gene_summary", function(obj) standardGeneric("cross_gene_summary"))
 
+#' @describeIn cross_gene_summary Method for DifferentialPulldownAnalysis.
 setMethod("cross_gene_summary", "DifferentialPulldownAnalysis", function(obj) {
   obj@cross_gene_summary
 })
@@ -222,6 +224,7 @@ setMethod("cross_gene_summary", "DifferentialPulldownAnalysis", function(obj) {
 #' @export
 setGeneric("gene_results", function(obj, gene_id = NULL) standardGeneric("gene_results"))
 
+#' @describeIn gene_results Method for DifferentialPulldownAnalysis.
 setMethod("gene_results", "DifferentialPulldownAnalysis", function(obj, gene_id = NULL) {
   if (is.null(gene_id))
     return(obj@gene_results)

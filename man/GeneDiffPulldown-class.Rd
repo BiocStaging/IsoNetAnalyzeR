@@ -4,9 +4,12 @@
 \name{GeneDiffPulldown-class}
 \alias{GeneDiffPulldown-class}
 \alias{show,GeneDiffPulldown-method}
-\title{GeneDiffPulldown — per-gene differential pulldown result}
+\title{GeneDiffPulldown - per-gene differential pulldown result}
 \usage{
 \S4method{show}{GeneDiffPulldown}(object)
+}
+\arguments{
+\item{object}{A \linkS4class{GeneDiffPulldown} object.}
 }
 \description{
 Stores the virtual pulldown subgraphs and statistics for a single gene's

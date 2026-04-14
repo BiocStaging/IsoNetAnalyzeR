@@ -39,7 +39,7 @@ NULL
 #' @param obj     An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param input   One of:
 #'   \itemize{
-#'     \item A character scalar — path to a CSV or Excel file.
+#'     \item A character scalar - path to a CSV or Excel file.
 #'     \item A data frame already loaded into R.
 #'   }
 #' @param order   Integer scalar. Number of BFS hops for the virtual pulldown.
@@ -85,7 +85,7 @@ run_differential_pulldown <- function(obj,
                                       cutoff  = NULL,
                                       verbose = TRUE) {
 
-  # ── Input validation — session object ───────────────────────────────────────
+  # -- Input validation - session object ---------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
@@ -101,7 +101,7 @@ run_differential_pulldown <- function(obj,
     stop("`order` must be a positive integer scalar.", call. = FALSE)
   order <- as.integer(order)
 
-  # ── Cutoff resolution ────────────────────────────────────────────────────────
+  # -- Cutoff resolution -------------------------------------------------------
   if (is.null(cutoff)) {
     cutoff <- obj@metadata[["network_cutoff"]]
     if (is.null(cutoff) || is.na(cutoff))
@@ -120,7 +120,7 @@ run_differential_pulldown <- function(obj,
       message(sprintf("Using user-supplied cutoff: %.4f", cutoff))
   }
 
-  # ── Load and validate input table ────────────────────────────────────────────
+  # -- Load and validate input table -------------------------------------------
   tbl <- .load_diff_input(input)
   tbl <- .validate_diff_table(tbl)
 
@@ -132,7 +132,7 @@ run_differential_pulldown <- function(obj,
       length(unique(tbl$isoform_id))
     ))
 
-  # ── Per-gene pulldown loop ───────────────────────────────────────────────────
+  # -- Per-gene pulldown loop --------------------------------------------------
   gene_ids     <- unique(tbl$gene_id)
   gene_results <- stats::setNames(
     vector("list", length(gene_ids)),
@@ -163,7 +163,7 @@ run_differential_pulldown <- function(obj,
     )
   }
 
-  # ── Assemble top-level result ────────────────────────────────────────────────
+  # -- Assemble top-level result -----------------------------------------------
   result <- .new_diff_pulldown_analysis(
     label        = label,
     input_table  = tbl,
@@ -306,8 +306,8 @@ run_differential_pulldown <- function(obj,
 #' @param isoforms  Character vector of seed isoform IDs.
 #' @param order     Integer.
 #' @param cutoff    Numeric.
-#' @param gene_id   Character scalar — used in the warning message only.
-#' @param direction Character scalar — "up" or "down", for warning messages.
+#' @param gene_id   Character scalar - used in the warning message only.
+#' @param direction Character scalar - "up" or "down", for warning messages.
 #' @param verbose   Logical.
 #'
 #' @return igraph subgraph, or NULL on failure.
@@ -318,7 +318,7 @@ run_differential_pulldown <- function(obj,
   if (length(isoforms) == 0L) {
     if (verbose)
       message(sprintf(
-        "    [%s] No %s-regulated isoforms — skipping.", gene_id, direction
+        "    [%s] No %s-regulated isoforms - skipping.", gene_id, direction
       ))
     return(NULL)
   }
@@ -332,7 +332,7 @@ run_differential_pulldown <- function(obj,
     ),
     error = function(e) {
       warning(sprintf(
-        "Gene '%s' (%s): virtual_pulldown failed — %s",
+        "Gene '%s' (%s): virtual_pulldown failed - %s",
         gene_id, direction, conditionMessage(e)
       ), call. = FALSE)
       NULL

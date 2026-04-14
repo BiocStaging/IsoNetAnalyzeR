@@ -4,9 +4,12 @@
 \name{DifferentialPulldownAnalysis-class}
 \alias{DifferentialPulldownAnalysis-class}
 \alias{show,DifferentialPulldownAnalysis-method}
-\title{DifferentialPulldownAnalysis — full differential pulldown analysis result}
+\title{DifferentialPulldownAnalysis - full differential pulldown analysis result}
 \usage{
 \S4method{show}{DifferentialPulldownAnalysis}(object)
+}
+\arguments{
+\item{object}{A \linkS4class{DifferentialPulldownAnalysis} object.}
 }
 \description{
 Top-level container produced by \code{\link{run_differential_pulldown}}.

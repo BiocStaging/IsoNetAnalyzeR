@@ -15,7 +15,7 @@ Pass \code{NULL} (the default) to load the package's built-in network.}
 
 \item{metadata}{Named list of additional metadata to attach to the session.
 This is merged with any automatically populated fields
-(\code{pi_threshold}, \code{network_cutoff}) — user-supplied values take
+(\code{pi_threshold}, \code{network_cutoff}) - user-supplied values take
 precedence on name collision.}
 }
 \value{

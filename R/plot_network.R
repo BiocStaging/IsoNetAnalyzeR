@@ -64,20 +64,20 @@ NULL
 #' \dontrun{
 #' obj <- IsoNetAnalyzeR("demo")
 #'
-#' # Full network — isoform level, coloured by gene
+#' # Full network - isoform level, coloured by gene
 #' plot_network(obj, group_by_gene = TRUE)
 #'
-#' # Full network — gene level
+#' # Full network - gene level
 #' plot_network(obj, level = "gene")
 #'
-#' # Lookup subgraph — default (isoform, interaction edges only)
+#' # Lookup subgraph - default (isoform, interaction edges only)
 #' lkp <- lookup_virtual_pulldown(obj, seed = "ENST00000379236", order = 1)
 #' plot_network(lkp)
 #'
-#' # Lookup subgraph — show all edges including below-cutoff ones
+#' # Lookup subgraph - show all edges including below-cutoff ones
 #' plot_network(lkp, all_edges = TRUE)
 #'
-#' # Lookup subgraph — gene level, save to file
+#' # Lookup subgraph - gene level, save to file
 #' p <- plot_network(lkp, level = "gene")
 #' ggplot2::ggsave("lookup_gene.pdf", p, width = 8, height = 6)
 #' }
@@ -100,7 +100,7 @@ setGeneric(
 
 
 # ==============================================================================
-#  Method — IsoNetAnalyzeR
+#  Method - IsoNetAnalyzeR
 # ==============================================================================
 
 #' @describeIn plot_network Plot the full network of an
@@ -133,7 +133,7 @@ setMethod(
 
     if (is.null(title)) {
       edge_label <- if (all_edges) "all edges" else "interaction edges"
-      title <- sprintf("%s  —  %s level  (%s)", object@name, level, edge_label)
+      title <- sprintf("%s  -  %s level  (%s)", object@name, level, edge_label)
     }
 
     .render_plot(
@@ -153,7 +153,7 @@ setMethod(
 
 
 # ==============================================================================
-#  Method — VirtualPulldownLookup
+#  Method - VirtualPulldownLookup
 # ==============================================================================
 
 #' @describeIn plot_network Plot the subgraph of a
@@ -188,7 +188,7 @@ setMethod(
     if (is.null(title)) {
       edge_label <- if (all_edges) "all edges" else "interaction edges"
       title <- sprintf(
-        "Lookup: %s  —  %s level  (%s)",
+        "Lookup: %s  -  %s level  (%s)",
         object@seed, level, edge_label
       )
     }
@@ -221,7 +221,7 @@ setMethod(
 
 
 # ==============================================================================
-#  Shared rendering — internal
+#  Shared rendering - internal
 # ==============================================================================
 
 #' Core ggraph rendering shared by all plot_network methods
@@ -283,13 +283,13 @@ setMethod(
 
 
 # ==============================================================================
-#  Graph preparation — internal
+#  Graph preparation - internal
 # ==============================================================================
 
 #' Prepare an igraph for plotting
 #'
 #' Applies optional pi_score edge filtering and gene-level contraction.
-#' Accepts a plain igraph and a threshold scalar — no dependency on any S4
+#' Accepts a plain igraph and a threshold scalar, no dependency on any S4
 #' class, so it can be called from any method.
 #'
 #' @param graph     An igraph object.
@@ -304,7 +304,7 @@ setMethod(
 
   g <- graph
 
-  # ── Edge filtering ──────────────────────────────────────────────────────────
+  # -- Edge filtering ----------------------------------------------------------
   # Only acts when the pi_score attribute exists AND all_edges is FALSE AND a
   # threshold is available.  If the graph is already fully filtered (no
   # pi_score attribute) this block is a no-op.
@@ -316,12 +316,12 @@ setMethod(
                                    delete.vertices = FALSE)
   }
 
-  # ── Gene-level contraction ──────────────────────────────────────────────────
+  # -- Gene-level contraction --------------------------------------------------
   if (level == "gene") {
     g <- .contract_to_gene(g)
   }
 
-  # ── Sanitise vertex attributes ──────────────────────────────────────────────
+  # -- Sanitise vertex attributes ----------------------------------------------
   # ggraph coerces vertex attributes to a tibble; NULL columns (e.g. `order`
   # and `frac_internal` absent after gene contraction) cause an error.
   # Delete any attribute whose value is NULL so ggraph only sees clean vectors.
@@ -373,7 +373,7 @@ setMethod(
 
   igraph::V(g_contracted)$name <- gene_levels
 
-  # Drop every vertex attribute except name and gene — contraction can produce
+  # Drop every vertex attribute except name and gene - contraction can produce
   # NULL or list-valued attributes from the combination functions that break
   # ggraph's tibble conversion downstream.
   keep_attrs <- c("name", "gene")
@@ -392,14 +392,14 @@ setMethod(
 
 
 # ==============================================================================
-#  ggraph layer helpers — internal
+#  ggraph layer helpers - internal
 # ==============================================================================
 
 #' Node geom: uniform colour, gene-coloured, or seed-highlighted
 #' @noRd
 .node_geom <- function(level, group_by_gene, node_size, has_seeds) {
 
-  # Seed highlighting takes precedence over gene colouring — if there are seed
+  # Seed highlighting takes precedence over gene colouring - if there are seed
   # nodes we use shape + fill to distinguish them; gene colouring is applied on
   # top via colour when group_by_gene is also TRUE.
   if (has_seeds) {
@@ -418,7 +418,7 @@ setMethod(
       ))
     }
 
-    # No gene colouring — use a two-colour scheme: seed vs neighbour
+    # No gene colouring - use a two-colour scheme: seed vs neighbour
     return(list(
       ggraph::geom_node_point(
         ggplot2::aes(
@@ -468,7 +468,7 @@ setMethod(
 
 
 # ==============================================================================
-#  Argument / package guards — internal
+#  Argument / package guards - internal
 # ==============================================================================
 
 #' @noRd
@@ -501,9 +501,9 @@ setMethod(
 #' Dispatches on \linkS4class{GeneDiffPulldown}.  Two display modes are
 #' available via the \code{direction} argument:
 #' \itemize{
-#'   \item \code{"up"} or \code{"down"} — renders a single subgraph,
+#'   \item \code{"up"} or \code{"down"} - renders a single subgraph,
 #'     highlighting the seed isoforms.
-#'   \item \code{"both"} (default) — renders the two subgraphs side-by-side
+#'   \item \code{"both"} (default) - renders the two subgraphs side-by-side
 #'     as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
 #' }
 #'
@@ -575,7 +575,7 @@ setMethod(
     )
 
     if (is.null(title))
-      title <- sprintf("%s  —  %s  (%s level)",
+      title <- sprintf("%s  -  %s  (%s level)",
                        object@gene_id, direction, level)
 
     seed_vertices <- if (level == "gene") {
@@ -632,7 +632,7 @@ setMethod(
                             label = paste("No", dir_label, "subgraph"),
                             colour = "grey60", size = 4) +
           ggplot2::theme_void() +
-          ggplot2::labs(title = paste(object@gene_id, "—", dir_label))
+          ggplot2::labs(title = paste(object@gene_id, "-", dir_label))
       )
     }
 
@@ -659,7 +659,7 @@ setMethod(
       node_size     = node_size,
       label_size    = label_size,
       edge_alpha    = edge_alpha,
-      title         = paste(object@gene_id, "—", dir_label),
+      title         = paste(object@gene_id, "-", dir_label),
       seed_vertices = seed_vertices,
       ...
     )
@@ -670,7 +670,7 @@ setMethod(
 
   combined <- p_up + p_down +
     patchwork::plot_annotation(
-      title   = title %||% sprintf("Differential pulldown  —  %s", object@gene_id),
+      title   = title %||% sprintf("Differential pulldown  -  %s", object@gene_id),
       caption = sprintf("level: %s", level)
     )
 

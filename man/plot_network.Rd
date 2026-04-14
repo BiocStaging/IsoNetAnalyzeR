@@ -101,9 +101,9 @@ Renders a network using \pkg{ggraph} and \pkg{ggplot2}.  Dispatches on
 Dispatches on \linkS4class{GeneDiffPulldown}.  Two display modes are
 available via the \code{direction} argument:
 \itemize{
-\item \code{"up"} or \code{"down"} — renders a single subgraph,
+\item \code{"up"} or \code{"down"} - renders a single subgraph,
 highlighting the seed isoforms.
-\item \code{"both"} (default) — renders the two subgraphs side-by-side
+\item \code{"both"} (default) - renders the two subgraphs side-by-side
 as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
 }
 }
@@ -141,20 +141,20 @@ in a contrasting colour.
 \dontrun{
 obj <- IsoNetAnalyzeR("demo")
 
-# Full network — isoform level, coloured by gene
+# Full network - isoform level, coloured by gene
 plot_network(obj, group_by_gene = TRUE)
 
-# Full network — gene level
+# Full network - gene level
 plot_network(obj, level = "gene")
 
-# Lookup subgraph — default (isoform, interaction edges only)
+# Lookup subgraph - default (isoform, interaction edges only)
 lkp <- lookup_virtual_pulldown(obj, seed = "ENST00000379236", order = 1)
 plot_network(lkp)
 
-# Lookup subgraph — show all edges including below-cutoff ones
+# Lookup subgraph - show all edges including below-cutoff ones
 plot_network(lkp, all_edges = TRUE)
 
-# Lookup subgraph — gene level, save to file
+# Lookup subgraph - gene level, save to file
 p <- plot_network(lkp, level = "gene")
 ggplot2::ggsave("lookup_gene.pdf", p, width = 8, height = 6)
 }

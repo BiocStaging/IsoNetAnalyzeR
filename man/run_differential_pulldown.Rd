@@ -6,16 +6,18 @@
 \usage{
 run_differential_pulldown(
   obj,
+  label,
   input,
   order,
   cutoff = NULL,
-  store = FALSE,
-  label = NULL,
   verbose = TRUE
 )
 }
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
+
+\item{label}{Character scalar. Key used when \code{store = TRUE}.
+Defaults to \code{"diff_pulldown_<timestamp>"}.}
 
 \item{input}{One of:
 \itemize{
@@ -28,21 +30,11 @@ run_differential_pulldown(
 \item{cutoff}{Numeric scalar in [0, 1].  Internal-edge fraction cutoff.
 Defaults to \code{obj@metadata[["network_cutoff"]]} when \code{NULL}.}
 
-\item{store}{Logical. If \code{TRUE} the result is stored in
-\code{obj@analyses[[label]]} and the updated session object is returned
-invisibly.  If \code{FALSE} (default) only the
-\linkS4class{DifferentialPulldownAnalysis} object is returned.}
-
-\item{label}{Character scalar. Key used when \code{store = TRUE}.
-Defaults to \code{"diff_pulldown_<timestamp>"}.}
-
 \item{verbose}{Logical. Print per-gene progress messages.  Default
 \code{TRUE}.}
 }
 \value{
-When \code{store = FALSE}: a
-\linkS4class{DifferentialPulldownAnalysis} object.
-When \code{store = TRUE}: the updated \linkS4class{IsoNetAnalyzeR}
+An updated \linkS4class{IsoNetAnalyzeR}
 object (invisibly); access the result via
 \code{obj@analyses[[label]]}.
 }
@@ -50,8 +42,8 @@ object (invisibly); access the result via
 Reads a long-format table of differentially expressed isoforms (one isoform
 per row), runs a virtual pulldown for the up- and down-regulated isoforms
 of each gene separately, computes per-direction and per-gene statistics, and
-returns a \linkS4class{DifferentialPulldownAnalysis} object.  The result is
-optionally stored in \code{obj@analyses} when \code{store = TRUE}.
+adds a \linkS4class{DifferentialPulldownAnalysis} object to the
+\linkS4class{IsoNetAnalyzeR} session object.
 }
 \section{Input table format}{
 
@@ -73,11 +65,14 @@ used by the analysis.
 obj <- IsoNetAnalyzeR("demo")
 
 # From a CSV file
-result <- run_differential_pulldown(obj, "de_isoforms.csv", order = 1)
+obj <- run_differential_pulldown(obj,
+                                 "condition_A_vs_B",
+                                 "de_isoforms.csv",
+                                 order = 1)
 
 # From an already-loaded data frame, stored in the session object
 obj <- run_differential_pulldown(
-  obj, de_df, order = 1, store = TRUE, label = "condition_A_vs_B"
+  obj, "condition_A_vs_B", de_df, order = 1
 )
 obj@analyses$condition_A_vs_B
 

@@ -6,16 +6,17 @@
 \usage{
 lookup_virtual_pulldown(
   obj,
+  label,
   seed,
   order,
   cutoff = NULL,
-  level = c("isoform", "gene"),
-  store = FALSE,
-  label = NULL
+  level = c("isoform", "gene")
 )
 }
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
+
+\item{label}{Character scalar. Key under which to store the look-up.}
 
 \item{seed}{Character vector. One or more isoform vertex names or gene
 names.  When multiple seeds are given they are all used as order-0 anchors
@@ -29,68 +30,54 @@ Supply an explicit value to explore alternative thresholds without
 modifying the session object.}
 
 \item{level}{Character scalar. \code{"isoform"} (default) or \code{"gene"}.}
-
-\item{store}{Logical. If \code{TRUE} the result is stored in
-\code{obj@lookups} and the updated \code{obj} is returned invisibly.  If
-\code{FALSE} (default) only the \linkS4class{VirtualPulldownLookup} object
-is returned.}
-
-\item{label}{Character scalar. Key under which to store the look-up when
-\code{store = TRUE}.  Defaults to \code{"<seed1>_AND_<seed2>_<timestamp>"}.}
 }
 \value{
-When \code{store = FALSE}: a \linkS4class{VirtualPulldownLookup}
-object.  When \code{store = TRUE}: the updated
-\linkS4class{IsoNetAnalyzeR} object (invisibly); access the look-up via
-\code{obj@lookups[[label]]}.
+An updated \linkS4class{IsoNetAnalyzeR} object (invisibly);
+access the look-up via \code{obj@lookups[[label]]}.
 }
 \description{
-Runs a virtual pulldown for one or more seed isoforms or genes and returns
-the result as a \linkS4class{VirtualPulldownLookup} object.  All supplied
-seeds are treated as order-0 anchors in a single pulldown.  The network is
-taken directly from \code{obj}; the cutoff defaults to the value stored in
+Runs a virtual pulldown for one or more seed isoforms or genes and adds
+the result as a \linkS4class{VirtualPulldownLookup} object to the
+\linkS4class{IsoNetAnalyzeR} object.  All supplied seeds are treated as
+order-0 anchors in a single pulldown.  The network is taken directly from
+\code{obj}; the cutoff defaults to the value stored in
 \code{obj@metadata[["network_cutoff"]]} but can be overridden to explore
-alternative thresholds.  The result is optionally stored inside the session
-object (under \code{obj@lookups}) when \code{store = TRUE}.
+alternative thresholds.
 }
 \examples{
 \dontrun{
 obj <- IsoNetAnalyzeR("demo")
 
 # Single seed — uses stored network_cutoff
-lkp <- lookup_virtual_pulldown(obj, seed = "ENST00000379236", order = 1)
-lkp
+obj <- lookup_virtual_pulldown(obj,
+                               "ENST00000379236",
+                               seed = "ENST00000379236",
+                               order = 1)
+obj
 
-# Multiple seeds — all treated as order-0 anchors in one pulldown
-lkp <- lookup_virtual_pulldown(
+# Multiple seeds - all treated as order-0 anchors in one pulldown
+obj <- lookup_virtual_pulldown(
   obj,
+  "multiple_input",
   seed  = c("ENST00000379236", "ENST00000445118"),
   order = 1
 )
 
-# Custom cutoff — explore a stricter threshold without changing the session
-lkp <- lookup_virtual_pulldown(
+# Custom cutoff - explore a stricter threshold without changing the session
+obj <- lookup_virtual_pulldown(
   obj,
+  "ENST00000379236",
   seed   = "ENST00000379236",
   order  = 1,
   cutoff = 0.4
 )
 
-# Gene-level seeds — all isoforms of each gene become order-0 anchors
-lkp <- lookup_virtual_pulldown(
-  obj,
-  seed  = c("BRCA1", "TP53"),
-  order = 1,
-  level = "gene"
-)
-
-# Persistent look-up — result stored in obj
+# Multiple gene seeds - all treated as order-0 anchors in one pulldown
 obj <- lookup_virtual_pulldown(
   obj,
+  "combined_lkp",
   seed  = c("ENST00000379236", "ENST00000445118"),
-  order = 1,
-  store = TRUE,
-  label = "combined_lkp"
+  order = 1
 )
 obj@lookups$combined_lkp
 }

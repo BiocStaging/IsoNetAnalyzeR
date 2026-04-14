@@ -14,8 +14,8 @@
 #' Reads a long-format table of differentially expressed isoforms (one isoform
 #' per row), runs a virtual pulldown for the up- and down-regulated isoforms
 #' of each gene separately, computes per-direction and per-gene statistics, and
-#' returns a \linkS4class{DifferentialPulldownAnalysis} object.  The result is
-#' optionally stored in \code{obj@@analyses} when \code{store = TRUE}.
+#' adds a \linkS4class{DifferentialPulldownAnalysis} object to the
+#' \linkS4class{IsoNetAnalyzeR} session object.
 #'
 #' @section Input table format:
 #' A CSV, Excel (\code{.xlsx} / \code{.xls}), or already-loaded data frame in
@@ -82,6 +82,14 @@ run_differential_pulldown <- function(obj,
   # ── Input validation — session object ───────────────────────────────────────
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
+
+  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
+    stop("`label` must be a single non-empty character string.", call. = FALSE)
+
+  if (label %in% names(obj@analyses))
+    warning(sprintf(
+      "An analysis labelled '%s' already exists and will be overwritten.", label
+    ))
 
   if (!is.numeric(order) || length(order) != 1L || order < 1L)
     stop("`order` must be a positive integer scalar.", call. = FALSE)
@@ -150,9 +158,6 @@ run_differential_pulldown <- function(obj,
   }
 
   # ── Assemble top-level result ────────────────────────────────────────────────
-  if (is.null(label))
-    label <- paste0("diff_pulldown_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-
   result <- .new_diff_pulldown_analysis(
     label        = label,
     input_table  = tbl,
@@ -163,14 +168,6 @@ run_differential_pulldown <- function(obj,
 
   if (verbose)
     message(sprintf("Done. DifferentialPulldownAnalysis '%s' created.", label))
-
-  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
-    stop("`label` must be a single non-empty character string.", call. = FALSE)
-
-  if (label %in% names(obj@analyses))
-    warning(sprintf(
-      "An analysis labelled '%s' already exists and will be overwritten.", label
-    ))
 
   obj@analyses[[label]] <- result
   message(sprintf("Analysis '%s' stored in obj@analyses.", label))

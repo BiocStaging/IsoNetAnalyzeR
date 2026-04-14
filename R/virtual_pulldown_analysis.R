@@ -101,8 +101,7 @@ summarize_subgraphs <- function(vp_list) {
 #' subgraph. When multiple seed vertices are present, \code{distance_from_seed}
 #' is the average shortest-path distance across all seeds.
 #'
-#' @param graph An igraph object. If \code{NULL}, the internal package graph
-#'   is used.
+#' @param graph An igraph object.
 #'
 #' @return A data frame with one row per vertex and the following columns:
 #' \describe{
@@ -113,8 +112,9 @@ summarize_subgraphs <- function(vp_list) {
 #'     \code{Inf} indicates the vertex is unreachable from the seed(s).}
 #' }
 #' @export
-analyze_subgraph <- function(graph = NULL) {
-  graph <- .resolve_graph(graph)
+analyze_subgraph <- function(graph) {
+  if (!inherits(graph, "igraph"))
+    stop("`graph` must be an igraph object.", call. = FALSE)
 
   seeds <- .get_seeds(graph)
 

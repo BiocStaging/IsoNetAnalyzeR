@@ -18,3 +18,16 @@ Depends:
 Imports: 
     igraph,
     purrr
+Collate: 
+    'diff_pulldown_gene_class.R'
+    'diff_pulldown_analysis_class.R'
+    'isonetanalyzer_class.R'
+    'graph_stats.R'
+    'lookup_class.R'
+    'lookup_vp.R'
+    'plot_network.R'
+    'print_metadata.R'
+    'run_differential_pulldown.R'
+    'utils.R'
+    'virtual_pulldown.R'
+    'virtual_pulldown_analysis.R'

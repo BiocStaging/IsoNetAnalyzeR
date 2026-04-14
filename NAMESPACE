@@ -2,9 +2,11 @@
 
 export(IsoNetAnalyzeR)
 export(analyze_subgraph)
+export(cross_gene_summary)
 export(find_sticky_genes)
 export(find_sticky_isoforms)
 export(gene_degree_distribution)
+export(gene_results)
 export(get_analysis)
 export(get_lookup)
 export(isoform_degree_distribution)

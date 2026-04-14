@@ -4,6 +4,12 @@
 ## Internal helpers (prefixed with ".") are not exported.
 ## Exported: run_differential_pulldown
 
+#' @include isonetanalyzer_class.R
+NULL
+#' @include diff_pulldown_gene_class.R
+NULL
+#' @include diff_pulldown_analysis_class.R
+NULL
 
 # ==============================================================================
 #  Exported function

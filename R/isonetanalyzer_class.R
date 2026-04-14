@@ -3,6 +3,7 @@
 ##
 ## Exported: IsoNetAnalyzeR (constructor), show method
 
+setOldClass("igraph")
 
 # ==============================================================================
 #  Class definition

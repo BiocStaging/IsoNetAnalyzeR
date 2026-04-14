@@ -5,6 +5,12 @@
 ##
 ## Exported: plot_network
 
+#' @include isonetanalyzer_class.R
+NULL
+#' @include lookup_class.R
+NULL
+#' @include diff_pulldown_gene_class.R
+NULL
 
 # ==============================================================================
 #  Generic

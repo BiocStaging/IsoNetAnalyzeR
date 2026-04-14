@@ -1,3 +1,8 @@
+#' @include isonetanalyzer_class.R
+NULL
+#' @include lookup_class.R
+NULL
+
 # ==============================================================================
 #  lookup_virtual_pulldown — single quick look-up (supports multiple seeds)
 # ==============================================================================

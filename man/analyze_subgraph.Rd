@@ -4,11 +4,10 @@
 \alias{analyze_subgraph}
 \title{Per-node analysis of a virtual pulldown subgraph}
 \usage{
-analyze_subgraph(graph = NULL)
+analyze_subgraph(graph)
 }
 \arguments{
-\item{graph}{An igraph object. If \code{NULL}, the internal package graph
-is used.}
+\item{graph}{An igraph object.}
 }
 \value{
 A data frame with one row per vertex and the following columns:

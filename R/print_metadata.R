@@ -4,6 +4,8 @@
 ##
 ## Exported: print_metadata
 
+#' @include isonetanalyzer_class.R
+NULL
 
 # ==============================================================================
 #  Generic

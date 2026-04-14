@@ -4,6 +4,8 @@
 ## Internal helpers (prefixed with ".") are not exported.
 ## Exported: DifferentialPulldownAnalysis class, show method
 
+#' @include diff_pulldown_gene_class.R
+NULL
 
 # ==============================================================================
 #  Class definition
@@ -195,4 +197,40 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
   cat(sprintf("  Input rows : %d isoform entries\n", nrow(object@input_table)))
   cat("─────────────────────────────────────────────────────────────────────────\n")
   invisible(object)
+})
+
+
+#' Get the cross-gene summary table
+#'
+#' @param obj A \linkS4class{DifferentialPulldownAnalysis} object.
+#' @return A data frame with one row per gene.
+#' @export
+setGeneric("cross_gene_summary", function(obj) standardGeneric("cross_gene_summary"))
+
+setMethod("cross_gene_summary", "DifferentialPulldownAnalysis", function(obj) {
+  obj@cross_gene_summary
+})
+
+
+#' Get per-gene results
+#'
+#' @param obj A \linkS4class{DifferentialPulldownAnalysis} object.
+#' @param gene_id Character scalar. If provided, return the result for
+#'   a single gene. If \code{NULL} (default), return the full named list.
+#' @return A \linkS4class{GeneDiffPulldown} object (single gene) or a
+#'   named list of them (all genes).
+#' @export
+setGeneric("gene_results", function(obj, gene_id = NULL) standardGeneric("gene_results"))
+
+setMethod("gene_results", "DifferentialPulldownAnalysis", function(obj, gene_id = NULL) {
+  if (is.null(gene_id))
+    return(obj@gene_results)
+
+  if (!gene_id %in% names(obj@gene_results))
+    stop(sprintf(
+      "No result for gene '%s'. Available: %s",
+      gene_id, paste(names(obj@gene_results), collapse = ", ")
+    ), call. = FALSE)
+
+  obj@gene_results[[gene_id]]
 })

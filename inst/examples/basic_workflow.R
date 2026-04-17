@@ -90,7 +90,7 @@ gene_results(result, "ENSG00000004478")
 # plot_network(obj, level = "gene")
 
 # Lookup subgraph
-plot_network(get_lookup(obj, "TPM2_lookup"))
+plot_network(get_lookup(obj, "TPM2_lookup"), group_by_gene = TRUE)
 
 # Differential pulldown — both directions side by side
 plot_network(gene_results(result, "ENSG00000004478"), direction = "both")

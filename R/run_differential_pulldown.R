@@ -36,44 +36,99 @@ NULL
 #' Extra columns are silently retained in \code{@@input_table} but are not
 #' used by the analysis.
 #'
-#' @param obj     An \linkS4class{IsoNetAnalyzeR} session object.
-#' @param input   One of:
+#' @section Parallel execution:
+#' Parallelism is opt-in and requires the \pkg{future} and \pkg{future.apply}
+#' packages (\code{install.packages(c("future", "future.apply"))}).
+#' When \code{parallel = TRUE} the per-gene pulldowns are dispatched via
+#' \code{future.apply::future_lapply()}, which delegates all scheduling to
+#' whatever \pkg{future} \emph{plan} the user has set before calling this
+#' function.
+#'
+#' Typical setup:
+#' \preformatted{
+#' library(future)
+#'
+#' # Recommended: works on all platforms including Windows
+#' plan(multisession, workers = 4)
+#'
+#' # Unix/macOS only: lower overhead via forking
+#' plan(multicore, workers = 4)
+#'
+#' # Back to sequential when done
+#' plan(sequential)
+#' }
+#'
+#' If no plan has been set explicitly, \pkg{future} defaults to
+#' \code{sequential}, so passing \code{parallel = TRUE} without configuring a
+#' plan is safe but will not speed anything up.  An informative message is
+#' emitted in that situation.
+#'
+#' The network graph embedded in \code{obj} is treated as read-only inside
+#' each worker; no mutable state is shared between workers.
+#'
+#' @section Progress reporting:
+#' A progress bar is always shown during the per-gene loop via \pkg{progressr}.
+#' The bar works in both sequential and parallel modes.  Users can customise
+#' the handler before calling this function, e.g.:
+#' \preformatted{
+#' progressr::handlers("cli")          # rich bar (default when cli is installed)
+#' progressr::handlers("txtprogressbar") # plain fallback
+#' }
+#' If \code{progressr::handlers(global = TRUE)} has been set in the session,
+#' that handler is used automatically; otherwise \code{with_progress()} applies
+#' the default handler locally for this call only.
+#'
+#' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label    Character scalar. Key under which to store the result in
+#'   \code{obj@@analyses}.
+#' @param input    One of:
 #'   \itemize{
-#'     \item A character scalar - path to a CSV or Excel file.
+#'     \item A character scalar — path to a CSV or Excel file.
 #'     \item A data frame already loaded into R.
 #'   }
-#' @param order   Integer scalar. Number of BFS hops for the virtual pulldown.
-#' @param cutoff  Numeric scalar in \[0, 1\].  Internal-edge fraction cutoff.
+#' @param order    Integer scalar. Number of BFS hops for the virtual pulldown.
+#' @param cutoff   Numeric scalar in \[0, 1\]. Internal-edge fraction cutoff.
 #'   Defaults to \code{obj@@metadata[["network_cutoff"]]} when \code{NULL}.
-#' @param label   Character scalar. Key used when \code{store = TRUE}.
-#'   Defaults to \code{"diff_pulldown_<timestamp>"}.
-#' @param verbose Logical. Print per-gene progress messages.  Default
+#' @param parallel Logical. When \code{TRUE}, per-gene pulldowns are
+#'   dispatched via \code{future.apply::future_lapply()} using the active
+#'   \pkg{future} plan.  Requires the \pkg{future} and \pkg{future.apply}
+#'   packages to be installed.  Default \code{FALSE}.
+#' @param confirm  Logical. When \code{TRUE} (the default in interactive
+#'   sessions), a network coverage report is printed before the pulldowns
+#'   begin and the user is asked to confirm before proceeding.  Set to
+#'   \code{FALSE} to skip the prompt in scripts or non-interactive contexts.
+#'   The coverage report is always printed regardless of this flag; only the
+#'   interactive pause is suppressed.
+#' @param verbose  Logical. Print per-gene progress messages. Default
 #'   \code{TRUE}.
 #'
-#' @return An updated \linkS4class{IsoNetAnalyzeR}
-#'   object (invisibly); access the result via
-#'   \code{obj@@analyses[[label]]}.
+#' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
+#'   the result via \code{obj@@analyses[[label]]}.
 #'
 #' @examples
 #' \dontrun{
 #' obj <- IsoNetAnalyzeR("demo")
 #'
-#' # From a CSV file
-#' obj <- run_differential_pulldown(obj,
-#'                                  "condition_A_vs_B",
-#'                                  "de_isoforms.csv",
-#'                                  order = 1)
-#'
-#' # From an already-loaded data frame, stored in the session object
+#' # --- Sequential (default, no extra packages needed) -----------------------
 #' obj <- run_differential_pulldown(
-#'   obj, "condition_A_vs_B", de_df, order = 1
+#'   obj, "condition_A_vs_B", "de_isoforms.csv", order = 1
 #' )
+#'
+#' # --- Parallel (requires future + future.apply) ----------------------------
+#' library(future)
+#' plan(multisession, workers = 4)   # works on all platforms
+#'
+#' obj <- run_differential_pulldown(
+#'   obj, "condition_A_vs_B", "de_isoforms.csv",
+#'   order    = 1,
+#'   parallel = TRUE
+#' )
+#'
+#' plan(sequential)   # restore after the run
+#'
+#' # --- Inspect results ------------------------------------------------------
 #' obj@@analyses$condition_A_vs_B
-#'
-#' # Inspect a single gene
 #' obj@@analyses$condition_A_vs_B@@gene_results[["ENSG00000012048"]]
-#'
-#' # Plot both directions for one gene
 #' plot_network(obj@@analyses$condition_A_vs_B@@gene_results[["ENSG00000012048"]])
 #' }
 #'
@@ -82,10 +137,12 @@ run_differential_pulldown <- function(obj,
                                       label,
                                       input,
                                       order,
-                                      cutoff  = NULL,
-                                      verbose = TRUE) {
+                                      cutoff   = NULL,
+                                      parallel = FALSE,
+                                      confirm  = interactive(),
+                                      verbose  = TRUE) {
 
-  # -- Input validation - session object ---------------------------------------
+  # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
@@ -100,6 +157,31 @@ run_differential_pulldown <- function(obj,
   if (!is.numeric(order) || length(order) != 1L || order < 1L)
     stop("`order` must be a positive integer scalar.", call. = FALSE)
   order <- as.integer(order)
+
+  if (!is.logical(parallel) || length(parallel) != 1L || is.na(parallel))
+    stop("`parallel` must be a single non-NA logical value.", call. = FALSE)
+
+  # -- Check for future packages when parallel = TRUE -------------------------
+  if (parallel) {
+    if (!requireNamespace("future",       quietly = TRUE) ||
+        !requireNamespace("future.apply", quietly = TRUE))
+      stop(
+        "Parallel execution requires the 'future' and 'future.apply' packages.\n",
+        "Install them with:\n",
+        "  install.packages(c('future', 'future.apply'))\n",
+        "Or run with parallel = FALSE for sequential execution.",
+        call. = FALSE
+      )
+
+    # Inform the user if no parallel plan is active so the flag is not
+    # silently a no-op.
+    if (inherits(future::plan(), "sequential"))
+      message(
+        "parallel = TRUE but the active future plan is 'sequential'.\n",
+        "Set a parallel plan before calling this function, e.g.:\n",
+        "  future::plan(future::multisession, workers = 4)"
+      )
+  }
 
   # -- Cutoff resolution -------------------------------------------------------
   if (is.null(cutoff)) {
@@ -120,48 +202,87 @@ run_differential_pulldown <- function(obj,
       message(sprintf("Using user-supplied cutoff: %.4f", cutoff))
   }
 
+  if (!is.logical(confirm) || length(confirm) != 1L || is.na(confirm))
+    stop("`confirm` must be a single non-NA logical value.", call. = FALSE)
+
   # -- Load and validate input table -------------------------------------------
-  tbl <- .load_diff_input(input)
-  tbl <- .validate_diff_table(tbl)
+  tbl      <- .load_diff_input(input)
+  tbl      <- .validate_diff_table(tbl)
+  gene_ids <- unique(tbl$gene_id)
+
+  # -- Network coverage report -------------------------------------------------
+  # Coverage is computed against the interaction-filtered subgraph
+  # (interact == 1) rather than the full network, because virtual_pulldown()
+  # filters to that subgraph as its very first step. An isoform that exists
+  # as a vertex in the full network but has no predicted interaction edges
+  # would trigger a warning during the pulldown; reporting it as 'found'
+  # against the full network would be misleading.
+  interact_vec     <- igraph::edge_attr(obj@network, "interact")
+  pred_edges       <- which(!is.na(interact_vec) & interact_vec == 1L)
+  g_interact       <- igraph::subgraph_from_edges(
+    obj@network, pred_edges, delete.vertices = TRUE
+  )
+  network_vertices <- igraph::V(g_interact)$name
+  .report_network_coverage(tbl, network_vertices, gene_ids, confirm)
 
   if (verbose)
     message(sprintf(
-      "Input table: %d rows, %d gene(s), %d unique isoform(s).",
+      "Input table: %d rows, %d gene(s), %d unique isoform(s).  Mode: %s.",
       nrow(tbl),
-      length(unique(tbl$gene_id)),
-      length(unique(tbl$isoform_id))
+      length(gene_ids),
+      length(unique(tbl$isoform_id)),
+      if (parallel) paste0("parallel [", class(future::plan())[[1L]], "]")
+      else "sequential"
     ))
 
-  # -- Per-gene pulldown loop --------------------------------------------------
-  gene_ids     <- unique(tbl$gene_id)
-  gene_results <- stats::setNames(
-    vector("list", length(gene_ids)),
-    gene_ids
-  )
+  # -- Per-gene pulldown -------------------------------------------------------
+  # Both branches call .process_one_gene(); only the dispatcher differs.
+  # future_lapply() behaves identically to lapply() — the active future plan
+  # decides whether work actually runs in parallel.
+  #
+  # Progress is reported via progressr::progressor(), which works transparently
+  # in both sequential and parallel modes.  In parallel mode, worker signals are
+  # relayed back to the main process automatically by the progressr framework.
+  lapply_fn <- if (parallel) future.apply::future_lapply else base::lapply
 
-  for (gid in gene_ids) {
-    if (verbose) message(sprintf("  Processing gene: %s", gid))
+  progressr::with_progress({
+    p <- progressr::progressor(steps  = length(gene_ids))
 
-    gene_tbl      <- tbl[tbl$gene_id == gid, , drop = FALSE]
-    up_isoforms   <- gene_tbl$isoform_id[gene_tbl$direction == "up"]
-    down_isoforms <- gene_tbl$isoform_id[gene_tbl$direction == "down"]
-
-    up_graph   <- .safe_pulldown(obj, up_isoforms,   order, cutoff, gid, "up",   verbose)
-    down_graph <- .safe_pulldown(obj, down_isoforms, order, cutoff, gid, "down", verbose)
-
-    up_stats   <- .safe_analyze(up_graph)
-    down_stats <- .safe_analyze(down_graph)
-
-    gene_results[[gid]] <- .new_gene_diff_pulldown(
-      gene_id       = gid,
-      up_isoforms   = up_isoforms,
-      down_isoforms = down_isoforms,
-      up_graph      = up_graph,
-      down_graph    = down_graph,
-      up_stats      = up_stats,
-      down_stats    = down_stats
+    gene_results_list <- lapply_fn(
+      gene_ids,
+      FUN = function(gid) {
+        p(message = sprintf(
+          "Processing genes [%d%%] | %s",
+          round(100 * which(gene_ids == gid) / length(gene_ids)),
+          gid
+        ))
+        .process_one_gene(gid, tbl, obj, order, cutoff, verbose,
+                          network_vertices = network_vertices)
+      }
     )
+  })
+
+  # -- Collect results; handle per-gene errors ---------------------------------
+  # .process_one_gene() never stops: failures are returned as a
+  # list(error = <character>) sentinel so that one bad gene does not abort
+  # the whole run.
+  gene_results <- stats::setNames(vector("list", length(gene_ids)), gene_ids)
+
+  for (i in seq_along(gene_ids)) {
+    gid <- gene_ids[[i]]
+    res <- gene_results_list[[i]]
+
+    if (is.list(res) && identical(names(res), "error")) {
+      warning(sprintf(
+        "Gene '%s': processing failed — %s", gid, res$error
+      ), call. = FALSE)
+    } else {
+      gene_results[[gid]] <- res
+    }
   }
+
+  # Drop NULL slots (failed genes) before assembly
+  gene_results <- Filter(Negate(is.null), gene_results)
 
   # -- Assemble top-level result -----------------------------------------------
   result <- .new_diff_pulldown_analysis(
@@ -182,8 +303,151 @@ run_differential_pulldown <- function(obj,
 
 
 # ==============================================================================
-#  Internal: input loading
+#  Internal: per-gene unit of work
 # ==============================================================================
+
+#' Process a single gene in the differential pulldown loop
+#'
+#' Contains the per-gene body shared by the sequential and parallel code paths.
+#' Errors are caught and returned as a \code{list(error = <character>)}
+#' sentinel so that a failure in one gene does not abort a parallel job.
+#'
+#' @param gid              Character scalar. Gene ID to process.
+#' @param tbl              Validated long-format input data frame.
+#' @param obj              \linkS4class{IsoNetAnalyzeR} session object (read-only).
+#' @param order            Integer. BFS hops.
+#' @param cutoff           Numeric. Internal-edge fraction cutoff.
+#' @param verbose          Logical. Emit per-gene progress messages.
+#' @param network_vertices Character vector of all vertex names in the network.
+#'
+#' @return A \linkS4class{GeneDiffPulldown} object, or a
+#'   \code{list(error = <character>)} sentinel on failure.
+#' @noRd
+.process_one_gene <- function(gid, tbl, obj, order, cutoff, verbose,
+                              network_vertices = character(0)) {
+  tryCatch({
+    if (verbose) message(sprintf("  Processing gene: %s", gid))
+
+    gene_tbl      <- tbl[tbl$gene_id == gid, , drop = FALSE]
+    up_isoforms   <- gene_tbl$isoform_id[gene_tbl$direction == "up"]
+    down_isoforms <- gene_tbl$isoform_id[gene_tbl$direction == "down"]
+
+    up_graph   <- .safe_pulldown(obj, up_isoforms,   order, cutoff, gid, "up",   verbose)
+    down_graph <- .safe_pulldown(obj, down_isoforms, order, cutoff, gid, "down", verbose)
+
+    up_stats   <- .safe_analyze(up_graph)
+    down_stats <- .safe_analyze(down_graph)
+
+    .new_gene_diff_pulldown(
+      gene_id          = gid,
+      up_isoforms      = up_isoforms,
+      down_isoforms    = down_isoforms,
+      up_graph         = up_graph,
+      down_graph       = down_graph,
+      up_stats         = up_stats,
+      down_stats       = down_stats,
+      network_vertices = network_vertices
+    )
+  },
+  error = function(e) list(error = conditionMessage(e)))
+}
+
+
+# ==============================================================================
+#  Internal: network coverage report
+# ==============================================================================
+
+#' Print a network coverage report and optionally ask the user to confirm
+#'
+#' Called once before the per-gene loop.  Computes how many isoforms and genes
+#' from the input table are represented in the \emph{interaction-filtered}
+#' subgraph (edges with \code{interact == 1}), which is the graph actually used
+#' by \code{virtual_pulldown()}.  Prints a formatted summary via \pkg{cli} and
+#' — when \code{confirm = TRUE} in an interactive session — asks the user
+#' whether to proceed.
+#'
+#' @param tbl              Validated long-format input data frame.
+#' @param network_vertices Character vector of vertex names in the
+#'   \emph{interaction-filtered} subgraph (passed in from the main function
+#'   body, which constructs it once to avoid repeating the edge filter).
+#' @param gene_ids         Character vector of unique gene IDs in \code{tbl}.
+#' @param confirm          Logical. Prompt the user before proceeding.
+#'
+#' @return Invisibly \code{NULL}.  Stops with an informative message if the
+#'   user declines to proceed.
+#' @noRd
+.report_network_coverage <- function(tbl, network_vertices, gene_ids, confirm) {
+
+  # ---- isoform-level coverage ------------------------------------------------
+  all_isoforms     <- unique(tbl$isoform_id)
+  found_isoforms   <- all_isoforms[all_isoforms %in% network_vertices]
+  n_iso_total      <- length(all_isoforms)
+  n_iso_found      <- length(found_isoforms)
+  pct_iso          <- if (n_iso_total > 0L) 100 * n_iso_found / n_iso_total else 0
+
+  up_isoforms_all   <- unique(tbl$isoform_id[tbl$direction == "up"])
+  down_isoforms_all <- unique(tbl$isoform_id[tbl$direction == "down"])
+  n_up_found_all   <- sum(up_isoforms_all   %in% network_vertices)
+  n_down_found_all <- sum(down_isoforms_all %in% network_vertices)
+
+  pct_up           <- if (length(up_isoforms_all)   > 0L)
+    100 * n_up_found_all   / length(up_isoforms_all)   else 0
+  pct_down         <- if (length(down_isoforms_all) > 0L)
+    100 * n_down_found_all / length(down_isoforms_all) else 0
+
+  # ---- gene-level coverage ---------------------------------------------------
+  # A gene is "covered" if at least one of its isoforms is in the network
+  gene_covered <- vapply(gene_ids, function(g) {
+    isos <- tbl$isoform_id[tbl$gene_id == g]
+    any(isos %in% network_vertices)
+  }, logical(1L))
+
+  n_genes_total   <- length(gene_ids)
+  n_genes_covered <- sum(gene_covered)
+  pct_genes       <- if (n_genes_total > 0L)
+    100 * n_genes_covered / n_genes_total else 0
+
+  # ---- print report ----------------------------------------------------------
+  cli::cli_rule("Network Coverage Report")
+  cli::cli_text("")
+
+  cli::cli_text("{.strong Isoforms}")
+  cli::cli_text(
+    "  Total in input   : {n_iso_total}"
+  )
+  cli::cli_text(
+    "  Found in network : {n_iso_found} / {n_iso_total} ({round(pct_iso, 1)}%)"
+  )
+  cli::cli_text(
+    "  Up-regulated     : {n_up_found_all} / {length(up_isoforms_all)} found ({round(pct_up, 1)}%)"
+  )
+  cli::cli_text(
+    "  Down-regulated   : {n_down_found_all} / {length(down_isoforms_all)} found ({round(pct_down, 1)}%)"
+  )
+  cli::cli_text("")
+
+  cli::cli_text("{.strong Genes}")
+  cli::cli_text(
+    "  Total in input   : {n_genes_total}"
+  )
+  cli::cli_text(
+    "  At least 1 isoform in network : {n_genes_covered} / {n_genes_total} ({round(pct_genes, 1)}%)"
+  )
+  cli::cli_text(
+    "  No isoforms in network        : {n_genes_total - n_genes_covered} gene(s) — these will have no subgraph"
+  )
+  cli::cli_text("")
+  cli::cli_rule()
+
+  # ---- optional confirmation prompt ------------------------------------------
+  if (confirm && interactive()) {
+    answer <- readline("Proceed with the analysis? [y/N] ")
+    if (!tolower(trimws(answer)) %in% c("y", "yes"))
+      stop("Analysis cancelled by user.", call. = FALSE)
+  }
+
+  invisible(NULL)
+}
 
 #' Load the differential input from a file path or data frame
 #'
@@ -209,9 +473,8 @@ run_differential_pulldown <- function(obj,
 
   ext <- tolower(tools::file_ext(input))
 
-  if (ext == "csv") {
+  if (ext == "csv")
     return(utils::read.csv(input, stringsAsFactors = FALSE))
-  }
 
   if (ext %in% c("xlsx", "xls")) {
     if (!requireNamespace("readxl", quietly = TRUE))
@@ -223,13 +486,10 @@ run_differential_pulldown <- function(obj,
     return(as.data.frame(readxl::read_excel(input)))
   }
 
-  stop(
-    sprintf(
-      "Unsupported file extension '.%s'. Supply a CSV or Excel (.xlsx/.xls) file.",
-      ext
-    ),
-    call. = FALSE
-  )
+  stop(sprintf(
+    "Unsupported file extension '.%s'. Supply a CSV or Excel (.xlsx/.xls) file.",
+    ext
+  ), call. = FALSE)
 }
 
 
@@ -257,12 +517,10 @@ run_differential_pulldown <- function(obj,
       paste(missing, collapse = ", ")
     ), call. = FALSE)
 
-  # Normalise strings
   tbl$gene_id    <- trimws(as.character(tbl$gene_id))
   tbl$isoform_id <- trimws(as.character(tbl$isoform_id))
   tbl$direction  <- tolower(trimws(as.character(tbl$direction)))
 
-  # Drop rows with empty identifiers, with a warning
   blank_gene    <- nchar(tbl$gene_id)    == 0L
   blank_isoform <- nchar(tbl$isoform_id) == 0L
 
@@ -274,16 +532,12 @@ run_differential_pulldown <- function(obj,
     tbl <- tbl[!(blank_gene | blank_isoform), , drop = FALSE]
   }
 
-  # Check direction values
-  valid_dirs   <- c("up", "down")
-  bad_dirs     <- !tbl$direction %in% valid_dirs
-  if (any(bad_dirs)) {
-    bad_vals <- unique(tbl$direction[bad_dirs])
+  bad_dirs <- !tbl$direction %in% c("up", "down")
+  if (any(bad_dirs))
     stop(sprintf(
       "Unrecognised direction value(s): %s. Must be 'up' or 'down'.",
-      paste(bad_vals, collapse = ", ")
+      paste(unique(tbl$direction[bad_dirs]), collapse = ", ")
     ), call. = FALSE)
-  }
 
   if (nrow(tbl) == 0L)
     stop("Input table is empty after cleaning.", call. = FALSE)
@@ -298,23 +552,18 @@ run_differential_pulldown <- function(obj,
 
 #' Run virtual_pulldown, returning NULL instead of stopping on failure
 #'
-#' Catches errors that arise when seed isoforms are absent from the network or
-#' no nodes survive the cutoff, and emits a warning instead so the per-gene
-#' loop continues.
-#'
 #' @param obj       IsoNetAnalyzeR object.
 #' @param isoforms  Character vector of seed isoform IDs.
 #' @param order     Integer.
 #' @param cutoff    Numeric.
-#' @param gene_id   Character scalar - used in the warning message only.
-#' @param direction Character scalar - "up" or "down", for warning messages.
+#' @param gene_id   Character scalar - used in warning messages only.
+#' @param direction Character scalar - "up" or "down".
 #' @param verbose   Logical.
 #'
 #' @return igraph subgraph, or NULL on failure.
 #' @noRd
 .safe_pulldown <- function(obj, isoforms, order, cutoff,
                            gene_id, direction, verbose) {
-
   if (length(isoforms) == 0L) {
     if (verbose)
       message(sprintf(
@@ -325,10 +574,10 @@ run_differential_pulldown <- function(obj,
 
   tryCatch(
     virtual_pulldown(
-      obj          = obj,
+      obj           = obj,
       seed_vertices = isoforms,
-      order        = order,
-      cutoff       = cutoff
+      order         = order,
+      cutoff        = cutoff
     ),
     error = function(e) {
       warning(sprintf(
@@ -351,7 +600,7 @@ run_differential_pulldown <- function(obj,
 #' @return data.frame (may have zero rows).
 #' @noRd
 .safe_analyze <- function(g) {
-  if (is.null(g)) {
+  if (is.null(g))
     return(data.frame(
       isoform            = character(0),
       degree             = integer(0),
@@ -359,6 +608,5 @@ run_differential_pulldown <- function(obj,
       distance_from_seed = numeric(0),
       stringsAsFactors   = FALSE
     ))
-  }
   analyze_subgraph(g)
 }

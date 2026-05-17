@@ -1,7 +1,8 @@
 ## VirtualPulldownLookup-class.R
 ## S4 class definition for a single virtual pulldown look-up.
 ##
-## Exported: VirtualPulldownLookup (constructor), show method
+## Exported: VirtualPulldownLookup (constructor), show method,
+##           get_lookup_stats, get_lookup_subgraph
 
 
 # ==============================================================================
@@ -133,3 +134,94 @@ setMethod("show", "VirtualPulldownLookup", function(object) {
   cli::cli_rule()
   invisible(object)
 })
+
+
+# ==============================================================================
+#  get_lookup_stats
+# ==============================================================================
+
+#' Get the per-node statistics from a virtual pulldown look-up
+#'
+#' Returns the \code{node_stats} data frame stored in a
+#' \linkS4class{VirtualPulldownLookup} object directly, without having to
+#' unpack the S4 slot manually.  The data frame contains one row per node in
+#' the pulldown subgraph and is the output of \code{\link{analyze_subgraph}}.
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar.  Label of the
+#'   \linkS4class{VirtualPulldownLookup}; use \code{list_lookups(obj)} to see
+#'   available labels.
+#'
+#' @return A data frame with one row per node in the subgraph and columns
+#'   produced by \code{\link{analyze_subgraph}}: \code{isoform},
+#'   \code{is_seed}, \code{degree}, \code{clustering},
+#'   \code{distance_from_seed}, \code{mean_pi}, \code{pi_entropy}.
+#'
+#' @examples
+#' \dontrun{
+#' # Run a look-up first
+#' obj <- lookup_virtual_pulldown(obj, "my_lkp",
+#'                                seed = "ENST00000379236", order = 1)
+#'
+#' # Retrieve the node stats data frame
+#' stats <- get_lookup_stats(obj, "my_lkp")
+#' head(stats)
+#'
+#' # Seed nodes only
+#' stats[stats$is_seed, ]
+#' }
+#'
+#' @export
+setGeneric("get_lookup_stats",
+           function(obj, label) standardGeneric("get_lookup_stats"))
+
+#' @describeIn get_lookup_stats Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("get_lookup_stats", "IsoNetAnalyzeR",
+          function(obj, label) {
+            get_lookup(obj, label)@node_stats
+          })
+
+
+# ==============================================================================
+#  get_lookup_subgraph
+# ==============================================================================
+
+#' Get the subgraph from a virtual pulldown look-up
+#'
+#' Returns the \code{igraph} subgraph stored in a
+#' \linkS4class{VirtualPulldownLookup} object directly, without having to
+#' unpack the S4 slot manually.  The subgraph can be passed directly to
+#' \code{plot_network()}, \code{igraph} functions, or any other graph-level
+#' utility.
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param label Character scalar.  Label of the
+#'   \linkS4class{VirtualPulldownLookup}; use \code{list_lookups(obj)} to see
+#'   available labels.
+#'
+#' @return An \code{igraph} object representing the pulldown subnetwork.
+#'
+#' @examples
+#' \dontrun{
+#' # Run a look-up first
+#' obj <- lookup_virtual_pulldown(obj, "my_lkp",
+#'                                seed = "ENST00000379236", order = 1)
+#'
+#' # Retrieve the igraph subgraph
+#' g <- get_lookup_subgraph(obj, "my_lkp")
+#' igraph::vcount(g)
+#' igraph::ecount(g)
+#'
+#' # Pass directly to plot_network
+#' plot_network(g)
+#' }
+#'
+#' @export
+setGeneric("get_lookup_subgraph",
+           function(obj, label) standardGeneric("get_lookup_subgraph"))
+
+#' @describeIn get_lookup_subgraph Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("get_lookup_subgraph", "IsoNetAnalyzeR",
+          function(obj, label) {
+            get_lookup(obj, label)@subgraph
+          })

@@ -31,9 +31,12 @@ Retrieve a stored GSEA result from a differential pulldown analysis
 }}
 \examples{
 \dontrun{
-res <- get_gsea_result(obj, "my_run", "nodes_gsea")
-head(res@result_table)
-res@ranked_genes[1:10]
+# show() summary
+get_gsea_result(obj, "my_run", "nodes_gsea")
+
+# For data frames, use the dedicated table accessors:
+get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
+get_gsea_stats(obj, "my_run", "nodes_gsea")
 }
 
 }

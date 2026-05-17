@@ -13,7 +13,7 @@ get_gene_result(obj, analysis, gene_id)
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar. Label of the
-\linkS4class{DifferentialPulldownAnalysis} stored in \code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.}
 
 \item{gene_id}{Character scalar. Ensembl gene ID (or whichever identifier
 was used in the input table).}
@@ -34,8 +34,10 @@ graph-level summaries for that gene.
 \examples{
 \dontrun{
 gr <- get_gene_result(obj, "my_run", "ENSG00000120333")
-gr@up_stats
-gr@down_stats
+gr   # show() summary
+
+# Per-isoform statistics for both directions (use the dedicated accessor)
+get_isoform_stats(obj, "my_run", "ENSG00000120333")
 }
 
 }

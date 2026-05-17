@@ -54,20 +54,24 @@ NULL
 #'
 #' Produced by \code{\link{run_fgsea}}.  Stores the ranked gene vector, the
 #' fgsea result table, and all run parameters.  One \linkS4class{FgseaResult}
-#' object can be stored per user-supplied label inside
-#' \code{DifferentialPulldownAnalysis@@gsea_results}.
+#' object can be stored per user-supplied label inside a
+#' \linkS4class{DifferentialPulldownAnalysis}; retrieve with
+#' \code{get_gsea_result(obj, analysis, label)}.
 #'
-#' @slot label        Character scalar.  User-supplied label, used as the key
-#'   in \code{DifferentialPulldownAnalysis@@gsea_results}.
+#' @slot label        Character scalar.  User-supplied label, used as the
+#'   \code{gsea_label} argument in
+#'   \code{get_gsea_result(obj, analysis, gsea_label)}.
 #' @slot parent_label Character scalar.  Label of the parent
 #'   \linkS4class{DifferentialPulldownAnalysis} run.
 #' @slot result_table Data frame.  Output of \code{fgsea::fgsea()} with
 #'   standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
 #'   \code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
-#'   Sorted by \code{padj} ascending.
+#'   Sorted by \code{padj} ascending.  Access via
+#'   \code{get_gsea_table(obj, analysis, gsea_label)}.
 #' @slot ranked_genes Named numeric vector.  The gene-level rank statistic
 #'   passed to fgsea, sorted descending.  Names are gene IDs matching the
-#'   pathway gene sets.
+#'   pathway gene sets.  Access as a data frame via
+#'   \code{get_gsea_stats(obj, analysis, gsea_label)}.
 #' @slot rank_by      Character scalar.  The preset used (\code{rank_by}
 #'   argument), or \code{"custom"} when the user supplied \code{stats}
 #'   directly.
@@ -188,10 +192,11 @@ setMethod("show", "FgseaResult", function(object) {
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis   Character scalar.  Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param label      Character scalar.  Key under which the result will be
-#'   stored in \code{DifferentialPulldownAnalysis@@gsea_results}.
+#'   stored; retrieve it afterwards with
+#'   \code{get_gsea_result(obj, analysis, label)}.
 #' @param rank_by    Character scalar.  One of the built-in ranking presets
 #'   (see Ranking tiers above).  Ignored when \code{stats} is supplied.
 #'   Default \code{"delta_nodes"}.
@@ -212,8 +217,8 @@ setMethod("show", "FgseaResult", function(object) {
 #' @param ...        Additional arguments passed to \code{fgsea::fgsea()}.
 #'
 #' @return The \linkS4class{IsoNetAnalyzeR} session object, invisibly, with the
-#'   \linkS4class{FgseaResult} stored under
-#'   \code{obj@@analyses[[analysis]]@@gsea_results[[label]]}.
+#'   \linkS4class{FgseaResult} stored under \code{label} inside the analysis.
+#'   Access via \code{get_gsea_result(obj, analysis, label)}.
 #'
 #' @examples
 #' \dontrun{
@@ -230,9 +235,9 @@ setMethod("show", "FgseaResult", function(object) {
 #' )
 #' obj <- run_fgsea(obj, "my_run", label = "weighted", stats = my_stats)
 #'
-#' # Retrieve the result
-#' res <- get_gsea_result(obj, "my_run", "nodes_gsea")
-#' res@result_table
+#' # Retrieve filtered results (use get_gsea_table / get_gsea_stats)
+#' get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
+#' get_gsea_stats(obj, "my_run", "nodes_gsea")
 #' }
 #'
 #' @export
@@ -498,9 +503,12 @@ run_fgsea <- function(obj,
 #'
 #' @examples
 #' \dontrun{
-#' res <- get_gsea_result(obj, "my_run", "nodes_gsea")
-#' head(res@result_table)
-#' res@ranked_genes[1:10]
+#' # show() summary
+#' get_gsea_result(obj, "my_run", "nodes_gsea")
+#'
+#' # For data frames, use the dedicated table accessors:
+#' get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
+#' get_gsea_stats(obj, "my_run", "nodes_gsea")
 #' }
 #'
 #' @export

@@ -18,8 +18,8 @@ run_differential_pulldown(
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
-\item{label}{Character scalar. Key under which to store the result in
-\code{obj@analyses}.}
+\item{label}{Character scalar. Key under which to store the result;
+retrieve it afterwards with \code{get_analysis(obj, label)}.}
 
 \item{input}{One of:
 \itemize{
@@ -49,7 +49,7 @@ interactive pause is suppressed.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
-the result via \code{obj@analyses[[label]]}.
+the result via \code{get_analysis(obj, label)}.
 }
 \description{
 Reads a long-format table of differentially expressed isoforms (one isoform
@@ -141,9 +141,9 @@ obj <- run_differential_pulldown(
 plan(sequential)   # restore after the run
 
 # --- Inspect results ------------------------------------------------------
-obj@analyses$condition_A_vs_B
-obj@analyses$condition_A_vs_B@gene_results[["ENSG00000012048"]]
-plot_network(obj@analyses$condition_A_vs_B@gene_results[["ENSG00000012048"]])
+get_analysis(obj, "condition_A_vs_B")
+get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048")
+plot_network(get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048"))
 }
 
 }

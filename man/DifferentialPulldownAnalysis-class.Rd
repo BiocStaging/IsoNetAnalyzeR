@@ -25,7 +25,8 @@ input table, the run parameters, and cross-gene summary statistics.
 
 \describe{
 \item{\code{label}}{Character scalar. A user-supplied label for this
-analysis run, used as the key in \code{obj@analyses}.}
+analysis run, used as the \code{label} argument in
+\code{get_analysis(obj, label)}.}
 
 \item{\code{input_table}}{Data frame. The validated long-format input table with
 columns \code{gene_id}, \code{isoform_id}, \code{direction}
@@ -55,7 +56,7 @@ found in the network; \code{NA} when \code{n_input == 0}),
 \code{n_up_unique} (nodes exclusive to the up subgraph),
 \code{n_down_unique} (nodes exclusive to the down subgraph),
 \code{jaccard} (Jaccard index of node-set overlap between up and down
-subgraphs: tmkFUZaPQLZw6ynjlEscRH3d4UY19BKJ-2\code{NA} when either
+subgraphs: CgOsql9RBvvxFSY9J21BQYDm4kApTvlj-2\code{NA} when either
 subgraph is absent),
 \code{n_edges_gained} (edges present in the up subgraph but absent from
 the down subgraph — interactions gained when switching to the up

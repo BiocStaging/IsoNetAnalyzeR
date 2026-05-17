@@ -42,7 +42,8 @@ biological interpretation.
 
 \describe{
 \item{\code{label}}{Character scalar.  User-supplied label, used as the
-key in \code{DifferentialPulldownAnalysis@component_analyses}.}
+\code{component_analysis} argument in
+\code{get_component_overview(obj, analysis, component_analysis)}.}
 
 \item{\code{parent_label}}{Character scalar.  Label of the parent
 \linkS4class{DifferentialPulldownAnalysis} run.}

@@ -17,8 +17,8 @@ plot_cross_gene_overview(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the
-\linkS4class{DifferentialPulldownAnalysis} stored in
-\code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{log_counts}{Logical.  Apply \code{log10(x + 1)} scaling to the
 nodes, edges, and edges-gained/lost panels?  Default \code{TRUE}.

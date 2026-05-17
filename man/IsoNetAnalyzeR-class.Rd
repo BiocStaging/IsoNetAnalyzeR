@@ -67,5 +67,9 @@ objects (and potentially other analysis classes added in the future).}
 
 \item{\code{lookups}}{Named list of \linkS4class{VirtualPulldownLookup} objects
 (and potentially other look-up classes added in the future).}
+
+\item{\code{network_diagnostics}}{Either \code{NULL} (before diagnostics have been
+run) or a \linkS4class{NetworkDiagnostics} object produced by
+\code{\link{run_network_diagnostics}}.}
 }}
 

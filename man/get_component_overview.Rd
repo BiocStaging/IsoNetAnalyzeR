@@ -10,12 +10,12 @@ get_component_overview(obj, analysis, component_analysis)
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the parent
-\linkS4class{DifferentialPulldownAnalysis} stored in
-\code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{component_analysis}{Character scalar.  Label of the
-\linkS4class{ComponentAnalysis} stored in
-\code{obj@analyses[[analysis]]@component_analyses}.}
+\linkS4class{ComponentAnalysis}; use \code{list_analyses(obj)} then
+inspect the result to see available component analysis labels.}
 }
 \value{
 A data frame with one row per retained component and the following

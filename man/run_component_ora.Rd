@@ -27,7 +27,8 @@ run_component_ora(
 \linkS4class{ComponentAnalysis} to annotate.}
 
 \item{label}{Character scalar.  Key under which the result is
-stored in \code{ComponentAnalysis@ora_results}.}
+stored; retrieve it afterwards with
+\code{get_component_ora_result(obj, analysis, component_analysis, label)}.}
 
 \item{pathways}{Named list of character vectors (Ensembl gene IDs
 per pathway), or \code{NULL} (default) to fetch GO gene sets
@@ -52,8 +53,9 @@ to the universe.  Default \code{10}.}
 }
 \value{
 The \linkS4class{IsoNetAnalyzeR} session object, invisibly, with
-the \linkS4class{ComponentOraResult} stored under
-\code{obj@analyses[[analysis]]@component_analyses[[component_analysis]]@ora_results[[label]]}.
+the \linkS4class{ComponentOraResult} stored under \code{label} inside the
+component analysis.  Access via
+\code{get_component_ora_result(obj, analysis, component_analysis, label)}.
 }
 \description{
 Tests each connected component from a \linkS4class{ComponentAnalysis} run
@@ -122,16 +124,15 @@ obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_bp")
 obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_mf",
                          go_category = "GO:MF")
 
-# Retrieve and inspect results
-ora <- get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-ora  # show() summary
+# show() summary of the result object
+get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
 
 # All significant terms for component 1
-res <- ora@result_table
-res[res$component_id == 1 & res$padj < 0.05, ]
+get_ora_table(obj, "my_run", "comp_both", "go_bp",
+              component_id = 1, padj_cutoff = 0.05)
 
-# Top term per component
-res[!duplicated(res$component_id), c("component_id", "pathway", "padj", "overlap")]
+# Top term per component across all components
+get_ora_table(obj, "my_run", "comp_both", "go_bp", top_n = 1)
 }
 
 }

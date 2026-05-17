@@ -19,8 +19,8 @@ plot_cross_gene_boxplot(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the
-\linkS4class{DifferentialPulldownAnalysis} stored in
-\code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{x_col}{Character scalar.  Column for the minuend / numerator
 (e.g. the up-condition metric).  Must be numeric.}

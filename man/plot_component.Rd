@@ -23,14 +23,15 @@ plot_component(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the parent
-\linkS4class{DifferentialPulldownAnalysis} in \code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{component_analysis}{Character scalar.  Label of the
-\linkS4class{ComponentAnalysis} in
-\code{obj@analyses[[analysis]]@component_analyses}.}
+\linkS4class{ComponentAnalysis}; use \code{list_analyses(obj)} then
+inspect the result to see available component analysis labels.}
 
 \item{component_id}{Integer scalar.  The component to plot, matching
-the \code{component_id} column in \code{@component_table}.}
+the \code{component_id} column in \code{get_component_overview()}.}
 
 \item{colour_by}{Character scalar: \code{"gene"} (default),
 \code{"hub_degree"}, or \code{"direction"}.}

@@ -19,7 +19,8 @@ NULL
 #' input table, the run parameters, and cross-gene summary statistics.
 #'
 #' @slot label        Character scalar. A user-supplied label for this
-#'   analysis run, used as the key in \code{obj@@analyses}.
+#'   analysis run, used as the \code{label} argument in
+#'   \code{get_analysis(obj, label)}.
 #' @slot input_table  Data frame. The validated long-format input table with
 #'   columns \code{gene_id}, \code{isoform_id}, \code{direction}
 #'   (\code{"up"} / \code{"down"}).
@@ -390,7 +391,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #'
 #' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis Character scalar. Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.
 #'
 #' @return A data frame with one row per gene. See
 #'   \linkS4class{DifferentialPulldownAnalysis} for a full description of
@@ -425,7 +426,7 @@ setMethod("get_cross_gene_summary", "IsoNetAnalyzeR",
 #'
 #' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis Character scalar. Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.
 #' @param gene_id  Character scalar. Ensembl gene ID (or whichever identifier
 #'   was used in the input table).
 #'
@@ -434,8 +435,10 @@ setMethod("get_cross_gene_summary", "IsoNetAnalyzeR",
 #' @examples
 #' \dontrun{
 #' gr <- get_gene_result(obj, "my_run", "ENSG00000120333")
-#' gr@@up_stats
-#' gr@@down_stats
+#' gr   # show() summary
+#'
+#' # Per-isoform statistics for both directions (use the dedicated accessor)
+#' get_isoform_stats(obj, "my_run", "ENSG00000120333")
 #' }
 #'
 #' @export
@@ -475,7 +478,7 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #'
 #' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis Character scalar. Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.
 #' @param gene_id  Character scalar. Ensembl gene ID (or whichever identifier
 #'   was used in the input table).
 #'

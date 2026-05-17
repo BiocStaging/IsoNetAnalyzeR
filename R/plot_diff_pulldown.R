@@ -292,8 +292,8 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #'
 #' @param obj       An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis  Character scalar.  Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param x_col     Character scalar.  Column for the X-axis (must be numeric
 #'   in \code{cross_gene_summary}).
 #' @param y_col     Character scalar.  Column for the Y-axis (must be numeric
@@ -390,8 +390,8 @@ plot_cross_gene_scatter <- function(obj,
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis   Character scalar.  Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param log_counts Logical.  Apply \code{log10(x + 1)} scaling to the
 #'   nodes, edges, and edges-gained/lost panels?  Default \code{TRUE}.
 #'   Zeros map to 0 and are retained on the plot.
@@ -501,8 +501,8 @@ plot_cross_gene_overview <- function(obj,
 #'
 #' @param obj       An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis  Character scalar.  Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param x_col     Character scalar.  Column for the minuend / numerator
 #'   (e.g. the up-condition metric).  Must be numeric.
 #' @param y_col     Character scalar.  Column for the subtrahend / denominator
@@ -782,8 +782,8 @@ plot_cross_gene_boxplot <- function(obj,
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis   Character scalar.  Label of the
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param log_ratio  Logical.  Use \code{log10((x+1)/(y+1))} instead of
 #'   \code{x - y}?  Default \code{FALSE}.  When \code{TRUE}, zeros
 #'   map to 0 (no change) and no genes are dropped.

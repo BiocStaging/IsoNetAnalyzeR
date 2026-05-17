@@ -22,11 +22,12 @@ run_fgsea(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the
-\linkS4class{DifferentialPulldownAnalysis} stored in
-\code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{label}{Character scalar.  Key under which the result will be
-stored in \code{DifferentialPulldownAnalysis@gsea_results}.}
+stored; retrieve it afterwards with
+\code{get_gsea_result(obj, analysis, label)}.}
 
 \item{rank_by}{Character scalar.  One of the built-in ranking presets
 (see Ranking tiers above).  Ignored when \code{stats} is supplied.
@@ -56,8 +57,8 @@ Default \code{1000}.}
 }
 \value{
 The \linkS4class{IsoNetAnalyzeR} session object, invisibly, with the
-\linkS4class{FgseaResult} stored under
-\code{obj@analyses[[analysis]]@gsea_results[[label]]}.
+\linkS4class{FgseaResult} stored under \code{label} inside the analysis.
+Access via \code{get_gsea_result(obj, analysis, label)}.
 }
 \description{
 Ranks genes by a network-topology delta derived from the
@@ -136,9 +137,9 @@ my_stats <- setNames(
 )
 obj <- run_fgsea(obj, "my_run", label = "weighted", stats = my_stats)
 
-# Retrieve the result
-res <- get_gsea_result(obj, "my_run", "nodes_gsea")
-res@result_table
+# Retrieve filtered results (use get_gsea_table / get_gsea_stats)
+get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
+get_gsea_stats(obj, "my_run", "nodes_gsea")
 }
 
 }

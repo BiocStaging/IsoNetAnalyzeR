@@ -13,7 +13,8 @@
 ##
 ## Results are stored inside the parent ComponentAnalysis object under
 ## @ora_results[[label]] as a single long-format data frame covering all
-## components (filter by component_id for per-component views).
+## components.  Users should access and filter results via get_ora_table(),
+## which supports component_id, padj_cutoff, and top_n filters.
 ##
 ## Internal helpers (prefixed with ".") are not exported.
 ## Exported: ComponentOraResult class, run_component_ora,
@@ -41,8 +42,9 @@ NULL
 #' across all components and all run parameters.  Stored inside
 #' \code{ComponentAnalysis@@ora_results[[label]]}.
 #'
-#' @slot label              Character scalar.  User-supplied label, used as
-#'   the key in \code{ComponentAnalysis@@ora_results}.
+#' @slot label              Character scalar.  User-supplied label, used as the
+#'   \code{ora_label} argument in
+#'   \code{get_component_ora_result(obj, analysis, component_analysis, ora_label)}.
 #' @slot parent_label       Character scalar.  Label of the parent
 #'   \linkS4class{ComponentAnalysis}.
 #' @slot grandparent_label  Character scalar.  Label of the parent
@@ -199,7 +201,8 @@ setMethod("show", "ComponentOraResult", function(object) {
 #' @param component_analysis Character scalar.  Label of the
 #'   \linkS4class{ComponentAnalysis} to annotate.
 #' @param label              Character scalar.  Key under which the result is
-#'   stored in \code{ComponentAnalysis@@ora_results}.
+#'   stored; retrieve it afterwards with
+#'   \code{get_component_ora_result(obj, analysis, component_analysis, label)}.
 #' @param pathways           Named list of character vectors (Ensembl gene IDs
 #'   per pathway), or \code{NULL} (default) to fetch GO gene sets
 #'   automatically via \code{msigdbr}.
@@ -217,8 +220,9 @@ setMethod("show", "ComponentOraResult", function(object) {
 #'   \code{500}.
 #'
 #' @return The \linkS4class{IsoNetAnalyzeR} session object, invisibly, with
-#'   the \linkS4class{ComponentOraResult} stored under
-#'   \code{obj@@analyses[[analysis]]@@component_analyses[[component_analysis]]@@ora_results[[label]]}.
+#'   the \linkS4class{ComponentOraResult} stored under \code{label} inside the
+#'   component analysis.  Access via
+#'   \code{get_component_ora_result(obj, analysis, component_analysis, label)}.
 #'
 #' @examples
 #' \dontrun{
@@ -232,16 +236,15 @@ setMethod("show", "ComponentOraResult", function(object) {
 #' obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_mf",
 #'                          go_category = "GO:MF")
 #'
-#' # Retrieve and inspect results
-#' ora <- get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-#' ora  # show() summary
+#' # show() summary of the result object
+#' get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
 #'
 #' # All significant terms for component 1
-#' res <- ora@@result_table
-#' res[res$component_id == 1 & res$padj < 0.05, ]
+#' get_ora_table(obj, "my_run", "comp_both", "go_bp",
+#'               component_id = 1, padj_cutoff = 0.05)
 #'
-#' # Top term per component
-#' res[!duplicated(res$component_id), c("component_id", "pathway", "padj", "overlap")]
+#' # Top term per component across all components
+#' get_ora_table(obj, "my_run", "comp_both", "go_bp", top_n = 1)
 #' }
 #'
 #' @export

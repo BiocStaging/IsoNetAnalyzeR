@@ -20,7 +20,7 @@ run_component_analysis(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of an existing
-\linkS4class{DifferentialPulldownAnalysis} in \code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.}
 
 \item{label}{Character scalar.  Key under which to store the result.}
 
@@ -42,23 +42,17 @@ fewer edges than this.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly).
-Access results via:
-\preformatted{
-  ca <- obj@analyses[["<analysis>"]]@component_analyses[["<label>"]]
-  ca@component_table   # Tier-1: structural summary
-  ca@node_table        # Tier-1: per-node membership and role
-  ca@topology_table    # Tier-2: diameter, radius, centralization
-  ca@hub_table         # Tier-2: shared-node betweenness ranking
-  }
+Access results with \code{\link{get_component_overview}} (combined
+Tier-1 and Tier-2 table) and \code{\link{get_component}} (per-node
+table for a single component).
 }
 \description{
 Decomposes the merged cross-gene network of an existing
 \linkS4class{DifferentialPulldownAnalysis} run into its connected components
 and computes both Tier-1 structural statistics and Tier-2 topological
-statistics for each component.  The result is stored as a
-\linkS4class{ComponentAnalysis} object inside the parent analysis under
-\code{@component_analyses[[label]]}, and the updated
-\linkS4class{IsoNetAnalyzeR} session object is returned.
+statistics for each component.  The result is stored inside the parent
+analysis and can be accessed with
+\code{get_component_overview(obj, analysis, label)}.
 }
 \section{Tier-1 statistics (structural)}{
 
@@ -101,24 +95,25 @@ obj <- run_differential_pulldown(obj, "cond_A", "de_isoforms.csv", order = 1)
 # Default: isoform level, both directions, all genes
 obj <- run_component_analysis(obj, "cond_A", label = "comp_both")
 
-ca <- obj@analyses$cond_A@component_analyses$comp_both
-ca   # show() summary
+# show() summary
+obj   # the updated session object; the component analysis is listed
 
-# Tier-1: rewiring candidates
-ca@component_table[ca@component_table$mixed, ]
+# Combined Tier-1 + Tier-2 overview (one row per component)
+overview <- get_component_overview(obj, "cond_A", "comp_both")
 
-# Tier-2: hub-spoke components (potential master regulators)
-ca@topology_table[ca@topology_table$topology_class == "hub-spoke", ]
+# Rewiring candidates: components with both up and down seeds
+overview[overview$mixed, ]
 
-# Tier-2: top shared-node hubs by betweenness
-head(ca@hub_table, 20)
+# Hub-spoke components (potential master regulators)
+overview[!is.na(overview$topology_class) &
+           overview$topology_class == "hub-spoke", ]
 
-# Tier-2: hubs inside mixed components only
-mixed_ids <- ca@component_table$component_id[ca@component_table$mixed]
-ca@hub_table[ca@hub_table$component_id \%in\% mixed_ids, ]
+# Top shared-node hubs by betweenness across all components
+comp1 <- get_component(obj, "cond_A", "comp_both", component_id = 1)
+comp1[!is.na(comp1$betweenness_norm), ]
 
-# Join Tier-1 and Tier-2 tables for a full per-component view
-merge(ca@component_table, ca@topology_table, by = "component_id")
+# Full per-component overview is already a joined table
+head(overview[order(-overview$n_nodes), ])
 }
 
 }

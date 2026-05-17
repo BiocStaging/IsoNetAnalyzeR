@@ -17,8 +17,8 @@ plot_cross_gene_boxplot_overview(
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
 \item{analysis}{Character scalar.  Label of the
-\linkS4class{DifferentialPulldownAnalysis} stored in
-\code{obj@analyses}.}
+\linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+to see available labels.}
 
 \item{log_ratio}{Logical.  Use \code{log10((x+1)/(y+1))} instead of
 \code{x - y}?  Default \code{FALSE}.  When \code{TRUE}, zeros

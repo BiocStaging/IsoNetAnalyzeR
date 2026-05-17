@@ -33,7 +33,7 @@ modifying the session object.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly);
-access the look-up via \code{obj@lookups[[label]]}.
+access the look-up via \code{get_lookup(obj, label)}.
 }
 \description{
 Runs a virtual pulldown for one or more seed isoforms or genes and adds
@@ -79,7 +79,7 @@ obj <- lookup_virtual_pulldown(
   seed  = c("ENST00000379236", "ENST00000445118"),
   order = 1
 )
-obj@lookups$combined_lkp
+get_lookup(obj, "combined_lkp")
 }
 
 }

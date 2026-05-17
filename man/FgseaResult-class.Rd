@@ -14,8 +14,9 @@
 \description{
 Produced by \code{\link{run_fgsea}}.  Stores the ranked gene vector, the
 fgsea result table, and all run parameters.  One \linkS4class{FgseaResult}
-object can be stored per user-supplied label inside
-\code{DifferentialPulldownAnalysis@gsea_results}.
+object can be stored per user-supplied label inside a
+\linkS4class{DifferentialPulldownAnalysis}; retrieve with
+\code{get_gsea_result(obj, analysis, label)}.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -25,8 +26,9 @@ object can be stored per user-supplied label inside
 \section{Slots}{
 
 \describe{
-\item{\code{label}}{Character scalar.  User-supplied label, used as the key
-in \code{DifferentialPulldownAnalysis@gsea_results}.}
+\item{\code{label}}{Character scalar.  User-supplied label, used as the
+\code{gsea_label} argument in
+\code{get_gsea_result(obj, analysis, gsea_label)}.}
 
 \item{\code{parent_label}}{Character scalar.  Label of the parent
 \linkS4class{DifferentialPulldownAnalysis} run.}
@@ -34,11 +36,13 @@ in \code{DifferentialPulldownAnalysis@gsea_results}.}
 \item{\code{result_table}}{Data frame.  Output of \code{fgsea::fgsea()} with
 standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
 \code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
-Sorted by \code{padj} ascending.}
+Sorted by \code{padj} ascending.  Access via
+\code{get_gsea_table(obj, analysis, gsea_label)}.}
 
 \item{\code{ranked_genes}}{Named numeric vector.  The gene-level rank statistic
 passed to fgsea, sorted descending.  Names are gene IDs matching the
-pathway gene sets.}
+pathway gene sets.  Access as a data frame via
+\code{get_gsea_stats(obj, analysis, gsea_label)}.}
 
 \item{\code{rank_by}}{Character scalar.  The preset used (\code{rank_by}
 argument), or \code{"custom"} when the user supplied \code{stats}

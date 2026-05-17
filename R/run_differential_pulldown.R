@@ -79,8 +79,8 @@ NULL
 #' the default handler locally for this call only.
 #'
 #' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
-#' @param label    Character scalar. Key under which to store the result in
-#'   \code{obj@@analyses}.
+#' @param label    Character scalar. Key under which to store the result;
+#'   retrieve it afterwards with \code{get_analysis(obj, label)}.
 #' @param input    One of:
 #'   \itemize{
 #'     \item A character scalar - path to a CSV or Excel file.
@@ -103,7 +103,7 @@ NULL
 #'   \code{TRUE}.
 #'
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
-#'   the result via \code{obj@@analyses[[label]]}.
+#'   the result via \code{get_analysis(obj, label)}.
 #'
 #' @examples
 #' \dontrun{
@@ -127,9 +127,9 @@ NULL
 #' plan(sequential)   # restore after the run
 #'
 #' # --- Inspect results ------------------------------------------------------
-#' obj@@analyses$condition_A_vs_B
-#' obj@@analyses$condition_A_vs_B@@gene_results[["ENSG00000012048"]]
-#' plot_network(obj@@analyses$condition_A_vs_B@@gene_results[["ENSG00000012048"]])
+#' get_analysis(obj, "condition_A_vs_B")
+#' get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048")
+#' plot_network(get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048"))
 #' }
 #'
 #' @export
@@ -292,7 +292,7 @@ run_differential_pulldown <- function(obj,
     message(sprintf("Done. DifferentialPulldownAnalysis '%s' created.", label))
 
   obj@analyses[[label]] <- result
-  message(sprintf("Analysis '%s' stored in obj@analyses.", label))
+  message(sprintf("Done. Access the analysis with:\n  get_analysis(obj, \"%s\")", label))
   invisible(obj)
 }
 

@@ -24,8 +24,9 @@ across all components and all run parameters.  Stored inside
 \section{Slots}{
 
 \describe{
-\item{\code{label}}{Character scalar.  User-supplied label, used as
-the key in \code{ComponentAnalysis@ora_results}.}
+\item{\code{label}}{Character scalar.  User-supplied label, used as the
+\code{ora_label} argument in
+\code{get_component_ora_result(obj, analysis, component_analysis, ora_label)}.}
 
 \item{\code{parent_label}}{Character scalar.  Label of the parent
 \linkS4class{ComponentAnalysis}.}

@@ -37,7 +37,8 @@ NULL
 #' cross-gene network of a \linkS4class{DifferentialPulldownAnalysis} run.
 #'
 #' @slot label            Character scalar.  User-supplied label, used as the
-#'   key in \code{DifferentialPulldownAnalysis@@component_analyses}.
+#'   \code{component_analysis} argument in
+#'   \code{get_component_overview(obj, analysis, component_analysis)}.
 #' @slot parent_label     Character scalar.  Label of the parent
 #'   \linkS4class{DifferentialPulldownAnalysis} run.
 #'
@@ -199,10 +200,9 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #' Decomposes the merged cross-gene network of an existing
 #' \linkS4class{DifferentialPulldownAnalysis} run into its connected components
 #' and computes both Tier-1 structural statistics and Tier-2 topological
-#' statistics for each component.  The result is stored as a
-#' \linkS4class{ComponentAnalysis} object inside the parent analysis under
-#' \code{@@component_analyses[[label]]}, and the updated
-#' \linkS4class{IsoNetAnalyzeR} session object is returned.
+#' statistics for each component.  The result is stored inside the parent
+#' analysis and can be accessed with
+#' \code{get_component_overview(obj, analysis, label)}.
 #'
 #' @section Tier-1 statistics (structural):
 #' \itemize{
@@ -235,7 +235,7 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #'
 #' @param obj          An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis     Character scalar.  Label of an existing
-#'   \linkS4class{DifferentialPulldownAnalysis} in \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.
 #' @param label        Character scalar.  Key under which to store the result.
 #' @param direction    \code{"both"} (default), \code{"up"}, or \code{"down"}.
 #' @param level        \code{"isoform"} (default) or \code{"gene"}.
@@ -249,14 +249,9 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #'   fewer edges than this.
 #'
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly).
-#'   Access results via:
-#'   \preformatted{
-#'   ca <- obj@@analyses[["<analysis>"]]@@component_analyses[["<label>"]]
-#'   ca@@component_table   # Tier-1: structural summary
-#'   ca@@node_table        # Tier-1: per-node membership and role
-#'   ca@@topology_table    # Tier-2: diameter, radius, centralization
-#'   ca@@hub_table         # Tier-2: shared-node betweenness ranking
-#'   }
+#'   Access results with \code{\link{get_component_overview}} (combined
+#'   Tier-1 and Tier-2 table) and \code{\link{get_component}} (per-node
+#'   table for a single component).
 #'
 #' @examples
 #' \dontrun{
@@ -266,24 +261,25 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #' # Default: isoform level, both directions, all genes
 #' obj <- run_component_analysis(obj, "cond_A", label = "comp_both")
 #'
-#' ca <- obj@@analyses$cond_A@@component_analyses$comp_both
-#' ca   # show() summary
+#' # show() summary
+#' obj   # the updated session object; the component analysis is listed
 #'
-#' # Tier-1: rewiring candidates
-#' ca@@component_table[ca@@component_table$mixed, ]
+#' # Combined Tier-1 + Tier-2 overview (one row per component)
+#' overview <- get_component_overview(obj, "cond_A", "comp_both")
 #'
-#' # Tier-2: hub-spoke components (potential master regulators)
-#' ca@@topology_table[ca@@topology_table$topology_class == "hub-spoke", ]
+#' # Rewiring candidates: components with both up and down seeds
+#' overview[overview$mixed, ]
 #'
-#' # Tier-2: top shared-node hubs by betweenness
-#' head(ca@@hub_table, 20)
+#' # Hub-spoke components (potential master regulators)
+#' overview[!is.na(overview$topology_class) &
+#'            overview$topology_class == "hub-spoke", ]
 #'
-#' # Tier-2: hubs inside mixed components only
-#' mixed_ids <- ca@@component_table$component_id[ca@@component_table$mixed]
-#' ca@@hub_table[ca@@hub_table$component_id %in% mixed_ids, ]
+#' # Top shared-node hubs by betweenness across all components
+#' comp1 <- get_component(obj, "cond_A", "comp_both", component_id = 1)
+#' comp1[!is.na(comp1$betweenness_norm), ]
 #'
-#' # Join Tier-1 and Tier-2 tables for a full per-component view
-#' merge(ca@@component_table, ca@@topology_table, by = "component_id")
+#' # Full per-component overview is already a joined table
+#' head(overview[order(-overview$n_nodes), ])
 #' }
 #'
 #' @export
@@ -455,8 +451,8 @@ run_component_analysis <- function(obj,
   obj@analyses[[analysis]]@component_analyses[[label]] <- comp_result
 
   message(sprintf(
-    "ComponentAnalysis '%s' stored in obj@analyses[['%s']]@component_analyses.",
-    label, analysis
+    "Done. Access the results with:\n  get_component_overview(obj, \"%s\", \"%s\")",
+    analysis, label
   ))
 
   invisible(obj)
@@ -861,11 +857,11 @@ run_component_analysis <- function(obj,
 #'
 #' @param obj                An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis           Character scalar.  Label of the parent
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param component_analysis Character scalar.  Label of the
-#'   \linkS4class{ComponentAnalysis} stored in
-#'   \code{obj@@analyses[[analysis]]@@component_analyses}.
+#'   \linkS4class{ComponentAnalysis}; use \code{list_analyses(obj)} then
+#'   inspect the result to see available component analysis labels.
 #'
 #' @return A data frame with one row per retained component and the following
 #'   columns (Tier-1 first, then Tier-2):
@@ -946,11 +942,11 @@ get_component_overview <- function(obj, analysis, component_analysis) {
 #'
 #' @param obj                An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis           Character scalar.  Label of the parent
-#'   \linkS4class{DifferentialPulldownAnalysis} stored in
-#'   \code{obj@@analyses}.
+#'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
+#'   to see available labels.
 #' @param component_analysis Character scalar.  Label of the
-#'   \linkS4class{ComponentAnalysis} stored in
-#'   \code{obj@@analyses[[analysis]]@@component_analyses}.
+#'   \linkS4class{ComponentAnalysis}; use \code{list_analyses(obj)} then
+#'   inspect the result to see available component analysis labels.
 #' @param component_id       Integer scalar.  The component to retrieve, as
 #'   listed in \code{component_id} column of \code{\link{get_component_overview}}.
 #'   Component IDs are assigned in descending order of node count (edge count

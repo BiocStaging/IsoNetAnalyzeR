@@ -30,7 +30,7 @@ NULL
 #' @param level  Character scalar. \code{"isoform"} (default) or \code{"gene"}.
 #'
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly);
-#' access the look-up via \code{obj@@lookups[[label]]}.
+#' access the look-up via \code{get_lookup(obj, label)}.
 #'
 #' @examples
 #' \dontrun{
@@ -67,7 +67,7 @@ NULL
 #'   seed  = c("ENST00000379236", "ENST00000445118"),
 #'   order = 1
 #' )
-#' obj@@lookups$combined_lkp
+#' get_lookup(obj, "combined_lkp")
 #' }
 #'
 #' @export
@@ -80,7 +80,7 @@ lookup_virtual_pulldown <- function(obj,
 
   level <- match.arg(level)
 
-  # ── Input validation ──────────────────────────────────────────────────────────
+  # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
@@ -101,7 +101,7 @@ lookup_virtual_pulldown <- function(obj,
 
   order <- as.integer(order)
 
-  # ── Cutoff resolution ─────────────────────────────────────────────────────────
+  # -- Cutoff resolution -------------------------------------------------------
   # Resolved here so we can report the value in the progress message and store
   # it on the lookup object — virtual_pulldown() will resolve again internally
   # but that is a cheap operation.
@@ -121,7 +121,7 @@ lookup_virtual_pulldown <- function(obj,
     message(sprintf("Using user-supplied cutoff: %.4f", cutoff))
   }
 
-  # ── Seed resolution ───────────────────────────────────────────────────────────
+  # -- Seed resolution ---------------------------------------------------------
   resolved <- .resolve_seeds(obj@network, seed, level)
 
   missing_seeds <- names(resolved)[vapply(resolved, length, integer(1L)) == 0L]
@@ -135,7 +135,7 @@ lookup_virtual_pulldown <- function(obj,
   # all seeds are treated as order-0 anchors in a single pulldown
   sv <- unique(unlist(resolved, use.names = FALSE))
 
-  # ── Run pulldown ──────────────────────────────────────────────────────────────
+  # -- Run pulldown ------------------------------------------------------------
   message(sprintf(
     "Running virtual pulldown: %d seed vertex/vertices, order = %d, cutoff = %.4f",
     length(sv), order, cutoff
@@ -155,7 +155,10 @@ lookup_virtual_pulldown <- function(obj,
   )
 
   obj@lookups[[label]] <- lookup_obj
-  message(sprintf("Look-up '%s' stored in obj@lookups.", label))
+  message(
+    sprintf("Look-up '%s' stored. Access with: get_lookup(obj, \"%s\")",
+            label,
+            label))
   invisible(obj)
 }
 

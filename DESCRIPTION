@@ -34,8 +34,11 @@ Imports:
     msigdbr,
     progressr
 Suggests:
+    knitr,
+    rmarkdown,
     colorspace,
     readxl
+VignetteBuilder: knitr
 Collate: 
     'isonetanalyzer_class.R'
     'diff_pulldown_gene_class.R'

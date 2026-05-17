@@ -38,6 +38,55 @@
 }
 
 
+#' Compute mean pi and entropy of pi for a single vertex
+#'
+#' Extracts the \code{pi} edge attribute from all edges incident to
+#' \code{vertex} in \code{graph} and returns their mean and Shannon entropy.
+#' Only edges already present in the subgraph are considered — these are
+#' exclusively \code{interact == 1} edges, so the statistics describe the
+#' confidence profile of the vertex's \emph{actual} interactions rather than
+#' all potential ones.
+#'
+#' Shannon entropy is computed after normalising the pi values to sum to 1
+#' (treating them as a discrete probability mass):
+#' \deqn{H = -\sum p_i \log_2 p_i}
+#' where \eqn{p_i = \pi_i / \sum \pi_j}.
+#'
+#' Returns \code{NA} for both metrics when the vertex has no incident edges
+#' with a \code{pi} attribute, and returns \code{NA} for entropy when only
+#' one edge is present (entropy of a single-element distribution is
+#' trivially 0 but uninformative).
+#'
+#' @param graph  An igraph object with a \code{pi} edge attribute.
+#' @param vertex A single vertex name (character scalar) or igraph vertex ID.
+#' @return A named numeric vector with elements \code{mean_pi} and
+#'   \code{pi_entropy}.
+#' @noRd
+.pi_stats_for_vertex <- function(graph, vertex) {
+  inc_edges <- igraph::incident(graph, vertex, mode = "all")
+
+  pi_vals <- igraph::edge_attr(graph, "pi", index = inc_edges)
+
+  if (is.null(pi_vals) || length(pi_vals) == 0L || all(is.na(pi_vals))) {
+    return(c(mean_pi = NA_real_, pi_entropy = NA_real_))
+  }
+
+  pi_vals <- pi_vals[!is.na(pi_vals)]
+
+  mean_pi <- mean(pi_vals)
+
+  pi_entropy <- if (length(pi_vals) < 2L) {
+    NA_real_
+  } else {
+    p <- pi_vals / sum(pi_vals)
+    # Guard against log(0): any p == 0 contributes 0 to entropy by convention
+    -sum(ifelse(p > 0, p * log2(p), 0))
+  }
+
+  c(mean_pi = round(mean_pi, 4L), pi_entropy = round(pi_entropy, 4L))
+}
+
+
 #-- Exported functions ---------------------------------------------------------
 
 #' Summarize a list of virtual pulldown subgraphs
@@ -101,7 +150,14 @@ summarize_subgraphs <- function(vp_list) {
 #' subgraph. When multiple seed vertices are present, \code{distance_from_seed}
 #' is the average shortest-path distance across all seeds.
 #'
-#' @param graph An igraph object.
+#' Pi statistics (\code{mean_pi}, \code{pi_entropy}) are computed only for
+#' seed vertices (order == 0), where they characterise the confidence profile
+#' of the interactions that anchored the pulldown.  For non-seed vertices these
+#' columns are \code{NA} — their edges were pulled in by BFS expansion and the
+#' pi values reflect the network globally rather than any seed-specific signal.
+#'
+#' @param graph An igraph object with a \code{pi} edge attribute (preserved
+#'   from the full network after \code{interact == 1} filtering).
 #'
 #' @return A data frame with one row per vertex and the following columns:
 #' \describe{
@@ -110,6 +166,14 @@ summarize_subgraphs <- function(vp_list) {
 #'   \item{clustering}{Local clustering coefficient.}
 #'   \item{distance_from_seed}{Average shortest-path distance from all seeds.
 #'     \code{Inf} indicates the vertex is unreachable from the seed(s).}
+#'   \item{mean_pi}{Mean of the \code{pi} edge-attribute values across all
+#'     incident edges.  \code{NA} for non-seed vertices.}
+#'   \item{pi_entropy}{Shannon entropy of the normalised \code{pi} values
+#'     across all incident edges (bits).  Measures how evenly interaction
+#'     confidence is spread across a seed's partners: low entropy indicates a
+#'     few high-confidence interactions; high entropy indicates many edges of
+#'     similar moderate confidence.  \code{NA} for non-seed vertices and for
+#'     seed vertices with only one incident edge.}
 #' }
 #' @export
 analyze_subgraph <- function(graph) {
@@ -120,14 +184,29 @@ analyze_subgraph <- function(graph) {
 
   # Compute shortest-path distances from every seed; result is a
   # (n_seeds x n_vertices) matrix — average across seeds column-wise
-  dist_matrix      <- igraph::distances(graph, v = seeds)
+  dist_matrix        <- igraph::distances(graph, v = seeds)
   avg_dist_from_seed <- colMeans(dist_matrix)
 
+  # Pi statistics for seed vertices only
+  has_pi      <- !is.null(igraph::edge_attr(graph, "pi"))
+  seed_names  <- seeds$name
+  all_names   <- igraph::V(graph)$name
+
+  pi_stats <- lapply(all_names, function(nm) {
+    if (nm %in% seed_names && has_pi) {
+      .pi_stats_for_vertex(graph, nm)
+    } else {
+      c(mean_pi = NA_real_, pi_entropy = NA_real_)
+    }
+  })
+
   data.frame(
-    isoform            = igraph::V(graph)$name,
+    isoform            = all_names,
     degree             = igraph::degree(graph),
     clustering         = igraph::transitivity(graph, type = "local"),
     distance_from_seed = avg_dist_from_seed,
+    mean_pi            = vapply(pi_stats, `[[`, numeric(1), "mean_pi"),
+    pi_entropy         = vapply(pi_stats, `[[`, numeric(1), "pi_entropy"),
     stringsAsFactors   = FALSE
   )
 }

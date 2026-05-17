@@ -10,13 +10,16 @@
 #' Extract the predicted-interaction subgraph
 #'
 #' Filters the network to edges where \code{interact == 1} and returns the
-#' induced subgraph. Isolated vertices are dropped. This is done once upfront
-#' so that all BFS expansion and degree calculations operate only on
-#' interaction edges, never on below-threshold edges.
+#' induced subgraph.  Isolated vertices — those present in the full network
+#' but carrying no \code{interact == 1} edges — are \strong{retained}.  This
+#' is intentional: an isoform that exists in the network but forms no
+#' predicted physical interactions is a meaningful biological result (complete
+#' loss of interaction) and must remain reachable by the seed-matching and
+#' cutoff logic downstream.
 #'
 #' @param g   An igraph object with an \code{interact} edge attribute.
 #' @return    An igraph object containing only predicted-interaction edges,
-#'   with isolated vertices removed.
+#'   with all original vertices preserved (including those now isolated).
 #' @noRd
 .filter_interact_edges <- function(g) {
   interact_vec <- igraph::edge_attr(g, "interact")
@@ -29,7 +32,10 @@
   if (length(pred_edges) == 0L)
     stop("No edges with `interact == 1` found in the graph.", call. = FALSE)
 
-  igraph::subgraph_from_edges(g, pred_edges, delete.vertices = TRUE)
+  # delete.vertices = FALSE: vertices with no interact==1 edges are kept so
+  # that seed isoforms with zero interactions are still found and produce a
+  # single-node subgraph rather than silently disappearing.
+  igraph::subgraph_from_edges(g, pred_edges, delete.vertices = FALSE)
 }
 
 
@@ -41,7 +47,15 @@
 #' Each vertex is assigned the shortest-path distance from the nearest seed.
 #' Vertices not reachable within \code{order} hops are left as \code{NA}.
 #'
-#' @param g             An igraph object (interaction-edge filtered).
+#' Isolated seed vertices (degree zero in the interaction-filtered graph)
+#' receive \code{order = 0} automatically because their distance from
+#' themselves is 0, which satisfies \code{min_dist <= order} for any
+#' \code{order >= 0}.  They will therefore always be included in the
+#' candidate subnetwork and are subsequently protected from the cutoff filter
+#' in \code{virtual_pulldown()}.
+#'
+#' @param g             An igraph object (interaction-edge filtered, with
+#'   isolated vertices retained).
 #' @param seed_vertices Character vector of seed vertex names.
 #' @param order         Integer. Maximum number of hops from any seed.
 #'
@@ -52,12 +66,14 @@
   seed_idx <- which(igraph::V(g)$name %in% seed_vertices)
 
   if (length(seed_idx) == 0L)
-    stop("None of the seed vertices were found in the (interaction-filtered) network.",
+    stop("None of the seed vertices were found in the network.",
          call. = FALSE)
 
   # igraph::distances() runs BFS entirely in C — one call covers all seeds
   # simultaneously, returning a (n_seeds x n_vertices) matrix.
   # Column-wise minimum gives each vertex's distance from its nearest seed.
+  # For isolated seeds, distances() returns 0 for the seed itself and Inf
+  # for all other vertices — so isolated seeds correctly get order = 0.
   dist_mat <- igraph::distances(
     g,
     v         = seed_idx,
@@ -101,6 +117,10 @@
 #'   subnetwork. Vertices carry an \code{order} attribute (hop distance from
 #'   the nearest seed) and a \code{frac_internal} attribute (fraction of
 #'   their interaction edges that remain internal to the subnetwork).
+#'   Seed vertices with zero \code{interact == 1} edges are retained as
+#'   isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
+#'   representing isoforms present in the network but forming no predicted
+#'   physical interactions.
 #' @export
 virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
 
@@ -136,6 +156,9 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
   # ── Step 1: restrict to interaction edges upfront ──────────────────────────
   # Working on this smaller graph means BFS and degree calculations never
   # touch below-threshold edges — the single biggest performance win.
+  # Isolated vertices (isoforms in the network with no interact==1 edges) are
+  # deliberately retained so that zero-interaction seeds produce a valid
+  # single-node subgraph rather than disappearing before BFS.
   g_interact <- .filter_interact_edges(obj@network)
 
   # ── Step 2: BFS expansion — single C-level distances() call ────────────────
@@ -151,7 +174,9 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
   sub_names <- igraph::V(g_interact)$name[sub_idx]
 
   # ── Step 4: compute degrees — one induced_subgraph call, integer indices ────
-  # Degree in the full interaction graph (external + internal edges combined)
+  # Degree in the full interaction graph (external + internal edges combined).
+  # Isolated seeds have deg_full = 0; frac_internal is set to NA for them,
+  # but they are explicitly protected in Step 5 below.
   deg_full <- igraph::degree(g_interact, v = sub_idx, mode = "all")
 
   # Degree within the candidate subnetwork (internal edges only)
@@ -161,7 +186,13 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
   frac_internal <- ifelse(deg_full > 0L, deg_internal / deg_full, NA_real_)
 
   # ── Step 5: apply cutoff — retain nodes with sufficient internal edges ──────
-  keep_mask  <- !is.na(frac_internal) & frac_internal >= cutoff
+  # Seeds (order == 0) are always kept regardless of frac_internal.  The
+  # cutoff is designed to remove non-specific *neighbours*, not the seeds
+  # themselves.  An isolated seed (frac_internal = NA, degree = 0) represents
+  # a real biological result — the isoform is in the network but forms no
+  # predicted interactions — and must not be silently discarded.
+  is_seed   <- igraph::V(g_interact)$order[sub_idx] == 0L
+  keep_mask <- is_seed | (!is.na(frac_internal) & frac_internal >= cutoff)
   keep_names <- sub_names[keep_mask]
 
   if (length(keep_names) == 0L)

@@ -122,6 +122,31 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
       paste(names(object@gene_results)[bad_genes], collapse = ", ")
     ))
 
+  # Note: FgseaResult and ComponentAnalysis are defined in files that load
+  # after this one. The validator body is only executed at runtime so
+  # forward-referencing their class names here is safe.
+  bad_gsea <- vapply(
+    object@gsea_results,
+    function(x) !is(x, "FgseaResult"),
+    logical(1)
+  )
+  if (any(bad_gsea))
+    msgs <- c(msgs, paste0(
+      "@gsea_results contains non-FgseaResult element(s): ",
+      paste(names(object@gsea_results)[bad_gsea], collapse = ", ")
+    ))
+
+  bad_components <- vapply(
+    object@component_analyses,
+    function(x) !is(x, "ComponentAnalysis"),
+    logical(1)
+  )
+  if (any(bad_components))
+    msgs <- c(msgs, paste0(
+      "@component_analyses contains non-ComponentAnalysis element(s): ",
+      paste(names(object@component_analyses)[bad_components], collapse = ", ")
+    ))
+
   if (length(object@order) != 1L || is.na(object@order) || object@order < 1L)
     msgs <- c(msgs, "@order must be a positive integer scalar.")
 

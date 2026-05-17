@@ -1,12 +1,14 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: 
     person("Nikolas", "Mumm", , "s242825@dtu.dk", role = c("aut", "cre"))
-Description: Provides tools for constructing, analyzing, and querying
-    isoform-level protein interaction networks. Includes functions for
-    network summary statistics, degree distribution analysis, sticky
-    isoform and gene detection, and virtual pulldown simulations.
+Description: Provides tools for isoform-level protein interaction network
+    analysis, with a focus on how alternative splicing reshapes protein
+    interaction landscapes. Core functionality includes virtual pulldown
+    simulations, differential pulldown analysis across splicing conditions,
+    connected component analysis, and gene set enrichment and
+    over-representation analysis (GSEA/ORA) on network topology statistics.
     Developed as part of a master's thesis at the Technical University
     of Denmark (DTU).
 License: MIT + file LICENSE

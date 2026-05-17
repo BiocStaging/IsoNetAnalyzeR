@@ -6,14 +6,15 @@
 # Run interactively line-by-line, not as a batch script.
 
 library(IsoNetAnalyzeR)
+library(future)
 
 # ── 1. Create a session object ───────────────────────────────────────────────
-obj <- IsoNetAnalyzeR("my_experiment")
-print(obj)
-print_metadata(obj)
+main_obj <- IsoNetAnalyzeR("example")
+print(main_obj)
+print_metadata(main_obj)
 
 # ── 2. Network summary statistics ────────────────────────────────────────────
-print_network_summary(obj)
+print_network_summary(main_obj)
 
 # Sticky genes / isoforms
 sticky <- find_sticky_genes(obj, method = "sd", cutoff = 2)
@@ -25,14 +26,22 @@ sticky$threshold
 head(sort(sticky$sticky_isoforms, decreasing = TRUE))
 
 # ── 3. Quick lookup — single seed ────────────────────────────────────────────
-obj <- lookup_virtual_pulldown(
-  obj,
+
+main_obj <- lookup_virtual_pulldown(
+  main_obj,
+  label = "example_virtual_pulldown",
   seed  = "ENST00000647435",
-  order = 2,
-  label = "TPM2_lookup"
+  level = "isoform",
+  order = 1,
+  cutoff = NULL
 )
-list_lookups(obj)
-get_lookup(obj, "TPM2_lookup")
+print(main_obj)
+
+example_vp <- get_lookup(main_obj, "example_virtual_pulldown")
+print(example_vp)
+
+plot_network(example_vp,
+             group_by_gene = TRUE)
 
 # ── 4. Quick lookup — multiple seeds, gene level ─────────────────────────────
 obj <- lookup_virtual_pulldown(
@@ -71,18 +80,27 @@ de_table <- data.frame(
   stringsAsFactors = FALSE
 )
 
+plan(multisession, workers = 4)
+
 obj <- run_differential_pulldown(
   obj,
   input = de_table,
   order = 1,
-  label = "condA_vs_B"
+  label = "condA_vs_B",
+  parallel = TRUE
 )
+
+plan(sequential)
+
 list_analyses(obj)
 get_analysis(obj, "condA_vs_B")
 
 # ── 6. Inspect per-gene results ──────────────────────────────────────────────
 result <- get_analysis(obj, "condA_vs_B")
 cross_gene_summary(result)
+
+plot_network(result, direction = "both")
+
 gene_results(result, "ENSG00000004478")
 
 # ── 7. Plotting ──────────────────────────────────────────────────────────────
@@ -93,7 +111,11 @@ gene_results(result, "ENSG00000004478")
 plot_network(get_lookup(obj, "TPM2_lookup"), group_by_gene = TRUE)
 
 # Differential pulldown — both directions side by side
-plot_network(gene_results(result, "ENSG00000004478"), direction = "both")
+plot_network(gene_results(result, "ENSG00000100083"),
+             direction = "overlay",
+             group_by_gene = TRUE,
+             level = "gene")
+
 
 # ── 8. Session overview ──────────────────────────────────────────────────────
 print(obj)

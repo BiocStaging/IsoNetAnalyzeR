@@ -60,17 +60,18 @@
 #'   \item{cutoff_roc_summary}{AUC-weighted quantile summary (ROC-based).}
 #'   \item{cutoff_f1_summary}{AUC-weighted quantile summary (PR/F1-based).}
 #'   \item{sens_spec_cutoffs}{Three-row tibble of direct sens/spec-based cutoffs.}
-#'   \item{best_cutoff}{Recommended cutoff (pooled Youden's J).}
+#'   \item{best_cutoff}{Recommended cutoff (PR/F1-based unweighted q50).}
 #'   \item{pi_threshold}{The \code{pi_threshold} value used.}
 #'   \item{kegg_genesets}{MSigDB KEGG gene set table used.}
 #'   \item{multipathway_comparison}{Named list with one entry per strategy
 #'     (\code{"all"}, \code{"remove"}, \code{"random"}, \code{"best"}).}
 #' }
 compute_network_cutoff <- function(isoform_network_df,
-                                   pi_threshold  = 0.5,
-                                   kegg_genesets = NULL,
-                                   plot          = FALSE,
-                                   plot_dir      = "data-raw/plots") {
+                                   pi_threshold      = 0.5,
+                                   kegg_genesets     = NULL,
+                                   plot              = FALSE,
+                                   plot_dir          = "data-raw/plots",
+                                   run_multipathway  = TRUE) {
 
   cat("================================================================\n")
   cat("  KEGG Pathway Interaction Cutoff Analysis\n")
@@ -202,21 +203,32 @@ compute_network_cutoff <- function(isoform_network_df,
               median(pathway_results$specificity, na.rm = TRUE)))
 
   # --------------------------------------------------------------------------
-  # [7/10] AUC-weighted cutoff summaries
+  # [7/10] Cutoff summaries — AUC-weighted and unweighted (raw count)
   # --------------------------------------------------------------------------
-  cat(">>> [7/10] Computing AUC-weighted conservative cutoffs...\n")
+  cat(">>> [7/10] Computing cutoff summaries (AUC-weighted and unweighted)...\n")
 
+  # ── AUC-weighted summaries ─────────────────────────────────────────────────
   cutoff_roc_summary <- pathway_results %>%
     filter(!is.na(cutoff_roc), auc_roc > 0.5) %>%
     mutate(w = auc_roc - 0.5) %>%
     summarise(
-      n_pathways_used  = n(),
-      q50              = .weighted_quantile(cutoff_roc, w, 0.50),
-      q75              = .weighted_quantile(cutoff_roc, w, 0.75),
-      q90              = .weighted_quantile(cutoff_roc, w, 0.90),
-      mean_auc_roc     = weighted.mean(auc_roc, w),
-      mean_sensitivity = weighted.mean(sensitivity, w, na.rm = TRUE),
-      mean_specificity = weighted.mean(specificity, w, na.rm = TRUE)
+      n_pathways_used       = n(),
+      # AUC-weighted
+      q50                   = .weighted_quantile(cutoff_roc, w, 0.50),
+      q75                   = .weighted_quantile(cutoff_roc, w, 0.75),
+      q90                   = .weighted_quantile(cutoff_roc, w, 0.90),
+      mean_auc_roc          = weighted.mean(auc_roc, w),
+      mean_sensitivity      = weighted.mean(sensitivity, w, na.rm = TRUE),
+      mean_specificity      = weighted.mean(specificity, w, na.rm = TRUE),
+      # Unweighted (raw count)
+      unweighted_q50        = quantile(cutoff_roc, 0.50),
+      unweighted_q75        = quantile(cutoff_roc, 0.75),
+      unweighted_q90        = quantile(cutoff_roc, 0.90),
+      unweighted_mean       = mean(cutoff_roc),
+      unweighted_median     = median(cutoff_roc),
+      unweighted_mean_auc   = mean(auc_roc),
+      unweighted_mean_sens  = mean(sensitivity, na.rm = TRUE),
+      unweighted_mean_spec  = mean(specificity, na.rm = TRUE)
     )
 
   cutoff_f1_summary <- pathway_results %>%
@@ -225,13 +237,22 @@ compute_network_cutoff <- function(isoform_network_df,
            w          = pmax(auc_pr - prevalence, 0)) %>%
     filter(w > 0) %>%
     summarise(
-      n_pathways_used = n(),
-      q50             = .weighted_quantile(cutoff_f1, w, 0.50),
-      q75             = .weighted_quantile(cutoff_f1, w, 0.75),
-      q90             = .weighted_quantile(cutoff_f1, w, 0.90),
-      mean_auc_pr     = weighted.mean(auc_pr, w)
+      n_pathways_used    = n(),
+      # AUC-weighted
+      q50                = .weighted_quantile(cutoff_f1, w, 0.50),
+      q75                = .weighted_quantile(cutoff_f1, w, 0.75),
+      q90                = .weighted_quantile(cutoff_f1, w, 0.90),
+      mean_auc_pr        = weighted.mean(auc_pr, w),
+      # Unweighted (raw count)
+      unweighted_q50     = quantile(cutoff_f1, 0.50),
+      unweighted_q75     = quantile(cutoff_f1, 0.75),
+      unweighted_q90     = quantile(cutoff_f1, 0.90),
+      unweighted_mean    = mean(cutoff_f1),
+      unweighted_median  = median(cutoff_f1),
+      unweighted_mean_auc = mean(auc_pr)
     )
 
+  cat("  --- AUC-weighted ---\n")
   cat(sprintf("    Weighted mean AUC — ROC: %.3f | PR: %.3f\n",
               cutoff_roc_summary$mean_auc_roc, cutoff_f1_summary$mean_auc_pr))
   cat(sprintf("    Weighted mean sensitivity : %.3f | specificity : %.3f\n",
@@ -239,10 +260,29 @@ compute_network_cutoff <- function(isoform_network_df,
               cutoff_roc_summary$mean_specificity))
   cat(sprintf("    Cutoff q50 — ROC: %.4f | PR/F1: %.4f\n",
               cutoff_roc_summary$q50, cutoff_f1_summary$q50))
-  cat(sprintf("    Cutoff q75 — ROC: %.4f | PR/F1: %.4f  <-- recommended\n",
+  cat(sprintf("    Cutoff q75 — ROC: %.4f | PR/F1: %.4f\n",
               cutoff_roc_summary$q75, cutoff_f1_summary$q75))
-  cat(sprintf("    Cutoff q90 — ROC: %.4f | PR/F1: %.4f\n\n",
+  cat(sprintf("    Cutoff q90 — ROC: %.4f | PR/F1: %.4f\n",
               cutoff_roc_summary$q90, cutoff_f1_summary$q90))
+  cat("  --- Unweighted (raw count) ---\n")
+  cat(sprintf("    Mean AUC — ROC: %.3f | PR: %.3f\n",
+              cutoff_roc_summary$unweighted_mean_auc,
+              cutoff_f1_summary$unweighted_mean_auc))
+  cat(sprintf("    Mean sensitivity : %.3f | specificity : %.3f\n",
+              cutoff_roc_summary$unweighted_mean_sens,
+              cutoff_roc_summary$unweighted_mean_spec))
+  cat(sprintf("    Cutoff median — ROC: %.4f | PR/F1: %.4f\n",
+              cutoff_roc_summary$unweighted_median,
+              cutoff_f1_summary$unweighted_median))
+  cat(sprintf("    Cutoff mean   — ROC: %.4f | PR/F1: %.4f\n",
+              cutoff_roc_summary$unweighted_mean,
+              cutoff_f1_summary$unweighted_mean))
+  cat(sprintf("    Cutoff q50    — ROC: %.4f | PR/F1: %.4f    <-- recommended\n",
+              cutoff_roc_summary$unweighted_q50, cutoff_f1_summary$unweighted_q50))
+  cat(sprintf("    Cutoff q75    — ROC: %.4f | PR/F1: %.4f\n",
+              cutoff_roc_summary$unweighted_q75, cutoff_f1_summary$unweighted_q75))
+  cat(sprintf("    Cutoff q90    — ROC: %.4f | PR/F1: %.4f\n\n",
+              cutoff_roc_summary$unweighted_q90, cutoff_f1_summary$unweighted_q90))
 
   # --------------------------------------------------------------------------
   # [8/10] Pooled validation + direct sens/spec cutoff derivation
@@ -274,12 +314,12 @@ compute_network_cutoff <- function(isoform_network_df,
 
   # 8a. Validate the six AUC-weighted quantile cutoffs
   candidate_cutoffs <- c(
-    ROC_q50   = cutoff_roc_summary$q50,
-    ROC_q75   = cutoff_roc_summary$q75,
-    ROC_q90   = cutoff_roc_summary$q90,
-    PR_F1_q50 = cutoff_f1_summary$q50,
-    PR_F1_q75 = cutoff_f1_summary$q75,
-    PR_F1_q90 = cutoff_f1_summary$q90
+    ROC_q50   = cutoff_roc_summary$unweighted_q50,
+    ROC_q75   = cutoff_roc_summary$unweighted_q75,
+    ROC_q90   = cutoff_roc_summary$unweighted_q90,
+    PR_F1_q50 = cutoff_f1_summary$unweighted_q50,
+    PR_F1_q75 = cutoff_f1_summary$unweighted_q75,
+    PR_F1_q90 = cutoff_f1_summary$unweighted_q90
   )
 
   validation <- imap_dfr(candidate_cutoffs, function(co, nm) {
@@ -335,29 +375,34 @@ compute_network_cutoff <- function(isoform_network_df,
   ))
 
   # --------------------------------------------------------------------------
-  # [9/10] Multi-pathway gene handling strategies
+  # [9/10] Multi-pathway gene handling strategies (optional)
   # --------------------------------------------------------------------------
-  cat(">>> [9/10] Comparing multi-pathway gene handling strategies...\n")
+  if (run_multipathway) {
+    cat(">>> [9/10] Comparing multi-pathway gene handling strategies...\n")
 
-  strategies <- c("remove", "random", "best")
-  multipathway_comparison <- map(strategies, function(strat) {
-    .run_strategy(kegg_genesets, neighbor_list, all_network_genes,
-                  strategy       = strat,
-                  all_scores_ref = all_scores)
-  })
-  names(multipathway_comparison) <- strategies
+    strategies <- c("remove", "random", "best")
+    multipathway_comparison <- map(strategies, function(strat) {
+      .run_strategy(kegg_genesets, neighbor_list, all_network_genes,
+                    strategy       = strat,
+                    all_scores_ref = all_scores)
+    })
+    names(multipathway_comparison) <- strategies
 
-  multipathway_comparison[["all"]] <- list(
-    strategy           = "all",
-    cutoff_roc_summary = cutoff_roc_summary,
-    cutoff_f1_summary  = cutoff_f1_summary,
-    validation         = validation %>%
-      filter(quantile == "q75") %>%
-      mutate(strategy = "all"),
-    n_genes_used       = n_distinct(kegg_genesets$ensembl_gene),
-    n_pathways_used    = n_valid,
-    pathway_results    = pathway_results
-  )
+    multipathway_comparison[["all"]] <- list(
+      strategy           = "all",
+      cutoff_roc_summary = cutoff_roc_summary,
+      cutoff_f1_summary  = cutoff_f1_summary,
+      validation         = validation %>%
+        filter(quantile == "q50", method == "PR/F1") %>%
+        mutate(strategy = "all"),,
+      n_genes_used       = n_distinct(kegg_genesets$ensembl_gene),
+      n_pathways_used    = n_valid,
+      pathway_results    = pathway_results
+    )
+  } else {
+    cat(">>> [9/10] Skipping multi-pathway gene handling strategies (run_multipathway = FALSE)...\n")
+    multipathway_comparison <- NULL
+  }
 
   # Discard all_scores — too large to carry in the result list
   rm(all_scores)
@@ -365,7 +410,7 @@ compute_network_cutoff <- function(isoform_network_df,
   # --------------------------------------------------------------------------
   # [10/10] Choose best cutoff and report
   # --------------------------------------------------------------------------
-  best_cutoff <- cutoff_roc_summary$q75
+  best_cutoff <- cutoff_f1_summary$unweighted_q50
 
   cat("\n================================================================\n")
   cat("  ANALYSIS COMPLETE — Summary\n")
@@ -379,7 +424,7 @@ compute_network_cutoff <- function(isoform_network_df,
   cat(sprintf("  Median PR-AUC                      : %.3f\n",
               median(pathway_results$auc_pr,  na.rm = TRUE)))
   cat("  -----------------------------------------------\n")
-  cat("  Indirect cutoffs (AUC-weighted quantile of per-pathway bests):\n")
+  cat("  Indirect cutoffs — AUC-weighted quantile of per-pathway bests:\n")
   roc_q75_v <- validation %>% filter(method == "ROC",   quantile == "q75")
   f1_q75_v  <- validation %>% filter(method == "PR/F1", quantile == "q75")
   cat(sprintf(
@@ -388,10 +433,26 @@ compute_network_cutoff <- function(isoform_network_df,
     roc_q75_v$sensitivity, roc_q75_v$specificity,
     roc_q75_v$precision,   roc_q75_v$f1))
   cat(sprintf(
+    "    PR/F1-based q50 : %.4f\n",
+    cutoff_f1_summary$q50))
+  cat(sprintf(
     "    PR/F1-based q75 : %.4f  (sens=%.3f, spec=%.3f, prec=%.3f, F1=%.3f)\n",
     cutoff_f1_summary$q75,
     f1_q75_v$sensitivity, f1_q75_v$specificity,
     f1_q75_v$precision,   f1_q75_v$f1))
+  cat("  Indirect cutoffs — Unweighted (raw count) quantile of per-pathway bests:\n")
+  cat(sprintf(
+    "    ROC-based   median : %.4f | q50 : %.4f | q75 : %.4f | q90 : %.4f\n",
+    cutoff_roc_summary$unweighted_median,
+    cutoff_roc_summary$unweighted_q50,
+    cutoff_roc_summary$unweighted_q75,
+    cutoff_roc_summary$unweighted_q90))
+  cat(sprintf(
+    "    PR/F1-based median : %.4f | q50 : %.4f | q75 : %.4f | q90 : %.4f  (<-- q50 recommended)\n",
+    cutoff_f1_summary$unweighted_median,
+    cutoff_f1_summary$unweighted_q50,
+    cutoff_f1_summary$unweighted_q75,
+    cutoff_f1_summary$unweighted_q90))
   cat("  -----------------------------------------------\n")
   cat("  Direct cutoffs (derived from pooled sensitivity/specificity):\n")
   for (i in seq_len(nrow(sens_spec_cutoffs))) {
@@ -401,7 +462,7 @@ compute_network_cutoff <- function(isoform_network_df,
       r$method, r$cutoff, r$sensitivity, r$specificity,
       r$precision, r$f1))
   }
-  cat(sprintf("\n  >>> Returning best cutoff (ROC-based q75): %.4f\n",
+  cat(sprintf("\n  >>> Returning best cutoff (PR/F1-based unweighted q50): %.4f\n",
               best_cutoff))
   cat("================================================================\n\n")
 

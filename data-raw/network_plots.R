@@ -101,6 +101,53 @@ plot_cutoff_diagnostics <- function(result,
 
   p1 <- cowplot::plot_grid(p1a, p1b, ncol = 2)
 
+  # ── Plot 1 (raw count): same bins, no weighting ─────────────────────────────
+  roc_vlines_raw <- tibble(
+    label  = c("q50", "q75", "q90"),
+    cutoff = c(cutoff_roc_summary$unweighted_q50,
+               cutoff_roc_summary$unweighted_q75,
+               cutoff_roc_summary$unweighted_q90)
+  )
+  f1_vlines_raw <- tibble(
+    label  = c("q50", "q75", "q90"),
+    cutoff = c(cutoff_f1_summary$unweighted_q50,
+               cutoff_f1_summary$unweighted_q75,
+               cutoff_f1_summary$unweighted_q90)
+  )
+
+  p1c <- pathway_results %>%
+    filter(!is.na(cutoff_roc), auc_roc > 0.5) %>%
+    ggplot(aes(x = cutoff_roc)) +
+    geom_histogram(bins = 40, fill = "steelblue", alpha = 0.7) +
+    geom_vline(data = roc_vlines_raw,
+               aes(xintercept = cutoff, colour = label),
+               linewidth = 0.9, linetype = "dashed") +
+    scale_colour_brewer(palette = "Set1", name = "Quantile") +
+    labs(title    = "ROC-based cutoffs",
+         subtitle = "Raw count histogram (AUC_ROC > 0.5 pathways only)",
+         x = "Best cutoff (Youden's J)", y = "Count") +
+    theme_minimal(base_size = 12) +
+    theme(plot.subtitle = element_text(colour = "grey40"))
+
+  p1d <- pathway_results %>%
+    filter(!is.na(cutoff_f1), !is.na(auc_pr)) %>%
+    mutate(prevalence = n_pos / (n_pos + n_neg),
+           w          = pmax(auc_pr - prevalence, 0)) %>%
+    filter(w > 0) %>%
+    ggplot(aes(x = cutoff_f1)) +
+    geom_histogram(bins = 40, fill = "darkorange", alpha = 0.7) +
+    geom_vline(data = f1_vlines_raw,
+               aes(xintercept = cutoff, colour = label),
+               linewidth = 0.9, linetype = "dashed") +
+    scale_colour_brewer(palette = "Set1", name = "Quantile") +
+    labs(title    = "PR/F1-based cutoffs",
+         subtitle = "Raw count histogram (AUC_PR > prevalence pathways only)",
+         x = "Best cutoff (max F1)", y = "Count") +
+    theme_minimal(base_size = 12) +
+    theme(plot.subtitle = element_text(colour = "grey40"))
+
+  p1_raw <- cowplot::plot_grid(p1c, p1d, ncol = 2)
+
   # ── Plot 2: Pooled ROC operating-point scatter ──────────────────────────────
   roc_ops <- pathway_results %>%
     filter(!is.na(cutoff_roc), auc_roc > 0.5) %>%
@@ -265,16 +312,16 @@ plot_cutoff_diagnostics <- function(result,
     geom_text(data = group_medians,
               aes(y = -Inf, label = paste0("n=", n_genes)),
               vjust = -0.5, size = 3, colour = "grey40") +
-    geom_hline(yintercept = cutoff_roc_summary$q75,
+    geom_hline(yintercept = cutoff_f1_summary$unweighted_q50,
                linetype = "dashed", colour = "firebrick", linewidth = 0.8) +
-    annotate("text", x = Inf, y = cutoff_roc_summary$q75,
-             label = paste0("ROC q75: ", round(cutoff_roc_summary$q75, 3)),
+    annotate("text", x = Inf, y = cutoff_f1_summary$unweighted_q50,
+             label = paste0("PR/F1 unweighted q50: ", round(cutoff_f1_summary$unweighted_q50, 3)),
              hjust = 1.05, vjust = -0.5, colour = "firebrick", size = 3.2) +
     scale_fill_brewer(palette = "Blues", guide = "none") +
     scale_colour_brewer(palette = "Blues", guide = "none") +
     scale_x_discrete(drop = FALSE) +
     labs(title    = "Best cutoff by number of pathway memberships",
-         subtitle = "AUC-weighted ROC cutoff per gene; red line = network threshold (q75)",
+         subtitle = "AUC-weighted ROC cutoff per gene; red line = network threshold (PR/F1 unweighted q50)",
          x       = "Number of KEGG pathways gene belongs to",
          y       = "AUC-weighted best cutoff (ROC)",
          caption = "n = number of genes in each group") +
@@ -286,88 +333,92 @@ plot_cutoff_diagnostics <- function(result,
   # ── Plot 6: Multi-pathway gene strategy comparison ───────────────────────────
   mp_comp <- result$multipathway_comparison
 
-  strategy_labels <- c(
-    all    = "All genes\n(baseline)",
-    remove = "Remove\nmulti-pathway genes",
-    random = "Random\npathway assignment",
-    best   = "Best-interaction\npathway assignment"
-  )
-
-  mp_summary <- imap_dfr(mp_comp, function(strat_res, strat_name) {
-    roc_val <- strat_res$validation %>%
-      filter(method %in% c("ROC", "ROC/q75") |
-               (quantile == "q75" & grepl("ROC", method))) %>%
-      filter(row_number() == 1)
-
-    tibble(
-      strategy         = strat_name,
-      strategy_label   = strategy_labels[strat_name],
-      n_genes_used     = strat_res$n_genes_used,
-      n_pathways_used  = strat_res$n_pathways_used,
-      cutoff_roc_q75   = strat_res$cutoff_roc_summary$q75,
-      cutoff_f1_q75    = strat_res$cutoff_f1_summary$q75,
-      mean_auc_roc     = strat_res$cutoff_roc_summary$mean_auc_roc,
-      mean_sensitivity = strat_res$cutoff_roc_summary$mean_sensitivity,
-      mean_specificity = strat_res$cutoff_roc_summary$mean_specificity,
-      sensitivity_val  = if (nrow(roc_val) > 0) roc_val$sensitivity[[1]] else NA_real_,
-      specificity_val  = if (nrow(roc_val) > 0) roc_val$specificity[[1]] else NA_real_,
-      precision_val    = if (nrow(roc_val) > 0) roc_val$precision[[1]]   else NA_real_,
-      f1_val           = if (nrow(roc_val) > 0) roc_val$f1[[1]]          else NA_real_
+  if (!is.null(mp_comp)) {
+    strategy_labels <- c(
+      all    = "All genes\n(baseline)",
+      remove = "Remove\nmulti-pathway genes",
+      random = "Random\npathway assignment",
+      best   = "Best-interaction\npathway assignment"
     )
-  }) %>%
-    mutate(strategy_label = factor(
-      strategy_label,
-      levels = strategy_labels[c("all", "remove", "random", "best")]
-    ))
 
-  mp_long <- mp_summary %>%
-    select(strategy_label, sensitivity_val, specificity_val,
-           precision_val, f1_val) %>%
-    pivot_longer(-strategy_label, names_to = "metric", values_to = "value") %>%
-    mutate(metric = recode(metric,
-                           sensitivity_val = "Sensitivity",
-                           specificity_val = "Specificity",
-                           precision_val   = "Precision",
-                           f1_val          = "F1"))
+    mp_summary <- imap_dfr(mp_comp, function(strat_res, strat_name) {
+      roc_val <- strat_res$validation %>%
+        filter(quantile == "q50",
+               grepl("PR", method, ignore.case = TRUE)) %>%
+        filter(row_number() == 1)
 
-  p6a <- ggplot(mp_long, aes(x = strategy_label, y = value, fill = metric)) +
-    geom_col(position = position_dodge(0.75), width = 0.65, alpha = 0.85) +
-    geom_text(aes(label = sprintf("%.3f", value)),
-              position = position_dodge(0.75), vjust = -0.4, size = 2.8) +
-    scale_fill_brewer(palette = "Set2", name = "Metric") +
-    scale_y_continuous(limits = c(0, 1.08), breaks = seq(0, 1, 0.2)) +
-    labs(title    = "Validation metrics at ROC q75 cutoff",
-         subtitle = "By multi-pathway gene handling strategy",
-         x = NULL, y = "Score") +
-    theme_minimal(base_size = 12) +
-    theme(axis.text.x = element_text(size = 9),
-          plot.subtitle = element_text(colour = "grey40"))
+      tibble(
+        strategy         = strat_name,
+        strategy_label   = strategy_labels[strat_name],
+        n_genes_used     = strat_res$n_genes_used,
+        n_pathways_used  = strat_res$n_pathways_used,
+        cutoff_roc_q75   = strat_res$cutoff_roc_summary$q75,
+        cutoff_f1_q75    = strat_res$cutoff_f1_summary$q75,
+        mean_auc_roc     = strat_res$cutoff_roc_summary$mean_auc_roc,
+        mean_sensitivity = strat_res$cutoff_roc_summary$mean_sensitivity,
+        mean_specificity = strat_res$cutoff_roc_summary$mean_specificity,
+        sensitivity_val  = if (nrow(roc_val) > 0) roc_val$sensitivity[[1]] else NA_real_,
+        specificity_val  = if (nrow(roc_val) > 0) roc_val$specificity[[1]] else NA_real_,
+        precision_val    = if (nrow(roc_val) > 0) roc_val$precision[[1]]   else NA_real_,
+        f1_val           = if (nrow(roc_val) > 0) roc_val$f1[[1]]          else NA_real_
+      )
+    }) %>%
+      mutate(strategy_label = factor(
+        strategy_label,
+        levels = strategy_labels[c("all", "remove", "random", "best")]
+      ))
 
-  mp_cutoff <- mp_summary %>%
-    select(strategy_label, cutoff_roc_q75, cutoff_f1_q75) %>%
-    pivot_longer(-strategy_label, names_to = "method", values_to = "cutoff") %>%
-    mutate(method = recode(method,
-                           cutoff_roc_q75 = "ROC q75",
-                           cutoff_f1_q75  = "PR/F1 q75"))
+    mp_long <- mp_summary %>%
+      select(strategy_label, precision_val, sensitivity_val, f1_val) %>%
+      pivot_longer(-strategy_label, names_to = "metric", values_to = "value") %>%
+      mutate(metric = recode(metric,
+                             sensitivity_val = "Recall",
+                             precision_val   = "Precision",
+                             f1_val          = "F1"),
+             metric = factor(metric, levels = c("Precision", "Recall", "F1")))
 
-  p6b <- ggplot(mp_cutoff,
-                aes(x = strategy_label, y = cutoff,
-                    colour = method, group = method)) +
-    geom_line(linewidth = 0.9, linetype = "dashed") +
-    geom_point(size = 4) +
-    geom_text(aes(label = sprintf("%.3f", cutoff)),
-              vjust = -0.9, size = 3, show.legend = FALSE) +
-    scale_colour_manual(values = c("ROC q75" = "#1A5EA8",
-                                   "PR/F1 q75" = "#E76F51"),
-                        name = "Cutoff\nmethod") +
-    labs(title    = "Recommended cutoff across strategies",
-         subtitle = "q75 thresholds (ROC and PR/F1)",
-         x = NULL, y = "Cutoff value") +
-    theme_minimal(base_size = 12) +
-    theme(axis.text.x = element_text(size = 9),
-          plot.subtitle = element_text(colour = "grey40"))
+    p6a <- ggplot(mp_long, aes(x = strategy_label, y = value, fill = metric)) +
+      geom_col(position = position_dodge(0.75), width = 0.65, alpha = 0.85) +
+      geom_text(aes(label = sprintf("%.3f", value)),
+                position = position_dodge(0.75), vjust = -0.4, size = 2.8) +
+      scale_fill_brewer(palette = "Set2", name = "Metric") +
+      scale_y_continuous(limits = c(0, 1.08), breaks = seq(0, 1, 0.2)) +
+      labs(title    = "Validation metrics at PR/F1 unweighted q50 cutoff",
+           subtitle = "By multi-pathway gene handling strategy",
+           x = NULL, y = "Score") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(size = 9),
+            plot.subtitle = element_text(colour = "grey40"))
 
-  p6 <- cowplot::plot_grid(p6a, p6b, ncol = 1, rel_heights = c(1.3, 1))
+    mp_cutoff <- mp_summary %>%
+      select(strategy_label, cutoff_roc_q75, cutoff_f1_q75) %>%
+      pivot_longer(-strategy_label, names_to = "method", values_to = "cutoff") %>%
+      mutate(method = recode(method,
+                             cutoff_roc_q75 = "ROC q75",
+                             cutoff_f1_q75  = "PR/F1 q75"))
+
+    p6b <- ggplot(mp_cutoff,
+                  aes(x = strategy_label, y = cutoff,
+                      colour = method, group = method)) +
+      geom_line(linewidth = 0.9, linetype = "dashed") +
+      geom_point(size = 4) +
+      geom_text(aes(label = sprintf("%.3f", cutoff)),
+                vjust = -0.9, size = 3, show.legend = FALSE) +
+      scale_colour_manual(values = c("ROC q75" = "#1A5EA8",
+                                     "PR/F1 q75" = "#E76F51"),
+                          name = "Cutoff\nmethod") +
+      labs(title    = "Recommended cutoff across strategies",
+           subtitle = "q75 thresholds (ROC and PR/F1)",
+           x = NULL, y = "Cutoff value") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(size = 9),
+            plot.subtitle = element_text(colour = "grey40"))
+
+    p6 <- cowplot::plot_grid(p6a, p6b, ncol = 1, rel_heights = c(1.3, 1))
+  } else {
+    cat("    Skipping plot 6 (multipathway_comparison is NULL)\n")
+    p6 <- NULL
+  }
 
   # ── Plot 7: Sensitivity and specificity vs threshold ─────────────────────────
   sens_spec_ops <- pathway_results %>%
@@ -441,7 +492,8 @@ plot_cutoff_diagnostics <- function(result,
 
   # ── Save ─────────────────────────────────────────────────────────────────────
   plots <- list(
-    plot_cutoff_distribution     = list(p = p1, w = 14, h = 5),
+    plot_cutoff_distribution     = list(p = p1,     w = 14, h = 5),
+    plot_cutoff_distribution_raw = list(p = p1_raw, w = 14, h = 5),
     plot_roc_curve               = list(p = p2, w =  9, h = 7),
     plot_pr_curve                = list(p = p3, w =  9, h = 7),
     plot_auc_density             = list(p = p4, w = 10, h = 5),
@@ -451,6 +503,10 @@ plot_cutoff_diagnostics <- function(result,
   )
 
   for (nm in names(plots)) {
+    if (is.null(plots[[nm]]$p)) {
+      cat(sprintf("    Skipped: %s (not computed)\n", nm))
+      next
+    }
     out <- file.path(plot_dir, paste0(nm, ".png"))
     ggsave(out, plots[[nm]]$p,
            width = plots[[nm]]$w, height = plots[[nm]]$h, dpi = 150)

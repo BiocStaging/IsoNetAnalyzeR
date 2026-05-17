@@ -23,7 +23,7 @@
 #   R/sysdata.rda is overwritten with three internal objects:
 #     .network_data   — isoform-level igraph (transcripts as vertices,
 #                       edges weighted by pi, interact flag set by pi_threshold)
-#     .network_cutoff — scalar ratio cutoff (pooled Youden's J) used by the
+#     .network_cutoff — scalar ratio cutoff (PR/F1-based q50) used by the
 #                       virtual pulldown to define significant neighbourhood overlap
 #     .pi_threshold   — the pi_threshold value used in this run
 #
@@ -163,7 +163,8 @@ update_package_network <- function(network_path,
     pi_threshold       = pi_threshold,
     kegg_genesets      = kegg_genesets,
     plot               = plot,
-    plot_dir           = plot_dir
+    plot_dir           = plot_dir,
+    run_multipathway   = TRUE
   )
 
   .network_cutoff <- result$best_cutoff
@@ -180,7 +181,7 @@ update_package_network <- function(network_path,
   )
   cat(sprintf("    .network_data   : %d vertices, %d edges (isoform level)\n",
               vcount(.network_data), ecount(.network_data)))
-  cat(sprintf("    .network_cutoff : %.4f (ROC-based q75)\n",
+  cat(sprintf("    .network_cutoff : %.4f (PR/F1-based q50)\n",
               .network_cutoff))
   cat(sprintf("    .pi_threshold   : %.3f\n", .pi_threshold))
   cat(sprintf("    Log file        : %s\n", log_file))

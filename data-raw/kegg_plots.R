@@ -42,19 +42,19 @@
   dplyr::case_when(
     # Metabolism
     stringr::str_detect(nm,
-      "metabol|biosynthes|degradation|oxidative_phosphorylation|
+                        "metabol|biosynthes|degradation|oxidative_phosphorylation|
        fatty_acid|glycol|tca|citrate|purine|pyrimidine|
        amino_acid|carbon|drug_metabol") ~ "Metabolism",
 
     # Signalling
     stringr::str_detect(nm,
-      "signaling|signal_transduction|jak|mapk|pi3k|mtor|
+                        "signaling|signal_transduction|jak|mapk|pi3k|mtor|
        wnt|notch|hedgehog|tgf|vegf|egfr|fgf|igf|
        calcium|camp|cgmp|hippo|nf.kb|toll|jak.stat") ~ "Signalling",
 
     # Immune / Infection
     stringr::str_detect(nm,
-      "immun|inflam|cytokine|chemokine|interferon|
+                        "immun|inflam|cytokine|chemokine|interferon|
        t_cell|b_cell|nk_cell|complement|autoimmun|
        infection|virus|bacteria|parasite|hiv|hepatitis|
        tuberculosis|malaria|influenza|covid|herpes|
@@ -63,41 +63,41 @@
 
     # Cancer
     stringr::str_detect(nm,
-      "cancer|carcinoma|glioma|leukemia|melanoma|
+                        "cancer|carcinoma|glioma|leukemia|melanoma|
        colorectal|pancreatic|prostate|breast|bladder|
        renal|thyroid|endometrial|small_cell_lung|
        non_small_cell|oncogene|tumor|tumour") ~ "Cancer",
 
     # Cell Cycle / DNA
     stringr::str_detect(nm,
-      "cell_cycle|dna_repair|dna_replication|
+                        "cell_cycle|dna_repair|dna_replication|
        mismatch_repair|nucleotide_excision|
        base_excision|homologous_recomb|p53|
        apoptosis|autophagy|senescence") ~ "Cell Cycle / DNA",
 
     # Nervous System
     stringr::str_detect(nm,
-      "neurodegener|alzheimer|parkinson|huntington|
+                        "neurodegener|alzheimer|parkinson|huntington|
        amyotrophic|prion|synapse|long.term|
        serotonin|dopamine|glutamate|gaba|
        neurotrophin|axon|circadian|addiction") ~ "Nervous System",
 
     # Endocrine
     stringr::str_detect(nm,
-      "diabetes|insulin|adipocyte|thyroid_hormone|
+                        "diabetes|insulin|adipocyte|thyroid_hormone|
        cortisol|estrogen|progesterone|androgen|
        oxytocin|prolactin|gnrh|adipogenesis") ~ "Endocrine",
 
     # Development / ECM
     stringr::str_detect(nm,
-      "stem_cell|pluripoten|differentia|embryo|
+                        "stem_cell|pluripoten|differentia|embryo|
        axon_guidance|focal_adhesion|ecm|
        extracellular_matrix|gap_junction|
        tight_junction|adherens") ~ "Development / ECM",
 
     # RNA / Protein Processing
     stringr::str_detect(nm,
-      "ribosom|spliceosom|proteasom|ubiquitin|
+                        "ribosom|spliceosom|proteasom|ubiquitin|
        rna_transport|mrna|protein_export|
        phagosom|lysosom|endocytosis|
        peroxisom|mitophagy") ~ "RNA / Protein Processing",
@@ -259,11 +259,113 @@
 
 
 # ==============================================================================
-# PLOT 3 — Coverage vs AUC-ROC scatter
+# PLOT 3 — Pathway size vs network coverage scatter (plain + enriched)
+# ==============================================================================
+
+.plot_size_vs_coverage <- function(psum, plot_dir, cat_palette) {
+  cat("  [3/6] Pathway size vs network coverage scatter...\n")
+
+  psum_v <- psum %>% filter(!is.na(coverage), !is.na(n_genes_kegg))
+
+  # Shared axes used by both versions
+  x_scale <- scale_x_log10(
+    breaks = c(5, 10, 25, 50, 100, 200, 500),
+    labels = scales::comma
+  )
+  y_scale <- scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, 1.02)
+  )
+
+  # ── 3a: Plain version ────────────────────────────────────────────────────────
+  p_plain <- ggplot(psum_v, aes(x = n_genes_kegg, y = coverage,
+                                colour = category)) +
+    geom_point(size = 1.8, alpha = 0.55) +
+    x_scale +
+    y_scale +
+    scale_colour_manual(values = cat_palette, name = "Category") +
+    labs(
+      title = "Pathway size vs network coverage",
+      x     = "Pathway size (number of genes, log scale)",
+      y     = "Network coverage (fraction of pathway genes in network)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          legend.position  = "right")
+
+  out_plain <- file.path(plot_dir, "03a_size_vs_coverage_plain.png")
+  ggsave(out_plain, p_plain, width = 8, height = 6, dpi = 150)
+  cat(sprintf("    Saved: %s\n", out_plain))
+
+  # ── 3b: Enriched version ─────────────────────────────────────────────────────
+  # Quadrant reference lines: minimum size = 15, minimum coverage = 50%
+  size_threshold     <- 15
+  coverage_threshold <- 0.5
+
+  n_passing <- psum_v %>%
+    filter(n_genes_kegg >= size_threshold, coverage >= coverage_threshold) %>%
+    nrow()
+  n_total <- nrow(psum_v)
+
+  p_enriched <- ggplot(psum_v,
+                       aes(x = n_genes_kegg, y = coverage,
+                           colour = category, size = auc_pr)) +
+    # Quadrant shading — top-right = ideal pathways
+    annotate("rect",
+             xmin = size_threshold, xmax = Inf,
+             ymin = coverage_threshold, ymax = Inf,
+             fill = "#E8F5E9", alpha = 0.4) +
+    # Quadrant label
+    annotate("text",
+             x = max(psum_v$n_genes_kegg) * 0.95,
+             y = coverage_threshold + 0.02,
+             label = sprintf("Candidates\nn = %d / %d (%.0f%%)",
+                             n_passing, n_total,
+                             100 * n_passing / n_total),
+             hjust = 1, vjust = 0, size = 3.2,
+             colour = "#388E3C", fontface = "italic") +
+    # Points
+    geom_point(alpha = 0.6) +
+    x_scale +
+    y_scale +
+    scale_colour_manual(values = cat_palette, name = "Category") +
+    scale_size_continuous(
+      name   = "AUC-PR",
+      range  = c(0.8, 5),
+      breaks = c(0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    ) +
+    labs(
+      title    = "Pathway size vs network coverage",
+      subtitle = "Each dot = one KEGG pathway  \u00b7  x-axis log-scaled  \u00b7  point size = AUC-PR",
+      x       = "Pathway size (number of genes, log scale)",
+      y       = "Network coverage (fraction of pathway genes in network)",
+      caption = sprintf(
+        "Green shading = candidate pathways (\u2265%d genes & \u226550%% coverage)",
+        size_threshold
+      )
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.subtitle    = element_text(colour = "grey40"),
+      plot.caption     = element_text(colour = "grey40"),
+      panel.grid.minor = element_blank(),
+      legend.position  = "right"
+    )
+
+  out_enriched <- file.path(plot_dir, "03b_size_vs_coverage_enriched.png")
+  ggsave(out_enriched, p_enriched, width = 12, height = 8, dpi = 150)
+  cat(sprintf("    Saved: %s\n", out_enriched))
+
+  invisible(list(plain = p_plain, enriched = p_enriched))
+}
+
+
+# ==============================================================================
+# PLOT 4 — Coverage vs AUC-ROC scatter
 # ==============================================================================
 
 .plot_coverage_vs_auc <- function(psum, plot_dir, cat_palette) {
-  cat("  [3/5] Coverage vs AUC scatter...\n")
+  cat("  [4/6] Coverage vs AUC scatter...\n")
 
   psum_v <- psum %>% filter(!is.na(coverage), !is.na(auc_roc))
 
@@ -310,7 +412,7 @@
           panel.grid.minor = element_blank(),
           legend.position  = "right")
 
-  out <- file.path(plot_dir, "03_coverage_vs_auc.png")
+  out <- file.path(plot_dir, "04_coverage_vs_auc.png")
   ggsave(out, p, width = 11, height = 8, dpi = 150)
   cat(sprintf("    Saved: %s\n", out))
   invisible(p)
@@ -322,7 +424,7 @@
 # ==============================================================================
 
 .plot_auc_by_category <- function(psum, plot_dir, cat_palette) {
-  cat("  [4/5] AUC by category...\n")
+  cat("  [5/6] AUC by category...\n")
 
   psum_v <- psum %>% filter(!is.na(auc_roc))
 
@@ -379,7 +481,7 @@
           panel.grid.major.y = element_blank(),
           panel.grid.minor   = element_blank())
 
-  out <- file.path(plot_dir, "04_auc_by_category.png")
+  out <- file.path(plot_dir, "05_auc_by_category.png")
   ggsave(out, p, width = 14, height = 8, dpi = 150)
   cat(sprintf("    Saved: %s\n", out))
   invisible(p)
@@ -391,7 +493,7 @@
 # ==============================================================================
 
 .plot_jaccard_heatmap <- function(psum, result, plot_dir, n_pathways = 80) {
-  cat(sprintf("  [5/5] Jaccard heatmap (top %d pathways by size)...\n",
+  cat(sprintf("  [6/6] Jaccard heatmap (top %d pathways by size)...\n",
               n_pathways))
 
   if (!requireNamespace("RColorBrewer", quietly = TRUE))
@@ -485,9 +587,9 @@
       label_map$short_name[match(ord, label_map$pathway)], ord
     )) +
     labs(title    = sprintf(
-           "Pairwise gene-set overlap between %d KEGG pathways", n_sel),
-         subtitle = "Jaccard similarity  ·  rows and columns clustered by Ward's D2",
-         x = NULL, y = NULL) +
+      "Pairwise gene-set overlap between %d KEGG pathways", n_sel),
+      subtitle = "Jaccard similarity  ·  rows and columns clustered by Ward's D2",
+      x = NULL, y = NULL) +
     theme_minimal(base_size = 9) +
     theme(plot.subtitle   = element_text(colour = "grey40"),
           axis.text.x     = element_text(angle = 45, hjust = 1, size = 6),
@@ -495,7 +597,7 @@
           panel.grid      = element_blank(),
           legend.position = "right")
 
-  out <- file.path(plot_dir, "05_gene_sharing_jaccard.png")
+  out <- file.path(plot_dir, "06_gene_sharing_jaccard.png")
   ggsave(out, p_heat, width = 14, height = 13, dpi = 150)
   cat(sprintf("    Saved: %s\n", out))
   invisible(p_heat)
@@ -508,16 +610,18 @@
 
 #' Generate KEGG pathway characterisation plots
 #'
-#' Produces five PNG files that characterise the KEGG pathway data used in
+#' Produces seven PNG files that characterise the KEGG pathway data used in
 #' the network validation, without modifying any package internals.
 #'
 #' Output files (written to \code{plot_dir}):
 #' \enumerate{
 #'   \item \code{01_pathway_size_by_category.png}
 #'   \item \code{02_network_coverage_by_category.png}
-#'   \item \code{03_coverage_vs_auc.png}
-#'   \item \code{04_auc_by_category.png}
-#'   \item \code{05_gene_sharing_jaccard.png}
+#'   \item \code{03a_size_vs_coverage_plain.png}
+#'   \item \code{03b_size_vs_coverage_enriched.png}
+#'   \item \code{04_coverage_vs_auc.png}
+#'   \item \code{05_auc_by_category.png}
+#'   \item \code{06_gene_sharing_jaccard.png}
 #' }
 #'
 #' @param result    List returned by \code{compute_network_cutoff()}.
@@ -526,7 +630,7 @@
 #' @param n_jaccard Integer. Pathways included in the Jaccard heatmap. Default
 #'   \code{80}.
 #'
-#' @return Invisibly returns a named list of the five ggplot objects.
+#' @return Invisibly returns a named list of the six ggplot objects.
 plot_kegg_characterisation <- function(
     result,
     plot_dir  = "data-raw/plots/kegg_characterisation",
@@ -556,21 +660,24 @@ plot_kegg_characterisation <- function(
 
   p1 <- .plot_pathway_sizes(psum, plot_dir, cat_palette)
   p2 <- .plot_network_coverage(psum, plot_dir, cat_palette)
-  p3 <- .plot_coverage_vs_auc(psum, plot_dir, cat_palette)
-  p4 <- .plot_auc_by_category(psum, plot_dir, cat_palette)
-  p5 <- .plot_jaccard_heatmap(psum, result, plot_dir,
-                               n_pathways = n_jaccard)
+  p3 <- .plot_size_vs_coverage(psum, plot_dir, cat_palette)
+  p4 <- .plot_coverage_vs_auc(psum, plot_dir, cat_palette)
+  p5 <- .plot_auc_by_category(psum, plot_dir, cat_palette)
+  p6 <- .plot_jaccard_heatmap(psum, result, plot_dir,
+                              n_pathways = n_jaccard)
 
   cat("\n================================================================\n")
   cat(sprintf("  Done. All plots saved to: %s\n", plot_dir))
   cat("================================================================\n\n")
 
   invisible(list(
-    pathway_sizes    = p1,
-    network_coverage = p2,
-    coverage_vs_auc  = p3,
-    auc_by_category  = p4,
-    jaccard_heatmap  = p5
+    pathway_sizes            = p1,
+    network_coverage         = p2,
+    size_vs_coverage_plain   = p3$plain,
+    size_vs_coverage_enriched = p3$enriched,
+    coverage_vs_auc          = p4,
+    auc_by_category          = p5,
+    jaccard_heatmap          = p6
   ))
 }
 
@@ -665,10 +772,10 @@ plot_gene_pathway_membership <- function(
              label = sprintf("mean = %.1f", mean_memb),
              hjust = 0, vjust = 3.2, size = 3, colour = "grey25") +
     { if (n_tail > 0)
-        annotate("text", x = x_cap, y = max(hist_data$n_genes) * 0.6,
-                 label = sprintf("+ %d genes\nwith >%d pathways\n(not shown)",
-                                 n_tail, x_cap),
-                 hjust = 1, size = 2.8, colour = "grey40", fontface = "italic")
+      annotate("text", x = x_cap, y = max(hist_data$n_genes) * 0.6,
+               label = sprintf("+ %d genes\nwith >%d pathways\n(not shown)",
+                               n_tail, x_cap),
+               hjust = 1, size = 2.8, colour = "grey40", fontface = "italic")
     } +
     scale_fill_manual(values = hub_colours, name = "Membership\nclass") +
     scale_x_continuous(breaks = c(1, 5, 10, 15, 20, 25, 30),

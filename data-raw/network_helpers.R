@@ -500,8 +500,11 @@
     .validate_cutoff(cutoff_roc_summary$q75, all_scores_ref) %>%
       mutate(method = "ROC",   quantile = "q75"),
     .validate_cutoff(cutoff_f1_summary$q75,  all_scores_ref) %>%
-      mutate(method = "PR/F1", quantile = "q75")
+      mutate(method = "PR/F1", quantile = "q75"),
+    .validate_cutoff(cutoff_f1_summary$q50,  all_scores_ref) %>%
+      mutate(method = "PR/F1", quantile = "q50")
   ) %>%
+    mutate(strategy = strategy, .before = 1) %>%
     mutate(strategy = strategy, .before = 1)
 
   list(

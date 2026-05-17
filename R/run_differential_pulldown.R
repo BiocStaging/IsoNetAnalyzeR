@@ -83,7 +83,7 @@ NULL
 #'   \code{obj@@analyses}.
 #' @param input    One of:
 #'   \itemize{
-#'     \item A character scalar — path to a CSV or Excel file.
+#'     \item A character scalar - path to a CSV or Excel file.
 #'     \item A data frame already loaded into R.
 #'   }
 #' @param order    Integer scalar. Number of BFS hops for the virtual pulldown.
@@ -211,18 +211,13 @@ run_differential_pulldown <- function(obj,
   gene_ids <- unique(tbl$gene_id)
 
   # -- Network coverage report -------------------------------------------------
-  # Coverage is computed against the interaction-filtered subgraph
-  # (interact == 1) rather than the full network, because virtual_pulldown()
-  # filters to that subgraph as its very first step. An isoform that exists
-  # as a vertex in the full network but has no predicted interaction edges
-  # would trigger a warning during the pulldown; reporting it as 'found'
-  # against the full network would be misleading.
-  interact_vec     <- igraph::edge_attr(obj@network, "interact")
-  pred_edges       <- which(!is.na(interact_vec) & interact_vec == 1L)
-  g_interact       <- igraph::subgraph_from_edges(
-    obj@network, pred_edges, delete.vertices = TRUE
-  )
-  network_vertices <- igraph::V(g_interact)$name
+  # Coverage is computed against the full network vertex set.  Since
+  # virtual_pulldown() now retains isolated vertices (isoforms with no
+  # interact==1 edges) rather than deleting them, an isoform is "found" if it
+  # exists anywhere in obj@network - even if it has no predicted interactions.
+  # That case will produce a single-node subgraph (zero interactions), which
+  # is a valid and interpretable result.
+  network_vertices <- igraph::V(obj@network)$name
   .report_network_coverage(tbl, network_vertices, gene_ids, confirm)
 
   if (verbose)
@@ -237,7 +232,7 @@ run_differential_pulldown <- function(obj,
 
   # -- Per-gene pulldown -------------------------------------------------------
   # Both branches call .process_one_gene(); only the dispatcher differs.
-  # future_lapply() behaves identically to lapply() — the active future plan
+  # future_lapply() behaves identically to lapply() - the active future plan
   # decides whether work actually runs in parallel.
   #
   # Progress is reported via progressr::progressor(), which works transparently
@@ -274,7 +269,7 @@ run_differential_pulldown <- function(obj,
 
     if (is.list(res) && identical(names(res), "error")) {
       warning(sprintf(
-        "Gene '%s': processing failed — %s", gid, res$error
+        "Gene '%s': processing failed - %s", gid, res$error
       ), call. = FALSE)
     } else {
       gene_results[[gid]] <- res
@@ -363,7 +358,7 @@ run_differential_pulldown <- function(obj,
 #' from the input table are represented in the \emph{interaction-filtered}
 #' subgraph (edges with \code{interact == 1}), which is the graph actually used
 #' by \code{virtual_pulldown()}.  Prints a formatted summary via \pkg{cli} and
-#' — when \code{confirm = TRUE} in an interactive session — asks the user
+#' - when \code{confirm = TRUE} in an interactive session - asks the user
 #' whether to proceed.
 #'
 #' @param tbl              Validated long-format input data frame.
@@ -434,7 +429,13 @@ run_differential_pulldown <- function(obj,
     "  At least 1 isoform in network : {n_genes_covered} / {n_genes_total} ({round(pct_genes, 1)}%)"
   )
   cli::cli_text(
-    "  No isoforms in network        : {n_genes_total - n_genes_covered} gene(s) — these will have no subgraph"
+    "  No isoforms in network        : {n_genes_total - n_genes_covered} gene(s) - these will produce no subgraph"
+  )
+  cli::cli_text(
+    "  Note: isoforms found in network with no interact==1 edges will produce a"
+  )
+  cli::cli_text(
+    "        zero-interaction subgraph (single node), which is a valid result."
   )
   cli::cli_text("")
   cli::cli_rule()

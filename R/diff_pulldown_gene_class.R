@@ -94,23 +94,27 @@ setValidity("GeneDiffPulldown", function(object) {
 #' Internal constructor called by \code{\link{run_differential_pulldown}}.
 #' Assembles all slots from pre-computed components.
 #'
-#' @param gene_id       Character scalar.
-#' @param up_isoforms   Character vector of input up-regulated isoform IDs.
-#' @param down_isoforms Character vector of input down-regulated isoform IDs.
-#' @param up_graph      igraph or NULL.
-#' @param down_graph    igraph or NULL.
-#' @param up_stats      Data frame from \code{analyze_subgraph}, or zero-row.
-#' @param down_stats    Data frame from \code{analyze_subgraph}, or zero-row.
+#' @param gene_id          Character scalar.
+#' @param up_isoforms      Character vector of input up-regulated isoform IDs.
+#' @param down_isoforms    Character vector of input down-regulated isoform IDs.
+#' @param up_graph         igraph or NULL.
+#' @param down_graph       igraph or NULL.
+#' @param up_stats         Data frame from \code{analyze_subgraph}, or zero-row.
+#' @param down_stats       Data frame from \code{analyze_subgraph}, or zero-row.
+#' @param network_vertices Character vector of all vertex names in the session
+#'   network.  Forwarded to \code{.gene_overview()} to compute coverage counts.
 #'
 #' @return A \linkS4class{GeneDiffPulldown} object.
 #' @noRd
 .new_gene_diff_pulldown <- function(gene_id, up_isoforms, down_isoforms,
                                     up_graph, down_graph,
-                                    up_stats, down_stats) {
+                                    up_stats, down_stats,
+                                    network_vertices = character(0)) {
 
   graph_summary <- .summarise_direction_pair(up_graph, down_graph)
   gene_summary  <- .gene_overview(up_isoforms, down_isoforms,
-                                  up_graph, down_graph)
+                                  up_graph, down_graph,
+                                  network_vertices = network_vertices)
 
   obj <- new(
     "GeneDiffPulldown",
@@ -181,16 +185,22 @@ setValidity("GeneDiffPulldown", function(object) {
 
 #' Build the gene_summary list for one gene
 #'
-#' @param up_isoforms   Character vector from input table.
-#' @param down_isoforms Character vector from input table.
-#' @param up_graph      igraph or NULL.
-#' @param down_graph    igraph or NULL.
+#' @param up_isoforms     Character vector from input table.
+#' @param down_isoforms   Character vector from input table.
+#' @param up_graph        igraph or NULL.
+#' @param down_graph      igraph or NULL.
+#' @param network_vertices Character vector of all vertex names in the session
+#'   network.  Used to count how many input isoforms are actually present in
+#'   the network before BFS expansion.
 #' @return Named list.
 #' @noRd
-.gene_overview <- function(up_isoforms, down_isoforms, up_graph, down_graph) {
+.gene_overview <- function(up_isoforms, down_isoforms, up_graph, down_graph,
+                           network_vertices = character(0)) {
   list(
     n_up_input      = length(up_isoforms),
     n_down_input    = length(down_isoforms),
+    n_up_found      = sum(up_isoforms   %in% network_vertices),
+    n_down_found    = sum(down_isoforms %in% network_vertices),
     n_up_network    = if (!is.null(up_graph))   igraph::vcount(up_graph)   else 0L,
     n_down_network  = if (!is.null(down_graph)) igraph::vcount(down_graph) else 0L,
     has_up          = !is.null(up_graph),

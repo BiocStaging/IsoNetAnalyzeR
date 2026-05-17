@@ -220,28 +220,24 @@ setMethod("print_network_summary", "IsoNetAnalyzeR", function(obj, ...) {
 setMethod("print_network_summary", "igraph", function(obj, ...) {
   s <- network_summary(obj)
 
-  cat("Isoform Interaction Network Summary\n")
-  cat("====================================\n\n")
+  cli::cli_rule("Isoform Interaction Network Summary")
 
-  cat("Full Network:\n")
-  cat(sprintf(
-    "  Isoforms / genes : %d / %d\n",
-    s$full_network$isoforms, s$full_network$genes
-  ))
-  cat(sprintf("  Total edges      : %d\n", s$full_network$total_edges))
-  cat(sprintf("  Predicted edges  : %d\n\n", s$full_network$predicted_edges))
+  cli::cli_text("{.strong Full Network}")
+  cli::cli_text("  Isoforms / genes : {s$full_network$isoforms} / {s$full_network$genes}")
+  cli::cli_text("  Total edges      : {s$full_network$total_edges}")
+  cli::cli_text("  Predicted edges  : {s$full_network$predicted_edges}")
+  cli::cli_text("")
 
-  cat("Predicted Isoform-Level Interaction Network:\n")
-  cat(sprintf(
-    "  Isoforms / genes : %d / %d\n",
-    s$predicted_isoform_network$isoforms, s$predicted_isoform_network$genes
-  ))
-  cat(sprintf("  Predicted edges  : %d\n\n", s$predicted_isoform_network$edges))
+  cli::cli_text("{.strong Predicted Isoform-Level Interaction Network}")
+  cli::cli_text("  Isoforms / genes : {s$predicted_isoform_network$isoforms} / {s$predicted_isoform_network$genes}")
+  cli::cli_text("  Predicted edges  : {s$predicted_isoform_network$edges}")
+  cli::cli_text("")
 
-  cat("Predicted Gene-Level Interaction Network:\n")
-  cat(sprintf("  Unique genes     : %d\n", s$gene_level_predicted_network$genes))
-  cat(sprintf("  Predicted edges  : %d\n", s$gene_level_predicted_network$edges))
+  cli::cli_text("{.strong Predicted Gene-Level Interaction Network}")
+  cli::cli_text("  Unique genes     : {s$gene_level_predicted_network$genes}")
+  cli::cli_text("  Predicted edges  : {s$gene_level_predicted_network$edges}")
 
+  cli::cli_rule()
   invisible(s)
 })
 

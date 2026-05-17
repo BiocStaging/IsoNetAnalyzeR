@@ -2,8 +2,7 @@
 ## S4 class definition for the main IsoNetAnalyzeR session object.
 ##
 ## Exported: IsoNetAnalyzeR (constructor), show method,
-##           get_session_name, set_session_name,
-##           list_metadata, get_metadata, set_metadata
+##           get_network_diagnostics
 
 setOldClass("igraph")
 #' @importFrom methods is new setClass setGeneric setMethod setValidity validObject
@@ -33,17 +32,21 @@ NULL
 #'   objects (and potentially other analysis classes added in the future).
 #' @slot lookups     Named list of \linkS4class{VirtualPulldownLookup} objects
 #'   (and potentially other look-up classes added in the future).
+#' @slot network_diagnostics Either \code{NULL} (before diagnostics have been
+#'   run) or a \linkS4class{NetworkDiagnostics} object produced by
+#'   \code{\link{run_network_diagnostics}}.
 #'
 #' @exportClass IsoNetAnalyzeR
 setClass(
   "IsoNetAnalyzeR",
   representation(
-    name       = "character",
-    network    = "ANY",        # igraph; ANY avoids a hard igraph S4 import
-    created_at = "POSIXct",
-    metadata   = "list",
-    analyses   = "list",
-    lookups    = "list"
+    name                = "character",
+    network             = "ANY",        # igraph; ANY avoids a hard igraph S4 import
+    created_at          = "POSIXct",
+    metadata            = "list",
+    analyses            = "list",
+    lookups             = "list",
+    network_diagnostics = "ANY"         # NULL or NetworkDiagnostics
   )
 )
 
@@ -90,6 +93,12 @@ setValidity("IsoNetAnalyzeR", function(object) {
       "@lookups contains unsupported object(s): ",
       paste(names(object@lookups)[bad_lookups], collapse = ", ")
     ))
+
+  # @network_diagnostics must be NULL or a NetworkDiagnostics object
+  if (!is.null(object@network_diagnostics) &&
+      !is(object@network_diagnostics, "NetworkDiagnostics"))
+    msgs <- c(msgs,
+              "@network_diagnostics must be NULL or a NetworkDiagnostics object.")
 
   if (length(msgs)) msgs else TRUE
 })
@@ -177,9 +186,10 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
     name       = as.character(name),
     network    = network,
     created_at = Sys.time(),
-    metadata   = merged_meta,
-    analyses   = list(),
-    lookups    = list()
+    metadata            = merged_meta,
+    analyses            = list(),
+    lookups             = list(),
+    network_diagnostics = NULL
   )
 
   validObject(obj)
@@ -201,6 +211,9 @@ setMethod("show", "IsoNetAnalyzeR", function(object) {
   cli::cli_text("Network    : {igraph::vcount(object@network)} vertices / {igraph::ecount(object@network)} edges  [source: {object@metadata[['network_source']] %||% 'unknown'}]")
   cli::cli_text("Analyses   : {length(object@analyses)} stored  [{(.slot_names_str(object@analyses))}]")
   cli::cli_text("Lookups    : {length(object@lookups)} stored  [{(.slot_names_str(object@lookups))}]")
+  diag_status <- if (is.null(object@network_diagnostics)) "not run" else
+    format(object@network_diagnostics@created_at, '%Y-%m-%d %H:%M:%S')
+  cli::cli_text("Diagnostics: {diag_status}")
 
   if (length(object@metadata) > 0L) {
     extra <- setdiff(names(object@metadata), "network_source")
@@ -310,152 +323,35 @@ setMethod("get_lookup", "IsoNetAnalyzeR", function(obj, label) {
 
 
 # ==============================================================================
-#  Session name accessors
+#  get_network_diagnostics
 # ==============================================================================
 
-#' Get the session name of an IsoNetAnalyzeR object
+#' Retrieve the network diagnostics result from an IsoNetAnalyzeR object
+#'
+#' Returns the \linkS4class{NetworkDiagnostics} object stored in the session,
+#' or stops with an informative message if \code{\link{run_network_diagnostics}}
+#' has not been called yet.
 #'
 #' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
-#' @return Character scalar. The session name stored in \code{@@name}.
+#'
+#' @return A \linkS4class{NetworkDiagnostics} object.
 #'
 #' @examples
 #' \dontrun{
-#' get_session_name(obj)
+#' obj <- run_network_diagnostics(obj)
+#' get_network_diagnostics(obj)
 #' }
 #'
 #' @export
-setGeneric("get_session_name", function(obj) standardGeneric("get_session_name"))
+setGeneric("get_network_diagnostics",
+           function(obj) standardGeneric("get_network_diagnostics"))
 
-#' @describeIn get_session_name Method for \linkS4class{IsoNetAnalyzeR}.
-setMethod("get_session_name", "IsoNetAnalyzeR", function(obj) {
-  obj@name
-})
-
-
-#' Set the session name of an IsoNetAnalyzeR object
-#'
-#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
-#' @param value Character scalar. The new session name.
-#'
-#' @return The updated \linkS4class{IsoNetAnalyzeR} object, invisibly.
-#'
-#' @examples
-#' \dontrun{
-#' obj <- set_session_name(obj, "final_experiment")
-#' get_session_name(obj)
-#' }
-#'
-#' @export
-setGeneric("set_session_name",
-           function(obj, value) standardGeneric("set_session_name"))
-
-#' @describeIn set_session_name Method for \linkS4class{IsoNetAnalyzeR}.
-setMethod("set_session_name", "IsoNetAnalyzeR", function(obj, value) {
-  if (!is.character(value) || length(value) != 1L || nchar(trimws(value)) == 0L)
-    stop("`value` must be a single non-empty character string.", call. = FALSE)
-  obj@name <- value
-  invisible(obj)
-})
-
-
-# ==============================================================================
-#  Metadata accessors
-# ==============================================================================
-
-# Fields managed automatically by the constructor and other package functions.
-# Users must not overwrite these directly; dedicated functions exist for that.
-.protected_metadata_keys <- c("network_source", "pi_threshold", "network_cutoff")
-
-
-#' List the keys present in the metadata of an IsoNetAnalyzeR object
-#'
-#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
-#' @return Character vector of metadata key names, or \code{character(0)} if
-#'   none are set.
-#'
-#' @examples
-#' \dontrun{
-#' list_metadata(obj)
-#' }
-#'
-#' @export
-setGeneric("list_metadata", function(obj) standardGeneric("list_metadata"))
-
-#' @describeIn list_metadata Method for \linkS4class{IsoNetAnalyzeR}.
-setMethod("list_metadata", "IsoNetAnalyzeR", function(obj) {
-  names(obj@metadata)
-})
-
-
-#' Get a single metadata field from an IsoNetAnalyzeR object
-#'
-#' Retrieves one named entry from the \code{@@metadata} slot.
-#'
-#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
-#' @param key Character scalar. Name of the metadata field to retrieve.
-#'
-#' @return The value stored under \code{key}.
-#'
-#' @examples
-#' \dontrun{
-#' get_metadata(obj, "pi_threshold")
-#' get_metadata(obj, "author")
-#' }
-#'
-#' @export
-setGeneric("get_metadata", function(obj, key) standardGeneric("get_metadata"))
-
-#' @describeIn get_metadata Method for \linkS4class{IsoNetAnalyzeR}.
-setMethod("get_metadata", "IsoNetAnalyzeR", function(obj, key) {
-  if (!is.character(key) || length(key) != 1L || nchar(trimws(key)) == 0L)
-    stop("`key` must be a single non-empty character string.", call. = FALSE)
-
-  if (!key %in% names(obj@metadata))
-    stop(sprintf(
-      "No metadata field '%s'. Available: %s",
-      key, .slot_names_str(obj@metadata)
-    ), call. = FALSE)
-
-  obj@metadata[[key]]
-})
-
-
-#' Set a metadata field on an IsoNetAnalyzeR object
-#'
-#' Adds or updates a single named entry in the \code{@@metadata} slot.
-#' The fields \code{network_source}, \code{pi_threshold}, and
-#' \code{network_cutoff} are managed internally by the package and cannot be
-#' set with this function; attempting to do so raises an error.
-#'
-#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
-#' @param key   Character scalar. Name of the metadata field to set.
-#' @param value The value to store.  Can be any R object, though scalar
-#'   values (character, numeric, logical) are recommended for readability.
-#'
-#' @return The updated \linkS4class{IsoNetAnalyzeR} object, invisibly.
-#'
-#' @examples
-#' \dontrun{
-#' obj <- set_metadata(obj, "author", "Jane Doe")
-#' obj <- set_metadata(obj, "notes", "Pilot run, March 2025")
-#' print_metadata(obj)
-#' }
-#'
-#' @export
-setGeneric("set_metadata",
-           function(obj, key, value) standardGeneric("set_metadata"))
-
-#' @describeIn set_metadata Method for \linkS4class{IsoNetAnalyzeR}.
-setMethod("set_metadata", "IsoNetAnalyzeR", function(obj, key, value) {
-  if (!is.character(key) || length(key) != 1L || nchar(trimws(key)) == 0L)
-    stop("`key` must be a single non-empty character string.", call. = FALSE)
-
-  if (key %in% .protected_metadata_keys)
-    stop(sprintf(
-      "'%s' is a protected metadata field managed internally by the package and cannot be set via set_metadata(). Use the appropriate package function to modify it.",
-      key
-    ), call. = FALSE)
-
-  obj@metadata[[key]] <- value
-  invisible(obj)
+#' @describeIn get_network_diagnostics Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("get_network_diagnostics", "IsoNetAnalyzeR", function(obj) {
+  if (is.null(obj@network_diagnostics))
+    stop(
+      "No network diagnostics found. Run `run_network_diagnostics(obj)` first.",
+      call. = FALSE
+    )
+  obj@network_diagnostics
 })

@@ -28,8 +28,8 @@ NULL
 #' print_metadata(obj)
 #'
 #' # Add custom metadata and inspect
-#' obj@@metadata$author <- "Jane Doe"
-#' obj@@metadata$notes  <- "Pilot run, March 2025"
+#' obj <- set_metadata(obj, "author", "Jane Doe")
+#' obj <- set_metadata(obj, "notes",  "Pilot run, March 2025")
 #' print_metadata(obj)
 #' }
 #'

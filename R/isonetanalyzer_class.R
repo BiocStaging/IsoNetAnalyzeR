@@ -1,7 +1,9 @@
 ## IsoNetAnalyzeR-class.R
 ## S4 class definition for the main IsoNetAnalyzeR session object.
 ##
-## Exported: IsoNetAnalyzeR (constructor), show method
+## Exported: IsoNetAnalyzeR (constructor), show method,
+##           get_session_name, set_session_name,
+##           list_metadata, get_metadata, set_metadata
 
 setOldClass("igraph")
 #' @importFrom methods is new setClass setGeneric setMethod setValidity validObject
@@ -304,4 +306,156 @@ setMethod("get_lookup", "IsoNetAnalyzeR", function(obj, label) {
       label, .slot_names_str(obj@lookups)
     ), call. = FALSE)
   obj@lookups[[label]]
+})
+
+
+# ==============================================================================
+#  Session name accessors
+# ==============================================================================
+
+#' Get the session name of an IsoNetAnalyzeR object
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @return Character scalar. The session name stored in \code{@@name}.
+#'
+#' @examples
+#' \dontrun{
+#' get_session_name(obj)
+#' }
+#'
+#' @export
+setGeneric("get_session_name", function(obj) standardGeneric("get_session_name"))
+
+#' @describeIn get_session_name Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("get_session_name", "IsoNetAnalyzeR", function(obj) {
+  obj@name
+})
+
+
+#' Set the session name of an IsoNetAnalyzeR object
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param value Character scalar. The new session name.
+#'
+#' @return The updated \linkS4class{IsoNetAnalyzeR} object, invisibly.
+#'
+#' @examples
+#' \dontrun{
+#' obj <- set_session_name(obj, "final_experiment")
+#' get_session_name(obj)
+#' }
+#'
+#' @export
+setGeneric("set_session_name",
+           function(obj, value) standardGeneric("set_session_name"))
+
+#' @describeIn set_session_name Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("set_session_name", "IsoNetAnalyzeR", function(obj, value) {
+  if (!is.character(value) || length(value) != 1L || nchar(trimws(value)) == 0L)
+    stop("`value` must be a single non-empty character string.", call. = FALSE)
+  obj@name <- value
+  invisible(obj)
+})
+
+
+# ==============================================================================
+#  Metadata accessors
+# ==============================================================================
+
+# Fields managed automatically by the constructor and other package functions.
+# Users must not overwrite these directly; dedicated functions exist for that.
+.protected_metadata_keys <- c("network_source", "pi_threshold", "network_cutoff")
+
+
+#' List the keys present in the metadata of an IsoNetAnalyzeR object
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @return Character vector of metadata key names, or \code{character(0)} if
+#'   none are set.
+#'
+#' @examples
+#' \dontrun{
+#' list_metadata(obj)
+#' }
+#'
+#' @export
+setGeneric("list_metadata", function(obj) standardGeneric("list_metadata"))
+
+#' @describeIn list_metadata Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("list_metadata", "IsoNetAnalyzeR", function(obj) {
+  names(obj@metadata)
+})
+
+
+#' Get a single metadata field from an IsoNetAnalyzeR object
+#'
+#' Retrieves one named entry from the \code{@@metadata} slot.
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param key Character scalar. Name of the metadata field to retrieve.
+#'
+#' @return The value stored under \code{key}.
+#'
+#' @examples
+#' \dontrun{
+#' get_metadata(obj, "pi_threshold")
+#' get_metadata(obj, "author")
+#' }
+#'
+#' @export
+setGeneric("get_metadata", function(obj, key) standardGeneric("get_metadata"))
+
+#' @describeIn get_metadata Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("get_metadata", "IsoNetAnalyzeR", function(obj, key) {
+  if (!is.character(key) || length(key) != 1L || nchar(trimws(key)) == 0L)
+    stop("`key` must be a single non-empty character string.", call. = FALSE)
+
+  if (!key %in% names(obj@metadata))
+    stop(sprintf(
+      "No metadata field '%s'. Available: %s",
+      key, .slot_names_str(obj@metadata)
+    ), call. = FALSE)
+
+  obj@metadata[[key]]
+})
+
+
+#' Set a metadata field on an IsoNetAnalyzeR object
+#'
+#' Adds or updates a single named entry in the \code{@@metadata} slot.
+#' The fields \code{network_source}, \code{pi_threshold}, and
+#' \code{network_cutoff} are managed internally by the package and cannot be
+#' set with this function; attempting to do so raises an error.
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param key   Character scalar. Name of the metadata field to set.
+#' @param value The value to store.  Can be any R object, though scalar
+#'   values (character, numeric, logical) are recommended for readability.
+#'
+#' @return The updated \linkS4class{IsoNetAnalyzeR} object, invisibly.
+#'
+#' @examples
+#' \dontrun{
+#' obj <- set_metadata(obj, "author", "Jane Doe")
+#' obj <- set_metadata(obj, "notes", "Pilot run, March 2025")
+#' print_metadata(obj)
+#' }
+#'
+#' @export
+setGeneric("set_metadata",
+           function(obj, key, value) standardGeneric("set_metadata"))
+
+#' @describeIn set_metadata Method for \linkS4class{IsoNetAnalyzeR}.
+setMethod("set_metadata", "IsoNetAnalyzeR", function(obj, key, value) {
+  if (!is.character(key) || length(key) != 1L || nchar(trimws(key)) == 0L)
+    stop("`key` must be a single non-empty character string.", call. = FALSE)
+
+  if (key %in% .protected_metadata_keys)
+    stop(sprintf(
+      "'%s' is a protected metadata field managed internally by the package and cannot be set via set_metadata(). Use the appropriate package function to modify it.",
+      key
+    ), call. = FALSE)
+
+  obj@metadata[[key]] <- value
+  invisible(obj)
 })

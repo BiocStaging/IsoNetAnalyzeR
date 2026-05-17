@@ -830,30 +830,6 @@ plot_cross_gene_boxplot_overview <- function(obj,
   invisible(combined)
 }
 
-#' Resolve and validate a ComponentAnalysis from an IsoNetAnalyzeR object
-#' @noRd
-.resolve_component_analysis <- function(obj, analysis, component_analysis) {
-  if (!analysis %in% names(obj@analyses))
-    stop(sprintf(
-      "No analysis labelled '%s'. Available: %s",
-      analysis, paste(names(obj@analyses), collapse = ", ")
-    ), call. = FALSE)
-
-  diff_result <- obj@analyses[[analysis]]
-  if (!is(diff_result, "DifferentialPulldownAnalysis"))
-    stop(sprintf("Analysis '%s' is not a DifferentialPulldownAnalysis.", analysis),
-         call. = FALSE)
-
-  if (!component_analysis %in% names(diff_result@component_analyses))
-    stop(sprintf(
-      "No component analysis '%s' in analysis '%s'. Available: %s",
-      component_analysis, analysis,
-      paste(names(diff_result@component_analyses), collapse = ", ")
-    ), call. = FALSE)
-
-  diff_result@component_analyses[[component_analysis]]
-}
-
 
 # ==============================================================================
 #  Internal: qualitative colour palette

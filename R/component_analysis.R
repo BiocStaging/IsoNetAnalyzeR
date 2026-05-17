@@ -21,8 +21,8 @@
 ##           get_component
 
 #' @include isonetanalyzer_class.R
-NULL
 #' @include diff_pulldown_analysis_class.R
+#' @include graph_utils.R
 NULL
 
 

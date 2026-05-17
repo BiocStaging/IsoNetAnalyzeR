@@ -40,6 +40,7 @@ Collate:
     'isonetanalyzer_class.R'
     'diff_pulldown_gene_class.R'
     'diff_pulldown_analysis_class.R'
+    'graph_utils.R'
     'component_analysis.R'
     'run_component_ora.R'
     'run_fgsea.R'

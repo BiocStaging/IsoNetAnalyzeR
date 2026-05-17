@@ -355,3 +355,45 @@ setMethod("get_network_diagnostics", "IsoNetAnalyzeR", function(obj) {
     )
   obj@network_diagnostics
 })
+
+
+# ==============================================================================
+#  set_metadata
+# ==============================================================================
+
+#' Set a metadata field on an IsoNetAnalyzeR session object
+#'
+#' Adds or updates a single named entry in the \code{@@metadata} slot of an
+#' \linkS4class{IsoNetAnalyzeR} session object.  If the key already exists its
+#' value is silently overwritten; if it does not exist it is created.
+#'
+#' The following keys are set automatically by the constructor and should
+#' not normally be overwritten:
+#' \code{network_source}, \code{pi_threshold}, \code{network_cutoff}.
+#'
+#' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param key   Character scalar. The metadata field name.
+#' @param value Any R object to store under \code{key}.
+#'
+#' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly).
+#'
+#' @examples
+#' \dontrun{
+#' obj <- IsoNetAnalyzeR("my_experiment")
+#' obj <- set_metadata(obj, "author", "Jane Doe")
+#' obj <- set_metadata(obj, "notes",  "Pilot run, March 2025")
+#' print_metadata(obj)
+#' }
+#'
+#' @export
+set_metadata <- function(obj, key, value) {
+
+  if (!is(obj, "IsoNetAnalyzeR"))
+    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
+
+  if (!is.character(key) || length(key) != 1L || nchar(trimws(key)) == 0L)
+    stop("`key` must be a single non-empty character string.", call. = FALSE)
+
+  obj@metadata[[key]] <- value
+  invisible(obj)
+}

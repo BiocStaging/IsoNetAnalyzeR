@@ -607,6 +607,8 @@ run_differential_pulldown <- function(obj,
       degree             = integer(0),
       clustering         = numeric(0),
       distance_from_seed = numeric(0),
+      mean_pi            = numeric(0),
+      pi_entropy         = numeric(0),
       stringsAsFactors   = FALSE
     ))
   analyze_subgraph(g)

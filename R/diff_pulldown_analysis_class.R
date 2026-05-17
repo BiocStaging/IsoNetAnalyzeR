@@ -362,6 +362,14 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #' @return A \linkS4class{DifferentialPulldownAnalysis} object.
 #' @noRd
 .resolve_diff_analysis <- function(obj, analysis) {
+
+  if (!is(obj, "IsoNetAnalyzeR"))
+    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
+
+  if (!is.character(analysis) || length(analysis) != 1L ||
+      nchar(trimws(analysis)) == 0L)
+    stop("`analysis` must be a single non-empty character string.", call. = FALSE)
+
   if (!analysis %in% names(obj@analyses))
     stop(sprintf(
       "No analysis labelled '%s'. Available: %s",
@@ -373,6 +381,12 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
   if (!is(result, "DifferentialPulldownAnalysis"))
     stop(sprintf(
       "Analysis '%s' is not a DifferentialPulldownAnalysis object.", analysis
+    ), call. = FALSE)
+
+  if (nrow(result@cross_gene_summary) == 0L)
+    warning(sprintf(
+      "Analysis '%s' has an empty cross-gene summary. ",
+      "The pulldown may have produced no results.", analysis
     ), call. = FALSE)
 
   result

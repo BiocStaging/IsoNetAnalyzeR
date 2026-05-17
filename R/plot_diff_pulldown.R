@@ -74,29 +74,6 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #  Exported: plot_cross_gene_scatter, plot_cross_gene_boxplot
 # ==============================================================================
 
-#' Internal: resolve DifferentialPulldownAnalysis from an IsoNetAnalyzeR object
-#' @noRd
-.resolve_diff_analysis <- function(obj, analysis) {
-  if (!is(obj, "IsoNetAnalyzeR"))
-    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
-  if (!is.character(analysis) || length(analysis) != 1L ||
-      nchar(trimws(analysis)) == 0L)
-    stop("`analysis` must be a single non-empty character string.", call. = FALSE)
-  if (!analysis %in% names(obj@analyses))
-    stop(sprintf(
-      "No analysis labelled '%s'. Available: %s",
-      analysis, paste(names(obj@analyses), collapse = ", ")
-    ), call. = FALSE)
-  result <- obj@analyses[[analysis]]
-  if (!is(result, "DifferentialPulldownAnalysis"))
-    stop(sprintf("'%s' is not a DifferentialPulldownAnalysis.", analysis),
-         call. = FALSE)
-  if (nrow(result@cross_gene_summary) == 0L)
-    stop("cross_gene_summary is empty - no genes to plot.", call. = FALSE)
-  result
-}
-
-
 #' Internal: select genes to label from a data frame
 #'
 #' Collects candidates from each requested strategy, then trims to the top

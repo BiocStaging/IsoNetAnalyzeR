@@ -102,9 +102,10 @@ setGeneric(
 # ==============================================================================
 #  Method - IsoNetAnalyzeR
 # ==============================================================================
-
 #' @describeIn plot_network Plot the full network of an
 #'   \linkS4class{IsoNetAnalyzeR} session object.
+#' @param force Logical. If \code{TRUE}, bypass the size guard and attempt to
+#'   plot the full network regardless of its size. Default \code{FALSE}.
 setMethod(
   "plot_network",
   "IsoNetAnalyzeR",
@@ -117,7 +118,29 @@ setMethod(
            label_size    = 2.5,
            edge_alpha    = 0.4,
            title         = NULL,
+           force         = FALSE,
            ...) {
+
+    # -- Size guard -------------------------------------------------------------
+    n_vertices <- igraph::vcount(object@network)
+    n_edges    <- igraph::ecount(object@network)
+
+    if (!force && (n_vertices > 500L || n_edges > 2000L))
+      stop(sprintf(
+        paste0(
+          "The full session network has %d vertices and %d edges, ",
+          "which is too large to plot meaningfully.\n",
+          "Consider using:\n",
+          "  plot_network(get_analysis(obj, label))              ",
+          "# cross-gene subnetwork\n",
+          "  plot_network(get_gene_result(obj, label, gene_id))  ",
+          "# single gene\n",
+          "  plot_network(get_lookup(obj, label))                ",
+          "# single lookup\n",
+          "To plot the full network anyway: plot_network(obj, force = TRUE)"
+        ),
+        n_vertices, n_edges
+      ), call. = FALSE)
 
     level <- match.arg(level, c("isoform", "gene"))
     .check_plot_args(all_edges, group_by_gene, level)

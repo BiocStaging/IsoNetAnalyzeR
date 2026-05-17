@@ -31,6 +31,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  force = FALSE,
   ...
 )
 
@@ -107,6 +108,9 @@ Colours nodes by their parent gene when \code{TRUE}.  Default
 
 \item{...}{Additional arguments forwarded to
 \code{\link[ggraph]{ggraph}}.}
+
+\item{force}{Logical. If \code{TRUE}, bypass the size guard and attempt to
+plot the full network regardless of its size. Default \code{FALSE}.}
 
 \item{direction}{Character scalar: \code{"up"} (merge all up-regulated
 subgraphs), \code{"down"} (merge all down-regulated subgraphs), or

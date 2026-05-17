@@ -5,6 +5,7 @@
 \alias{plot_network,IsoNetAnalyzeR-method}
 \alias{plot_network,VirtualPulldownLookup-method}
 \alias{plot_network,GeneDiffPulldown-method}
+\alias{plot_network,DifferentialPulldownAnalysis-method}
 \title{Plot an isoform interaction network}
 \usage{
 plot_network(
@@ -48,18 +49,40 @@ plot_network(
 
 \S4method{plot_network}{GeneDiffPulldown}(
   object,
-  direction = c("both", "up", "down"),
   level = "isoform",
+  all_edges = FALSE,
+  group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
-  ...
+  ...,
+  direction = c("side_by_side", "up", "down", "overlay")
+)
+
+\S4method{plot_network}{DifferentialPulldownAnalysis}(
+  object,
+  level = "isoform",
+  all_edges = FALSE,
+  group_by_gene = FALSE,
+  layout = "stress",
+  node_size = 3,
+  label_size = 2.5,
+  edge_alpha = 0.4,
+  title = NULL,
+  ...,
+  direction = c("both", "up", "down"),
+  genes = NULL,
+  min_nodes = NULL,
+  min_shared_nodes = NULL,
+  min_component_nodes = NULL,
+  min_edges = NULL,
+  colour_by = c("gene", "hub_degree")
 )
 }
 \arguments{
-\item{object}{A \linkS4class{GeneDiffPulldown} object.}
+\item{object}{A \linkS4class{DifferentialPulldownAnalysis} object.}
 
 \item{level}{\code{"isoform"} (default) or \code{"gene"}.}
 
@@ -82,30 +105,88 @@ Colours nodes by their parent gene when \code{TRUE}.  Default
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 
-\item{...}{Forwarded to \code{ggraph::ggraph()}.}
+\item{...}{Additional arguments forwarded to
+\code{\link[ggraph]{ggraph}}.}
 
-\item{direction}{Character scalar: \code{"up"}, \code{"down"}, or
-\code{"both"} (default).}
+\item{direction}{Character scalar: \code{"up"} (merge all up-regulated
+subgraphs), \code{"down"} (merge all down-regulated subgraphs), or
+\code{"both"} (default; union of up and down per gene).  Must be
+passed as a named argument.}
+
+\item{genes}{Character vector of gene IDs to include.  Defaults to
+\code{NULL}, which includes all genes in the analysis.  Must be
+passed as a named argument.}
+
+\item{min_nodes}{Integer or \code{NULL} (default).  Pre-merge per-gene
+filter: genes whose merged subgraph (union of up + down vertices for the
+requested \code{direction}) contains fewer than \code{min_nodes} nodes are
+dropped before the cross-gene graph is built.  Useful for removing genes
+with very small or absent pulldown neighborhoods.  Set to \code{NULL} to
+disable.  Must be passed as a named argument.}
+
+\item{min_shared_nodes}{Integer or \code{NULL} (default).  Post-merge
+component filter: connected components of the merged graph that contain
+fewer than \code{min_shared_nodes} multi-gene nodes (nodes attributed to
+more than one gene's pulldown) are removed.  This is the strongest lever
+for keeping only biologically interesting cross-gene hubs.  Set to
+\code{NULL} to disable.  Must be passed as a named argument.}
+
+\item{min_component_nodes}{Integer or \code{NULL} (default).  Post-merge
+component filter: connected components with fewer than
+\code{min_component_nodes} total nodes are removed after merging.
+Complements \code{min_shared_nodes} by also dropping small single-gene
+islands.  Set to \code{NULL} to disable.  Must be passed as a named
+argument.}
+
+\item{min_edges}{Integer or \code{NULL} (default).  Post-merge component
+filter: connected components with fewer than \code{min_edges} edges are
+removed.  Helps discard loosely connected star-shaped or chain components
+that pass a node-count threshold.  Set to \code{NULL} to disable.  Must
+be passed as a named argument.}
+
+\item{colour_by}{Character scalar: \code{"gene"} (default) or
+\code{"hub_degree"}.  Controls the node colour encoding.
+\describe{
+\item{\code{"gene"}}{Each node is coloured by the gene whose pulldown it
+originated from (Okabe-Ito for N <= 8, HCL Dynamic for larger N).
+Multi-gene shared nodes are shown in dark grey; their size is scaled
+by degree so high-connectivity hubs stand out.}
+\item{\code{"hub_degree"}}{Non-shared nodes are collapsed to light grey.
+Shared multi-gene nodes are coloured by degree on a sequential Mako
+scale (dark = low degree, cream = high degree), making cross-gene
+interaction hubs the visual focus of the plot.}
+}
+Must be passed as a named argument.}
 }
 \value{
 A \code{ggplot} object, invisibly.  Can be further modified with
 \pkg{ggplot2} layers or saved with \code{\link[ggplot2]{ggsave}}.
 
 A \code{ggplot} / \code{patchwork} object, invisibly.
+
+A \code{ggplot} object, invisibly.
 }
 \description{
 Renders a network using \pkg{ggraph} and \pkg{ggplot2}.  Dispatches on
 \linkS4class{IsoNetAnalyzeR} (full session network) and
 \linkS4class{VirtualPulldownLookup} (single pulldown subgraph).
 
-Dispatches on \linkS4class{GeneDiffPulldown}.  Two display modes are
+Dispatches on \linkS4class{GeneDiffPulldown}.  Three display modes are
 available via the \code{direction} argument:
 \itemize{
 \item \code{"up"} or \code{"down"} - renders a single subgraph,
 highlighting the seed isoforms.
-\item \code{"both"} (default) - renders the two subgraphs side-by-side
-as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
+\item \code{"side_by_side"} (default) - renders the two subgraphs
+side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
+\item \code{"overlay"} - merges the up- and down-regulated subgraphs
+into a single network.  Nodes and edges are coloured by membership:
+\emph{up-only} (orange), \emph{down-only} (sky blue), or
+\emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
 }
+
+Dispatches on \linkS4class{DifferentialPulldownAnalysis}.  Merges the
+virtual pulldown subgraphs from multiple genes into a single network to
+reveal cross-gene clustering and shared interaction partners.
 }
 \details{
 \strong{\code{all_edges}}: For \linkS4class{IsoNetAnalyzeR} the stored network
@@ -120,10 +201,14 @@ attribute.  Isoforms with a missing \code{gene} attribute are grouped as
 \code{"NA_gene"}.  Isolated gene nodes (no edges after contraction) are
 removed.
 
-All other arguments are forwarded to the underlying \code{.render_plot()}
-helper and have the same meaning as in the
-\linkS4class{IsoNetAnalyzeR} and \linkS4class{VirtualPulldownLookup}
-methods.
+All colour palettes are colour-blind-safe (Okabe-Ito).
+
+Nodes are coloured by the gene whose pulldown they originated from.
+Nodes that appear in the subgraphs of more than one gene receive a
+distinct \emph{multi-gene} colour (dark grey) so that shared interaction
+hubs are immediately visible.  Seed isoforms are highlighted via shape.
+
+All colour palettes are colour-blind-safe (Okabe-Ito).
 }
 \section{Methods (by class)}{
 \itemize{
@@ -136,7 +221,21 @@ in a contrasting colour.
 
 \item \code{plot_network(GeneDiffPulldown)}: Plot a \linkS4class{GeneDiffPulldown} result.
 
+\item \code{plot_network(DifferentialPulldownAnalysis)}: Plot cross-gene network from a
+\linkS4class{DifferentialPulldownAnalysis} result.
+
 }}
+\section{Gene colouring}{
+
+When \code{group_by_gene = TRUE} and \code{level = "isoform"}, nodes are
+coloured by their parent gene.  In \code{"up"}, \code{"down"}, and
+\code{"side_by_side"} modes this replaces the default uniform node colour.
+In \code{"overlay"} mode, gene identity is mapped to node \emph{fill}
+colour while membership (up-only / shared / down-only) is shown via the
+node \emph{border} (stroke) colour and edge colour, so both dimensions
+remain visible simultaneously.
+}
+
 \examples{
 \dontrun{
 obj <- IsoNetAnalyzeR("demo")
@@ -160,11 +259,47 @@ ggplot2::ggsave("lookup_gene.pdf", p, width = 8, height = 6)
 }
 
 \dontrun{
-# Plot both directions side-by-side
+# Plot both directions side-by-side (default)
 plot_network(gene_result)
+
+# Side-by-side with gene colouring
+plot_network(gene_result, group_by_gene = TRUE)
+
+# Overlay up and down subgraphs in a single plot
+plot_network(gene_result, direction = "overlay")
+
+# Overlay with gene colouring (membership shown via border + edge colour)
+plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
 
 # Plot only the up-regulated subgraph
 plot_network(gene_result, direction = "up")
+}
+
+\dontrun{
+# After running a differential pulldown:
+obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
+result <- obj@analyses$my_run
+
+# Cross-gene view of up-regulated subgraphs
+plot_network(result, direction = "up")
+
+# Both directions, subset to specific genes
+plot_network(result, genes = c("BRCA1", "TP53"))
+
+# Gene-level view
+plot_network(result, level = "gene")
+
+# Keep only components with >= 2 multi-gene nodes (shared hubs)
+plot_network(result, min_shared_nodes = 2)
+
+# Drop small components and loosely connected ones
+plot_network(result, min_component_nodes = 5, min_edges = 4)
+
+# Pre-filter genes with tiny neighborhoods, then keep shared-hub components
+plot_network(result, min_nodes = 10, min_shared_nodes = 2)
+
+# Hub-degree colour mode: shared nodes coloured by connectivity
+plot_network(result, colour_by = "hub_degree", min_shared_nodes = 2)
 }
 
 }

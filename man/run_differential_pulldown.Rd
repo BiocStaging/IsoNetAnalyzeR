@@ -10,14 +10,16 @@ run_differential_pulldown(
   input,
   order,
   cutoff = NULL,
+  parallel = FALSE,
+  confirm = interactive(),
   verbose = TRUE
 )
 }
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
 
-\item{label}{Character scalar. Key used when \code{store = TRUE}.
-Defaults to \code{"diff_pulldown_<timestamp>"}.}
+\item{label}{Character scalar. Key under which to store the result in
+\code{obj@analyses}.}
 
 \item{input}{One of:
 \itemize{
@@ -27,16 +29,27 @@ Defaults to \code{"diff_pulldown_<timestamp>"}.}
 
 \item{order}{Integer scalar. Number of BFS hops for the virtual pulldown.}
 
-\item{cutoff}{Numeric scalar in [0, 1].  Internal-edge fraction cutoff.
+\item{cutoff}{Numeric scalar in [0, 1]. Internal-edge fraction cutoff.
 Defaults to \code{obj@metadata[["network_cutoff"]]} when \code{NULL}.}
 
-\item{verbose}{Logical. Print per-gene progress messages.  Default
+\item{parallel}{Logical. When \code{TRUE}, per-gene pulldowns are
+dispatched via \code{future.apply::future_lapply()} using the active
+\pkg{future} plan.  Requires the \pkg{future} and \pkg{future.apply}
+packages to be installed.  Default \code{FALSE}.}
+
+\item{confirm}{Logical. When \code{TRUE} (the default in interactive
+sessions), a network coverage report is printed before the pulldowns
+begin and the user is asked to confirm before proceeding.  Set to
+\code{FALSE} to skip the prompt in scripts or non-interactive contexts.
+The coverage report is always printed regardless of this flag; only the
+interactive pause is suppressed.}
+
+\item{verbose}{Logical. Print per-gene progress messages. Default
 \code{TRUE}.}
 }
 \value{
-An updated \linkS4class{IsoNetAnalyzeR}
-object (invisibly); access the result via
-\code{obj@analyses[[label]]}.
+An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
+the result via \code{obj@analyses[[label]]}.
 }
 \description{
 Reads a long-format table of differentially expressed isoforms (one isoform
@@ -60,26 +73,76 @@ Extra columns are silently retained in \code{@input_table} but are not
 used by the analysis.
 }
 
+\section{Parallel execution}{
+
+Parallelism is opt-in and requires the \pkg{future} and \pkg{future.apply}
+packages (\code{install.packages(c("future", "future.apply"))}).
+When \code{parallel = TRUE} the per-gene pulldowns are dispatched via
+\code{future.apply::future_lapply()}, which delegates all scheduling to
+whatever \pkg{future} \emph{plan} the user has set before calling this
+function.
+
+Typical setup:
+\preformatted{
+library(future)
+
+# Recommended: works on all platforms including Windows
+plan(multisession, workers = 4)
+
+# Unix/macOS only: lower overhead via forking
+plan(multicore, workers = 4)
+
+# Back to sequential when done
+plan(sequential)
+}
+
+If no plan has been set explicitly, \pkg{future} defaults to
+\code{sequential}, so passing \code{parallel = TRUE} without configuring a
+plan is safe but will not speed anything up.  An informative message is
+emitted in that situation.
+
+The network graph embedded in \code{obj} is treated as read-only inside
+each worker; no mutable state is shared between workers.
+}
+
+\section{Progress reporting}{
+
+A progress bar is always shown during the per-gene loop via \pkg{progressr}.
+The bar works in both sequential and parallel modes.  Users can customise
+the handler before calling this function, e.g.:
+\preformatted{
+progressr::handlers("cli")          # rich bar (default when cli is installed)
+progressr::handlers("txtprogressbar") # plain fallback
+}
+If \code{progressr::handlers(global = TRUE)} has been set in the session,
+that handler is used automatically; otherwise \code{with_progress()} applies
+the default handler locally for this call only.
+}
+
 \examples{
 \dontrun{
 obj <- IsoNetAnalyzeR("demo")
 
-# From a CSV file
-obj <- run_differential_pulldown(obj,
-                                 "condition_A_vs_B",
-                                 "de_isoforms.csv",
-                                 order = 1)
-
-# From an already-loaded data frame, stored in the session object
+# --- Sequential (default, no extra packages needed) -----------------------
 obj <- run_differential_pulldown(
-  obj, "condition_A_vs_B", de_df, order = 1
+  obj, "condition_A_vs_B", "de_isoforms.csv", order = 1
 )
+
+# --- Parallel (requires future + future.apply) ----------------------------
+library(future)
+plan(multisession, workers = 4)   # works on all platforms
+
+obj <- run_differential_pulldown(
+  obj, "condition_A_vs_B", "de_isoforms.csv",
+  order    = 1,
+  parallel = TRUE
+)
+
+plan(sequential)   # restore after the run
+
+# --- Inspect results ------------------------------------------------------
 obj@analyses$condition_A_vs_B
-
-# Inspect a single gene
 obj@analyses$condition_A_vs_B@gene_results[["ENSG00000012048"]]
-
-# Plot both directions for one gene
 plot_network(obj@analyses$condition_A_vs_B@gene_results[["ENSG00000012048"]])
 }
 

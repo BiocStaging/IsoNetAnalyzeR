@@ -36,12 +36,52 @@ one per gene in \code{input_table}.  Names are gene IDs.}
 
 \item{\code{cross_gene_summary}}{Data frame with one row per gene summarising
 up/down subgraph properties side by side.  Columns:
-\code{gene_id}, \code{n_up_input}, \code{n_down_input},
-\code{n_up_network}, \code{n_down_network},
+\code{gene_id},
+\code{n_up_input}, \code{n_down_input} (isoforms in the input table),
+\code{n_up_found}, \code{n_down_found} (input isoforms present in the
+network before BFS expansion),
+\code{pct_up_found}, \code{pct_down_found} (percentage of input isoforms
+found in the network; \code{NA} when \code{n_input == 0}),
 \code{up_nodes}, \code{up_edges}, \code{up_density},
 \code{up_avg_degree}, \code{up_clustering},
+\code{up_starness} (degree centralization of the up subgraph; 0 = uniform,
+1 = perfect hub-and-spoke topology),
+\code{up_genes} (number of unique genes represented in the up subgraph),
 \code{down_nodes}, \code{down_edges}, \code{down_density},
-\code{down_avg_degree}, \code{down_clustering}.}
+\code{down_avg_degree}, \code{down_clustering},
+\code{down_starness} (degree centralization of the down subgraph),
+\code{down_genes} (number of unique genes represented in the down subgraph),
+\code{n_shared_nodes} (nodes present in both up and down subgraphs),
+\code{n_up_unique} (nodes exclusive to the up subgraph),
+\code{n_down_unique} (nodes exclusive to the down subgraph),
+\code{jaccard} (Jaccard index of node-set overlap between up and down
+subgraphs: UXutWdKSInmRHOIY2oK6VM3kkCTjKQxc-2\code{NA} when either
+subgraph is absent),
+\code{n_edges_gained} (edges present in the up subgraph but absent from
+the down subgraph — interactions gained when switching to the up
+isoform),
+\code{n_edges_lost} (edges present in the down subgraph but absent from
+the up subgraph — interactions lost when switching to the up isoform),
+\code{n_edges_shared} (edges present in both subgraphs; together with
+\code{n_edges_gained} and \code{n_edges_lost} this gives a complete
+edge-level accounting of rewiring).  All three edge columns are
+\code{NA} when either subgraph is absent,
+\code{up_seed_mean_pi} (mean of per-seed mean-pi values across all up
+seeds; summarises average interaction confidence of the up seed set),
+\code{up_seed_pi_entropy} (mean of per-seed pi-entropy values across all
+up seeds; summarises how evenly interaction confidence is distributed
+across partners for the up seed set),
+\code{down_seed_mean_pi}, \code{down_seed_pi_entropy} (analogous metrics
+for the down seed set).  All four columns are \code{NA} when the
+corresponding subgraph is absent or carries no \code{pi} edge attribute.}
+
+\item{\code{gsea_results}}{Named list of \linkS4class{FgseaResult} objects,
+keyed by user-supplied label.  Populated by \code{\link{run_fgsea}}.
+Empty list by default.}
+
+\item{\code{component_analyses}}{Named list of \linkS4class{ComponentAnalysis}
+objects, keyed by user-supplied label.  Populated by
+\code{\link{run_component_analysis}}.  Empty list by default.}
 
 \item{\code{order}}{Integer scalar. Number of BFS hops used.}
 

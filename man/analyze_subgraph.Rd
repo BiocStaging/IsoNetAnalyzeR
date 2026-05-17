@@ -7,7 +7,8 @@
 analyze_subgraph(graph)
 }
 \arguments{
-\item{graph}{An igraph object.}
+\item{graph}{An igraph object with a \code{pi} edge attribute (preserved
+from the full network after \code{interact == 1} filtering).}
 }
 \value{
 A data frame with one row per vertex and the following columns:
@@ -17,10 +18,25 @@ A data frame with one row per vertex and the following columns:
 \item{clustering}{Local clustering coefficient.}
 \item{distance_from_seed}{Average shortest-path distance from all seeds.
 \code{Inf} indicates the vertex is unreachable from the seed(s).}
+\item{mean_pi}{Mean of the \code{pi} edge-attribute values across all
+incident edges.  \code{NA} for non-seed vertices.}
+\item{pi_entropy}{Shannon entropy of the normalised \code{pi} values
+across all incident edges (bits).  Measures how evenly interaction
+confidence is spread across a seed's partners: low entropy indicates a
+few high-confidence interactions; high entropy indicates many edges of
+similar moderate confidence.  \code{NA} for non-seed vertices and for
+seed vertices with only one incident edge.}
 }
 }
 \description{
 Returns node-level statistics for every vertex in a virtual pulldown
 subgraph. When multiple seed vertices are present, \code{distance_from_seed}
 is the average shortest-path distance across all seeds.
+}
+\details{
+Pi statistics (\code{mean_pi}, \code{pi_entropy}) are computed only for
+seed vertices (order == 0), where they characterise the confidence profile
+of the interactions that anchored the pulldown.  For non-seed vertices these
+columns are \code{NA} — their edges were pulled in by BFS expansion and the
+pi values reflect the network globally rather than any seed-specific signal.
 }

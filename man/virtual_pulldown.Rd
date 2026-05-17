@@ -25,6 +25,10 @@ An igraph object representing the filtered virtual pulldown
 subnetwork. Vertices carry an \code{order} attribute (hop distance from
 the nearest seed) and a \code{frac_internal} attribute (fraction of
 their interaction edges that remain internal to the subnetwork).
+Seed vertices with zero \code{interact == 1} edges are retained as
+isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
+representing isoforms present in the network but forming no predicted
+physical interactions.
 }
 \description{
 Performs a virtual pulldown by first restricting the network to predicted

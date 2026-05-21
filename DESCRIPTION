@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: 
     person("Nikolas", "Mumm", , "s242825@dtu.dk", role = c("aut", "cre"))
 Description: Provides tools for isoform-level protein interaction network

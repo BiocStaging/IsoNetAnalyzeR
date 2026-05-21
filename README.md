@@ -6,7 +6,7 @@ An R package for isoform-resolved network analysis of differential splicing data
 
 Alternative splicing can rewire protein interaction networks without changing gene expression. IsoNetAnalyzeR makes this rewiring visible and quantifiable. Given a table of up- and down-regulated isoforms, it:
 
--   Expands each isoform seed set through a predicted interaction network via BFS (virtual pulldown)
+-   Expands each isoform seed set through a predicted human protein interaction network via BFS (virtual pulldown)
 -   Computes per-node and subgraph-level topology statistics for each condition
 -   Summarises rewiring across all genes in a single 35-column table
 -   Decomposes the merged cross-gene network into connected components and classifies their topology
@@ -15,14 +15,42 @@ Alternative splicing can rewire protein interaction networks without changing ge
 
 ## Installation
 
+### Dependencies
+
+Install CRAN packages:
+
 ``` r
-# Install from GitHub
-remotes::install_github("your-org/IsoNetAnalyzeR")
+install.packages(c("igraph", "cli", "ggplot2", "ggraph", "ggrepel", "patchwork"))
 ```
 
-Dependencies: `igraph`, `cli`, `ggplot2`, `ggraph`, `ggrepel`, `patchwork`, `fgsea`, `org.Hs.eg.db`, `AnnotationDbi`.\
-Optional (parallel execution): `future`, `future.apply`.\
-Optional (Excel input): `readxl`.
+Install Bioconductor packages:
+
+``` r
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("fgsea", "org.Hs.eg.db", "AnnotationDbi"))
+```
+
+**Optional** - parallel execution:
+
+``` r
+install.packages(c("future", "future.apply"))
+```
+
+**Optional** - Excel input:
+
+``` r
+install.packages("readxl")
+```
+
+### IsoNetAnalyzeR
+
+Install version from GitHub
+
+``` r
+# Install from GitHub
+devtools::install_github("IsoformAnalysisGroup/IsoNetAnalyzeR ", build_vignettes = TRUE)
+```
 
 ## Quick start
 
@@ -56,6 +84,32 @@ obj <- run_fgsea(obj, "cond_A", label = "gsea_nodes", rank_by = "delta_nodes")
 get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.05)
 ```
 
+> For a full walkthrough with extended examples, see the package vignette:
+>
+> ``` r
+> vignette("IsoNetAnalyzeR")
+> ```
+
+## Ad hoc virtual pulldown
+
+`lookup_virtual_pulldown()` runs a single virtual pulldown outside the differential analysis workflow. It is useful for exploring the interaction neighbourhood of any isoform or gene of interest without preparing a full differential input table. One or more seeds can be supplied; all are treated as order-0 anchors in a single pulldown.
+
+``` r
+# Single isoform seed
+obj <- lookup_virtual_pulldown(obj, label = "my_lkp",
+                               seed  = "ENST00000379236",
+                               order = 1)
+
+# Multiple seeds — all anchored at order 0 in one pulldown
+obj <- lookup_virtual_pulldown(obj, label = "combined_lkp",
+                               seed  = c("ENST00000379236", "ENST00000445118"),
+                               order = 1)
+
+# Retrieve results
+get_lookup_stats(obj, "my_lkp")      # per-node statistics data frame
+plot_network(get_lookup(obj, "my_lkp"))  # visualise the subgraph
+```
+
 ## Core workflow
 
 ```         
@@ -64,6 +118,10 @@ IsoNetAnalyzeR()                    # create session, load network
         ├── get_cross_gene_summary()    # 35-col table: topology, Jaccard, edge gain/loss
         ├── get_isoform_stats()         # per-isoform: degree, clustering, pi confidence
         ├── plot_network()              # subgraph visualisation (gene, analysis, or lookup)
+        ├── plot_cross_gene_overview()          # scatter panel overview (patchwork)
+        │     └── plot_cross_gene_scatter()     # single scatter (custom x/y columns)
+        ├── plot_cross_gene_boxplot_overview()  # boxplot panel overview (patchwork)
+        │     └── plot_cross_gene_boxplot()     # single boxplot (custom x/y columns)
         │
         ├── run_component_analysis()    # connected components of merged cross-gene graph
         │     ├── get_component_overview()   # Tier-1 + Tier-2 stats per component
@@ -73,7 +131,7 @@ IsoNetAnalyzeR()                    # create session, load network
         │           └── get_ora_table()
         │
         └── run_fgsea()              # GSEA on delta-topology gene ranking
-              └── get_gsea_table()
+              ├── get_gsea_table()
               └── get_gsea_stats()
 
 lookup_virtual_pulldown()           # quick single-seed pulldown (independent)
@@ -102,10 +160,25 @@ One row per gene. Key columns include:
 | Column group | Columns |
 |------------------------------------|------------------------------------|
 | Input coverage | `n_up_input`, `n_down_input`, `pct_up_found`, `pct_down_found` |
-| Subgraph topology | `up_nodes`, `up_edges`, `up_density`, `up_avg_degree`, `up_clustering`, `up_starness` (+ down equivalents) |
+| Subgraph topology | `up_nodes`, `up_edges`, `up_density`, `up_avg_degree`, `up_clustering`, `up_starness` (+ `down_` equivalents) |
 | Node-set overlap | `n_shared_nodes`, `n_up_unique`, `n_down_unique`, `jaccard` |
 | Edge rewiring | `n_edges_gained`, `n_edges_lost`, `n_edges_shared` |
-| Interaction confidence | `up_seed_mean_pi`, `up_seed_pi_entropy` (+ down equivalents) |
+| Interaction confidence | `up_seed_mean_pi`, `up_seed_pi_entropy` (+ `down_` equivalents) |
+
+### Isoform statistics (`get_isoform_stats`)
+
+One row per isoform per direction for a single gene:
+
+| Column | Description |
+|------------------------------------|------------------------------------|
+| `direction` | `"up"` or `"down"` condition |
+| `isoform` | Isoform / transcript ID |
+| `is_seed` | `TRUE` if the isoform was supplied as a seed (order 0) |
+| `degree` | Number of edges in the pulldown subgraph |
+| `clustering` | Local clustering coefficient |
+| `distance_from_seed` | Average shortest-path distance from all seeds |
+| `mean_pi` | Mean interaction confidence score across incident edges (seeds only) |
+| `pi_entropy` | Shannon entropy of interaction confidence scores (seeds only) |
 
 ### Component overview (`get_component_overview`)
 
@@ -115,6 +188,11 @@ One row per connected component. Tier-1 (structural) + Tier-2 (topological) colu
 |------------------------------------|------------------------------------|
 | Tier-1 | `n_nodes`, `n_edges`, `density`, `n_seeds_up`, `n_seeds_down`, `mixed`, `shared_fraction` |
 | Tier-2 | `diameter`, `radius`, `degree_centralization`, `topology_class` (`"hub-spoke"` / `"chain-like"` / `"clique-like"`) |
+
+### GSEA results (`get_gsea_table`, `get_gsea_stats`)
+
+`get_gsea_table` returns one row per pathway: `pathway`, `pval`, `padj`, `ES`, `NES`, `size`, `leadingEdge`.\
+`get_gsea_stats` returns the gene-level rank input: `gene_id`, `stat`, `rank`.
 
 ### Network diagnostics (`get_network_diagnostics`)
 

@@ -64,8 +64,8 @@ library("msigdbr")
 library("ggplot2")
 library("ggrepel")
 library("cowplot")
-library("furrr")
 library("future")
+library("future.apply")
 library("tibble")
 library("progressr")
 library("scales")
@@ -81,10 +81,9 @@ source("data-raw/network_analysis.R")
 source("data-raw/network_plots.R")
 source("data-raw/kegg_plots.R")
 
-# progressr: recommended handler replacing the deprecated progress handler
-handlers(global = TRUE)
-handlers("cli")   # requires the 'cli' package; falls back to "txtprogressbar"
-
+# Progress bars: with_progress() in each heavy step handles this locally, so
+# a global handler is optional. Set one here if you want a specific style.
+# progressr::handlers("cli")
 
 # ==============================================================================
 # update_package_network()
@@ -97,13 +96,17 @@ handlers("cli")   # requires the 'cli' package; falls back to "txtprogressbar"
 #' \code{R/sysdata.rda}.  All console output is simultaneously written to a
 #' timestamped log file in \code{log_dir}.
 #'
-#' The parallel plan is set once here and is active for all \code{future_map*}
-#' calls inside \code{compute_network_cutoff()}. Workers are spawned once and
-#' reused across both the per-pathway ROC loop (step 6) and the pooled
-#' validation (step 8).
+#' The parallel plan is managed inside this function via \code{n_workers}.
+#' Workers are reused across repeated calls when \code{n_workers} is unchanged,
+#' and respawned only when a different count is requested.
 #'
 #' @param network_path  Character. Path to the raw isoform interaction CSV.
-#' @param pi_threshold  Numeric scalar. Default \code{0.5}.
+#' @param pi_threshold  Numeric scalar or \code{NULL}. Set to \code{NULL} to
+#'   use a pre-computed interaction column instead of a pi cutoff. Default
+#'   \code{0.5}.
+#' @param interact_col  Character scalar. Name of the binary (0/1) interaction
+#'   column to use when \code{pi_threshold = NULL}. Ignored otherwise.
+#'   E.g. \code{"conservative"} or \code{"soft"}.
 #' @param kegg_genesets Optional pre-fetched MSigDB tibble. Pass a cached copy
 #'   to avoid repeated downloads during iterative development.
 #' @param plot          Logical. Save the full diagnostic plot bundle via
@@ -112,38 +115,26 @@ handlers("cli")   # requires the 'cli' package; falls back to "txtprogressbar"
 #'   Default \code{"data-raw/plots"}.
 #' @param log_dir       Character. Directory for log files.
 #'   Default \code{"data-raw/logs"}.
-#' @param n_workers     Integer. Parallel workers for \code{furrr}.
-#'   Defaults to all available cores minus one.
+#' @param n_workers     Integer. Number of parallel workers. Defaults to all
+#'   available cores minus one. If a multisession plan is already active with
+#'   a different worker count, the plan is respawned with the requested count.
 #'
 #' @return Invisibly returns the result list from
 #'   \code{compute_network_cutoff()}.
 update_package_network <- function(network_path,
-                                   pi_threshold  = 0.5,
-                                   kegg_genesets = NULL,
-                                   plot          = FALSE,
-                                   plot_dir      = "data-raw/plots",
-                                   log_dir       = "data-raw/logs",
-                                   n_workers     = parallel::detectCores() - 1) {
+                                   pi_threshold     = 0.5,
+                                   interact_col     = NULL,
+                                   kegg_genesets    = NULL,
+                                   min_neighbors    = 5L,
+                                   min_pathway_pos  = 10L,
+                                   min_coverage     = 0.5,
+                                   plot             = FALSE,
+                                   plot_dir         = "data-raw/plots",
+                                   log_dir          = "data-raw/logs") {
 
   # ── Start logging ────────────────────────────────────────────────────────────
   log_file <- start_log(log_dir)
   on.exit(stop_log(), add = TRUE, after = FALSE)
-
-  # ── Set parallel plan ────────────────────────────────────────────────────────
-  plan(multisession, workers = n_workers)
-  on.exit(plan(sequential), add = TRUE, after = TRUE)
-
-  active_workers <- nbrOfWorkers()
-  if (active_workers < 2L) {
-    warning(sprintf(
-      "Parallel plan requested %d workers but only %d resolved. ",
-      n_workers, active_workers,
-      "Heavy steps will run sequentially. ",
-      "Check that future::plan(multisession) works in your environment."
-    ), call. = FALSE)
-  }
-  cat(sprintf(">>> Parallel plan: multisession with %d active workers\n\n",
-              active_workers))
 
   # ── Read input CSV ───────────────────────────────────────────────────────────
   cat(">>> Reading raw network CSV...\n")
@@ -153,18 +144,23 @@ update_package_network <- function(network_path,
 
   # ── Build isoform-level igraph ───────────────────────────────────────────────
   cat(">>> Building isoform-level igraph...\n")
-  .network_data <- .construct_igraph(isoform_network_df, pi_threshold)
+  .network_data <- .construct_igraph(isoform_network_df, pi_threshold,
+                                     interact_col = interact_col)
   cat(sprintf("    igraph: %d vertices, %d edges\n\n",
               vcount(.network_data), ecount(.network_data)))
 
   # ── Run gene-level cutoff analysis ──────────────────────────────────────────
   result <- compute_network_cutoff(
     isoform_network_df = isoform_network_df,
-    pi_threshold       = pi_threshold,
-    kegg_genesets      = kegg_genesets,
-    plot               = plot,
-    plot_dir           = plot_dir,
-    run_multipathway   = TRUE
+    pi_threshold        = pi_threshold,
+    interact_col        = interact_col,
+    kegg_genesets       = kegg_genesets,
+    min_neighbors       = min_neighbors,
+    min_pathway_pos     = min_pathway_pos,
+    min_coverage        = min_coverage,
+    plot                = plot,
+    plot_dir            = plot_dir,
+    run_multipathway    = TRUE
   )
 
   .network_cutoff <- result$best_cutoff
@@ -183,7 +179,11 @@ update_package_network <- function(network_path,
               vcount(.network_data), ecount(.network_data)))
   cat(sprintf("    .network_cutoff : %.4f (PR/F1-based q50)\n",
               .network_cutoff))
-  cat(sprintf("    .pi_threshold   : %.3f\n", .pi_threshold))
+  if (is.null(pi_threshold)) {
+    cat(sprintf("    .pi_threshold   : NULL (interact_col = '%s')\n", interact_col))
+  } else {
+    cat(sprintf("    .pi_threshold   : %.3f\n", .pi_threshold))
+  }
   cat(sprintf("    Log file        : %s\n", log_file))
   cat("    Done. Rebuild the package to make the new data active.\n\n")
 
@@ -194,52 +194,31 @@ update_package_network <- function(network_path,
 # ==============================================================================
 # SECTION 2: Run the update
 # ==============================================================================
-# Uncomment and adjust as needed.
-
 result <- update_package_network(
-  network_path = "data-raw/results_PHYSICAL_Prob_Model_16_02_26.csv",
-  pi_threshold = 0.5,
-  plot         = TRUE            # set FALSE to skip the 7-panel diagnostic bundle
+  network_path  = "data-raw/results_PHYSICAL_700_FULL_threshold_22_06_26.csv",
+  pi_threshold  = NULL,
+  interact_col  = "soft",
+  min_neighbors    = 5L,
+  min_pathway_pos  = 10L,
+  min_coverage     = 0.5,
+  plot          = TRUE
 )
-
 
 # ==============================================================================
 # SECTION 3: Post-hoc plots (can be re-run independently)
 # ==============================================================================
-# These require `result` to be in memory. Re-load from a saved RDS if needed:
-#   result <- readRDS("data-raw/result_pi0.5.rds")
-
-# ROC and PR spaghetti curves (expensive: ~5-15 min depending on pathway count)
-plot_roc_curves(result, plot_dir = "data-raw/plots")
-plot_pr_curves( result, plot_dir = "data-raw/plots")
-
-# KEGG pathway characterisation (5 plots, for thesis / meetings)
 plots_kegg <- plot_kegg_characterisation(result)
+p_membership <- plot_gene_pathway_membership(result)
 
-# Gene pathway-membership distribution
-plot_gene_pathway_membership(result)
+res <- build_kegg_category_table(result)
+View(res$table)
 
-
-# ==============================================================================
-# SECTION 4: Optional — re-run with a different pi_threshold
-# ==============================================================================
-# Pass the already-fetched kegg_genesets to skip the MSigDB download.
-#
-# result_07 <- update_package_network(
-#   network_path  = "data-raw/results_PHYSICAL_Prob_Model_16_02_26.csv",
-#   pi_threshold  = 0.7,
-#   kegg_genesets = result$kegg_genesets,
-#   plot          = TRUE,
-#   plot_dir      = "data-raw/plots/pi_07"
-# )
-
+n_other <- length(res$other_pathways)
+n_total <- nrow(.build_pathway_summary(result))
+cat(sprintf("%.1f%% of KEGG pathways (%d/%d) were unclassified ('Other').\n",
+            100 * n_other / n_total, n_other, n_total))
 
 # ==============================================================================
-# SECTION 5: Optional — regenerate plots from a previously saved result
+# SECTION 4: Cache result so plots can be re-styled without rerunning
 # ==============================================================================
-# result <- readRDS("data-raw/result_pi0.5.rds")
-# plot_cutoff_diagnostics(result, plot_dir = "data-raw/plots")
-# plot_roc_curves(result,         plot_dir = "data-raw/plots")
-# plot_pr_curves(result,          plot_dir = "data-raw/plots")
-# plot_kegg_characterisation(result)
-# plot_gene_pathway_membership(result)
+saveRDS(result, "data-raw/result_cache.rds")

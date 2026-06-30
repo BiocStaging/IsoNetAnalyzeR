@@ -40,71 +40,163 @@
   nm <- tolower(gs_name)
 
   dplyr::case_when(
+
+    # ------------------------------------------------------------------
+    # Cardiovascular / Muscle  (before Cancer to avoid melanoma collision)
+    # ------------------------------------------------------------------
+    stringr::str_detect(nm,
+                        paste0("cardiac_muscle|cardiomyopathy|arrhythmogenic|",
+                               "vascular_smooth_muscle|viral_myocarditis|",
+                               "dystrophin|deleted_dmd")) ~ "Cardiovascular / Muscle",
+
+    # ------------------------------------------------------------------
     # Metabolism
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "metabol|biosynthes|degradation|oxidative_phosphorylation|
-       fatty_acid|glycol|tca|citrate|purine|pyrimidine|
-       amino_acid|carbon|drug_metabol") ~ "Metabolism",
+                        paste0("metabol|biosynthes|degradation|oxidative_phosphorylation|",
+                               "fatty_acid|glycol|tca|citrate|purine|pyrimidine|",
+                               "amino_acid|carbon|drug_metabol|",
+                               "beta_oxidation|gluconeogenesis|mevalonate|creatine|urea_cycle|",
+                               "pentose|electron_transfer|abc_transport|",
+                               # renin/aldosterone/vasopressin moved to Endocrine (see below)
+                               "fe_tf|fe3_ferrit|sphingomyelin|peroxisome|",
+                               "mitochondrial_complex|melanogenesis")) ~ "Metabolism",
 
+    # ------------------------------------------------------------------
+    # Immune / Infection  (before Development/ECM to catch T-cell differentiation)
+    # ------------------------------------------------------------------
+    stringr::str_detect(nm,
+                        paste0("immun|inflam|cytokine|chemokine|interferon|",
+                               "t_cell|b_cell|nk_cell|complement|autoimmun|",
+                               "infection|virus|bacteria|parasite|hiv|hepatitis|",
+                               "tuberculosis|malaria|influenza|covid|herpes|",
+                               "leishmania|salmonella|staphylo|legionella|measles|",
+                               "papillomavirus|",
+                               "htlv|hbv|hcv|kshv|ebv|hpv|shigella|sars|",
+                               "vibrio|cholerae|escherichia|",
+                               "allograft|graft_versus_host|asthma|lupus|",
+                               # T-cell differentiation (was wrongly caught by 'differentia' in Dev/ECM)
+                               "th17|th1_and_th2|th2_cell|",
+                               # osteoclast is immune (myeloid lineage)
+                               "osteoclast|",
+                               "natural_killer|hematopoietic|",
+                               "antigen_processing|fc_gamma|",
+                               "leukocyte_transendothelial|cytosolic_dna_sensing|",
+                               "v_d_j_recombination")) ~ "Immune / Infection",
+
+    # ------------------------------------------------------------------
     # Signalling
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "signaling|signal_transduction|jak|mapk|pi3k|mtor|
-       wnt|notch|hedgehog|tgf|vegf|egfr|fgf|igf|
-       calcium|camp|cgmp|hippo|nf.kb|toll|jak.stat") ~ "Signalling",
+                        paste0("signaling|signal_transduction|jak|mapk|pi3k|mtor|",
+                               "wnt|notch|hedgehog|tgf|vegf|egfr|fgf|igf|",
+                               "calcium|camp|cgmp|hippo|nf.kb|toll|jak.stat|",
+                               "mediated_transcription|transcriptional_activation|",
+                               "transcriptional_repression|",
+                               "regulation_of_actin|actin_cytoskeleton|",
+                               "ca2_entry|regulation_of_serca|pka_holoenzyme|",
+                               "rora_mediated|keap1_nrf2|nrf2")) ~ "Signalling",
 
-    # Immune / Infection
-    stringr::str_detect(nm,
-                        "immun|inflam|cytokine|chemokine|interferon|
-       t_cell|b_cell|nk_cell|complement|autoimmun|
-       infection|virus|bacteria|parasite|hiv|hepatitis|
-       tuberculosis|malaria|influenza|covid|herpes|
-       leishmania|leishmaniasis|salmonella|staphylo|
-       legionella|measles|papillomavirus|prion") ~ "Immune / Infection",
-
+    # ------------------------------------------------------------------
     # Cancer
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "cancer|carcinoma|glioma|leukemia|melanoma|
-       colorectal|pancreatic|prostate|breast|bladder|
-       renal|thyroid|endometrial|small_cell_lung|
-       non_small_cell|oncogene|tumor|tumour") ~ "Cancer",
+                        paste0("cancer|carcinoma|glioma|leukemia|melanoma|",
+                               "colorectal|pancreatic|prostate|breast|bladder|",
+                               "renal|thyroid_cancer|endometrial|small_cell_lung|",
+                               # 'thyroid' alone removed — too greedy (caught thyroid hormone synthesis)
+                               # use 'thyroid_cancer' instead
+                               "non_small_cell|oncogene|tumor|tumour|",
+                               "aml1_eto|mycn|amplified_rel|cdx2_overexpression|",
+                               "ewsr1_wt1|fus_ddit3|igh_mmset|lmo2_rearrangement|",
+                               "mll_af4|mll_enl|runx1|tmprss2_erg|tel_aml1|",
+                               "pax8_pparg")) ~ "Cancer",
 
+    # ------------------------------------------------------------------
     # Cell Cycle / DNA
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "cell_cycle|dna_repair|dna_replication|
-       mismatch_repair|nucleotide_excision|
-       base_excision|homologous_recomb|p53|
-       apoptosis|autophagy|senescence") ~ "Cell Cycle / DNA",
+                        paste0("cell_cycle|dna_repair|dna_replication|",
+                               "mismatch_repair|nucleotide_excision|",
+                               "base_excision|homologous_recomb|p53|",
+                               "apoptosis|autophagy|senescence|",
+                               "non_homologous_end_joining|fanconi|",
+                               "break_induced_replication|lesion_bypass|",
+                               "okazaki_fragment|origin_unwinding|traip|",
+                               "cohesin|condensin|kinetochore|",
+                               "dna_end_resection|double_holliday|rad51|",
+                               "global_genome_ner|transcription_coupled_ner|",
+                               "core_ner|long_patch_ber|",
+                               "extrinsic_apoptotic|intrinsic_apoptotic|",
+                               "crosstalk_between_extrinsic_and_intrinsic|",
+                               "regulation_of_extrinsic_apoptotic|",
+                               "pink_parkin|tbk1.*autophagosome|",
+                               "assembly_and_trafficking_of_telom|",
+                               "disassembly_of_mcc|recruitment_and_formation_of_the_mcc|",
+                               "cenpe_interaction|establishment_of_cohesion|",
+                               "loading_of_the_smc|pre_ic_formation|",
+                               "oocyte_meiosis|",
+                               "dna_adducts")) ~ "Cell Cycle / DNA",
 
+    # ------------------------------------------------------------------
     # Nervous System
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "neurodegener|alzheimer|parkinson|huntington|
-       amyotrophic|prion|synapse|long.term|
-       serotonin|dopamine|glutamate|gaba|
-       neurotrophin|axon|circadian|addiction") ~ "Nervous System",
+                        paste0("neurodegener|alzheimer|parkinson|huntington|",
+                               "amyotrophic|synapse|long.term|",
+                               "serotonin|dopamine|glutamate|gaba|",
+                               "neurotrophin|axon|circadian|addiction|",
+                               "neuroactive_ligand|olfactory|taste_transduction|",
+                               "ca2_apoptotic|mglur5|machr|vgcc|",
+                               "lrrk2|atxn|snca|psen|abeta|htt_|pdyn|",
+                               "mutation_caused_aberrant|mutation_caused_abberant|",
+                               "mutation_inactivated.*pink|",
+                               "scrapie|prpsc|prion")) ~ "Nervous System",
 
-    # Endocrine
+    # ------------------------------------------------------------------
+    # Endocrine  (after Signalling so hormone-signalling pathways such as
+    # "insulin signaling pathway" land in Signalling, which is the primary
+    # KEGG class; pure synthesis / disease entries land here)
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "diabetes|insulin|adipocyte|thyroid_hormone|
-       cortisol|estrogen|progesterone|androgen|
-       oxytocin|prolactin|gnrh|adipogenesis") ~ "Endocrine",
+                        paste0("diabetes|insulin|adipocyte|thyroid_hormone|",
+                               "cortisol|estrogen|progesterone|androgen|",
+                               "oxytocin|prolactin|gnrh|adipogenesis|",
+                               # renin-angiotensin, aldosterone, vasopressin moved here from Metabolism
+                               "renin_angiotensin|aldosterone|vasopressin")) ~ "Endocrine",
 
-    # Development / ECM
+    # ------------------------------------------------------------------
+    # Development / ECM  (after Immune so T-cell/osteoclast differentiation
+    # is already handled above; 'differentia' now only catches genuine
+    # developmental / lineage pathways)
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "stem_cell|pluripoten|differentia|embryo|
-       axon_guidance|focal_adhesion|ecm|
-       extracellular_matrix|gap_junction|
-       tight_junction|adherens") ~ "Development / ECM",
+                        paste0("stem_cell|pluripoten|differentia|embryo|",
+                               "axon_guidance|focal_adhesion|ecm|",
+                               "extracellular_matrix|gap_junction|",
+                               "tight_junction|adherens|",
+                               "dorso_ventral|cell_adhesion_molecules")) ~ "Development / ECM",
 
+    # ------------------------------------------------------------------
     # RNA / Protein Processing
+    # ------------------------------------------------------------------
     stringr::str_detect(nm,
-                        "ribosom|spliceosom|proteasom|ubiquitin|
-       rna_transport|mrna|protein_export|
-       phagosom|lysosom|endocytosis|
-       peroxisom|mitophagy") ~ "RNA / Protein Processing",
+                        paste0("ribosom|spliceosom|proteasom|ubiquitin|",
+                               "rna_transport|mrna|protein_export|",
+                               "phagosom|lysosom|endocytosis|",
+                               "peroxisom|mitophagy|",
+                               "translation_initiation|rna_polymerase|",
+                               "basal_transcription_factors|",
+                               "telomerase_rna|telomere_elongation|",
+                               "uchl1|copii|copi|endosomal_fusion|snare|",
+                               "rab7_regulated|arl8_regulated|",
+                               "microtubule|branching_microtubule|",
+                               "regulation_of_fibrinolytic|coagulation_cascade")) ~ "RNA / Protein Processing",
 
     TRUE ~ "Other"
   )
 }
+
 
 
 #' Build the master per-pathway summary table used by all KEGG plots
@@ -164,7 +256,7 @@
       median_sz = median(n_genes_kegg),
       .groups   = "drop"
     ) %>%
-    mutate(label = sprintf("n=%d\nmedian=%d", n, median_sz))
+    mutate(label = sprintf("n=%d\nmedian=%.0f", n, median_sz))
 
   p <- ggplot(psum_ord,
               aes(x = category, y = n_genes_kegg, colour = category)) +
@@ -225,8 +317,6 @@
     mutate(category = factor(category, levels = cat_order))
 
   p <- ggplot(psum_v, aes(x = category, y = coverage, colour = category)) +
-    geom_hline(yintercept = 0.5, linetype = "dashed",
-               colour = "firebrick", linewidth = 0.5) +
     geom_jitter(width = 0.22, size = 0.9, alpha = 0.5) +
     geom_boxplot(width = 0.35, outlier.shape = NA,
                  fill = NA, colour = "grey30", linewidth = 0.5) +
@@ -423,15 +513,14 @@
 # PLOT 4 — AUC-ROC and AUC-PR by category
 # ==============================================================================
 
-.plot_auc_by_category <- function(psum, plot_dir, cat_palette) {
+.plot_auc_by_category_old <- function(psum, plot_dir, cat_palette) {
   cat("  [5/6] AUC by category...\n")
 
   psum_v <- psum %>% filter(!is.na(auc_roc))
 
   cat_order <- psum_v %>%
-    group_by(category) %>%
-    summarise(med = median(auc_roc, na.rm = TRUE), .groups = "drop") %>%
-    arrange(desc(med)) %>%
+    count(category, name = "n_pathways") %>%
+    arrange(n_pathways) %>%
     pull(category)
 
   plong <- psum_v %>%
@@ -483,6 +572,73 @@
 
   out <- file.path(plot_dir, "05_auc_by_category.png")
   ggsave(out, p, width = 14, height = 8, dpi = 150)
+  cat(sprintf("    Saved: %s\n", out))
+  invisible(p)
+}
+
+.plot_auc_by_category <- function(psum, plot_dir, cat_palette) {
+  cat("  [5/6] AUC by category...\n")
+
+  okabe_ito <- c(
+    "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+    "#D55E00", "#CC79A7", "#999999", "#000000", "#882255"
+  )
+
+  psum_v <- psum %>% filter(!is.na(auc_roc))
+
+  cat_order <- psum_v %>%
+    count(category, name = "n_pathways") %>%
+    arrange(n_pathways) %>%
+    pull(category)
+
+  plong <- psum_v %>%
+    select(pathway, category, auc_roc, auc_pr) %>%
+    pivot_longer(cols = c(auc_roc, auc_pr),
+                 names_to  = "metric",
+                 values_to = "auc") %>%
+    filter(!is.na(auc)) %>%
+    mutate(
+      category = factor(category, levels = cat_order),
+      metric   = factor(metric,
+                        levels = c("auc_roc", "auc_pr"),
+                        labels = c("AUC-ROC", "AUC-PR"))
+    )
+
+  cat_ann <- plong %>%
+    group_by(category, metric) %>%
+    summarise(n = n(), med = median(auc, na.rm = TRUE), .groups = "drop") %>%
+    mutate(category = factor(category, levels = cat_order),
+           label = sprintf("n=%d\nmed=%.2f", n, med))
+
+  p <- ggplot(plong, aes(y = category, x = auc, fill = category)) +
+    geom_jitter(aes(colour = category),
+                width = 0, height = 0.18,
+                size = 1.4, alpha = 0.6, shape = 16) +
+    geom_boxplot(width = 0.45, outlier.shape = NA,
+                 alpha = 0.35, linewidth = 0.45,
+                 colour = "grey25") +
+    geom_text(data = cat_ann,
+              aes(x = 1.02, y = category, label = label),
+              inherit.aes = FALSE,
+              hjust = 0, size = 2.7, colour = "grey35",
+              lineheight = 1.2) +
+    facet_wrap(~ metric, ncol = 2) +
+    scale_x_continuous(limits = c(0, 1.18),
+                       breaks = c(0, 0.25, 0.5, 0.75, 1.0),
+                       expand = expansion(mult = c(0.01, 0))) +
+    scale_fill_manual(values  = okabe_ito, guide = "none") +
+    scale_colour_manual(values = okabe_ito, guide = "none") +
+    labs(x = "AUC", y = NULL) +
+    theme_minimal(base_size = 15) +
+    theme(
+      strip.text         = element_text(face = "bold"),
+      panel.grid.major.x = element_line(colour = "grey92"),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor   = element_blank()
+    )
+
+  out <- file.path(plot_dir, "05_auc_by_category.png")
+  ggsave(out, p, width = 14, height = 7, dpi = 300, device = ragg::agg_png)
   cat(sprintf("    Saved: %s\n", out))
   invisible(p)
 }
@@ -644,19 +800,20 @@ plot_kegg_characterisation <- function(
 
   dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
 
-  # 10-colour palette (extends Set2 which tops out at 8)
-  cat_palette <- grDevices::colorRampPalette(
-    RColorBrewer::brewer.pal(8, "Set2")
-  )(10L)
-
   cat("================================================================\n")
   cat("  KEGG Pathway Characterisation Plots\n")
   cat("================================================================\n\n")
 
   cat("  Building pathway summary table...\n")
-  psum <- .build_pathway_summary(result)
-  cat(sprintf("  %d pathways  ·  %d categories\n\n",
-              nrow(psum), n_distinct(psum$category)))
+  psum   <- .build_pathway_summary(result)
+  n_cats <- dplyr::n_distinct(psum$category)
+  cat(sprintf("  %d pathways  ·  %d categories\n\n", nrow(psum), n_cats))
+
+  # Palette sized to actual number of categories (colorRampPalette interpolates
+  # beyond Set2's 8-colour limit, so this stays correct as categories change)
+  cat_palette <- grDevices::colorRampPalette(
+    RColorBrewer::brewer.pal(8, "Set2")
+  )(n_cats)
 
   p1 <- .plot_pathway_sizes(psum, plot_dir, cat_palette)
   p2 <- .plot_network_coverage(psum, plot_dir, cat_palette)
@@ -705,7 +862,7 @@ plot_kegg_characterisation <- function(
 #'   x-axis (long tail annotated). Default \code{30}.
 #'
 #' @return A ggplot object (the assembled cowplot grid), invisibly.
-plot_gene_pathway_membership <- function(
+plot_gene_pathway_membership_old <- function(
     result,
     plot_dir = "data-raw/plots/kegg_characterisation",
     filename = "06_gene_pathway_membership.png",
@@ -877,4 +1034,180 @@ plot_gene_pathway_membership <- function(
   cat(sprintf("    Saved: %s\n", out))
 
   invisible(final)
+}
+
+# ==============================================================================
+# plot_gene_pathway_membership() — standalone function (histogram-only)
+# ==============================================================================
+
+#' Plot the distribution of gene pathway-membership counts
+#'
+#' Single-panel histogram of how many genes appear in exactly 1, 2, 3 …
+#' pathways, coloured by membership class using a colour-blind-safe
+#' (Okabe-Ito) palette.
+#'
+#' @param result    List returned by \code{compute_network_cutoff()}.
+#' @param plot_dir  Character. Output directory.
+#'   Default \code{"data-raw/plots/kegg_characterisation"}.
+#' @param filename  Character. Output filename.
+#' @param x_cap     Integer. Maximum membership count shown on the histogram
+#'   x-axis (long tail annotated). Default \code{30}.
+#'
+#' @return A ggplot object, invisibly.
+plot_gene_pathway_membership <- function(
+    result,
+    plot_dir = "data-raw/plots/kegg_characterisation",
+    filename = "06_gene_pathway_membership.png",
+    x_cap    = 30L) {
+
+  cat("  [6] Gene pathway-membership frequency distribution...\n")
+
+  # Restrict to pathways that were actually used in the cut-off calculation
+  # (i.e. survived min_neighbors / min_pathway_pos filtering, not just
+  # min_coverage), so this figure matches what the calibration set actually was.
+  used_pathways <- result$pathway_results$pathway[!is.na(result$pathway_results$cutoff_f1)]
+  kegg          <- result$kegg_genesets %>% filter(gs_name %in% used_pathways)
+
+  net_genes <- names(.build_neighbor_list(result$gene_pairs))
+
+  gene_membership <- kegg %>%
+    group_by(gene = ensembl_gene) %>%
+    summarise(
+      n_pathways   = n_distinct(gs_name),
+      n_categories = n_distinct(.infer_category(gs_name)),
+      .groups      = "drop"
+    ) %>%
+    mutate(
+      in_network = gene %in% net_genes,
+      hub_class  = case_when(
+        n_pathways == 1  ~ "1  (singleton)",
+        n_pathways <= 3  ~ "2-3",
+        n_pathways <= 10 ~ "4-10",
+        n_pathways <= 20 ~ "11-20",
+        TRUE             ~ "20+"
+      ),
+      hub_class = factor(hub_class,
+                         levels = c("1  (singleton)", "2-3",
+                                    "4-10", "11-20", "20+"))
+    )
+
+  freq_tbl <- gene_membership %>%
+    count(n_pathways, hub_class, name = "n_genes") %>%
+    arrange(n_pathways)
+
+  n_total    <- nrow(gene_membership)
+  n_tail     <- sum(gene_membership$n_pathways > x_cap)
+  med_memb   <- median(gene_membership$n_pathways)
+  mean_memb  <- mean(gene_membership$n_pathways)
+  pct_multi  <- round(100 * mean(gene_membership$n_pathways > 1), 1)
+
+  hub_colours <- c(
+    "1  (singleton)" = "#0072B2",
+    "2-3"            = "#56B4E9",
+    "4-10"           = "#009E73",
+    "11-20"          = "#E69F00",
+    "20+"            = "#D55E00"
+  )
+
+  hist_data <- freq_tbl %>% filter(n_pathways <= x_cap)
+
+  p_hist <- ggplot(hist_data,
+                   aes(x = n_pathways, y = n_genes, fill = hub_class)) +
+    geom_col(width = 0.8, colour = "white", linewidth = 0.2) +
+    geom_vline(xintercept = med_memb,  linetype = "solid",
+               colour = "grey30", linewidth = 0.7) +
+    geom_vline(xintercept = mean_memb, linetype = "dashed",
+               colour = "grey30", linewidth = 0.7) +
+    annotate("text", x = med_memb + 0.4, y = Inf,
+             label = sprintf("median = %g", med_memb),
+             hjust = 0, vjust = 1.5, size = 3, colour = "grey25") +
+    annotate("text", x = mean_memb + 0.4, y = Inf,
+             label = sprintf("mean = %.1f", mean_memb),
+             hjust = 0, vjust = 3.2, size = 3, colour = "grey25") +
+    { if (n_tail > 0)
+      annotate("text", x = x_cap, y = max(hist_data$n_genes) * 0.6,
+               label = sprintf("+ %d genes\nwith >%d pathways\n(not shown)",
+                               n_tail, x_cap),
+               hjust = 1, size = 2.8, colour = "grey40", fontface = "italic")
+    } +
+    scale_fill_manual(values = hub_colours, name = "Membership\nclass") +
+    scale_x_continuous(breaks = c(1, 5, 10, 15, 20, 25, 30),
+                       limits = c(0.5, x_cap + 0.5)) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(x = "Number of KEGG pathways", y = "Number of genes") +
+    theme_minimal(base_size = 15) +
+    theme(panel.grid.minor = element_blank(),
+          legend.position  = "right")
+
+  dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
+  ggsave(file.path(plot_dir, "06_gene_pathway_membership.png"), p_hist,
+         width = 8, height = 6, dpi = 300)
+  cat(sprintf("    Saved: %s\n", file.path(plot_dir, "06_gene_pathway_membership.png")))
+
+  invisible(list(plot = p_hist, n_total = n_total, n_tail = n_tail,
+                 med_memb = med_memb, mean_memb = mean_memb, pct_multi = pct_multi))
+}
+
+#' Build KEGG pathway summary table per category
+#'
+#' Returns a tibble with one row per category: pathway count, median and IQR
+#' of pathway size, median and IQR of network coverage, and median AUC-PR.
+#' Also writes a CSV of pathway names classified as "Other".
+#'
+#' @param result     List returned by \code{compute_network_cutoff()}.
+#' @param output_dir Directory to write the "other" pathway list CSV.
+#'   Pass \code{NULL} to skip writing. Default \code{"data-raw/plots/kegg_characterisation"}.
+#'
+#' @return A named list with:
+#'   \describe{
+#'     \item{table}{Tibble — one row per category, thesis-ready summary.}
+#'     \item{other_pathways}{Character vector of pathway names classified as Other.}
+#'   }
+build_kegg_category_table <- function(
+    result,
+    output_dir = "data-raw/plots/kegg_characterisation") {
+
+  psum <- .build_pathway_summary(result)
+
+  # Summary table
+  tbl <- psum %>%
+    group_by(category) %>%
+    summarise(
+      n_pathways        = n(),
+      n_used            = sum(!is.na(auc_pr)),
+      median_size       = median(n_genes_kegg, na.rm = TRUE),
+      iqr_size          = IQR(n_genes_kegg,    na.rm = TRUE),
+      median_coverage   = round(median(coverage,     na.rm = TRUE), 3),
+      iqr_coverage      = round(IQR(coverage,        na.rm = TRUE), 3),
+      median_auc_pr     = round(median(auc_pr,        na.rm = TRUE), 3),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(n_pathways))
+
+  # "Other" pathway list
+  other_pathways <- psum %>%
+    filter(category == "Other") %>%
+    arrange(pathway) %>%
+    pull(pathway)
+
+  n_other     <- length(other_pathways)
+  n_total     <- nrow(psum)
+  pct_other   <- round(100 * n_other / n_total, 1)
+
+  cat(sprintf(
+    "  Pathways classified as 'Other': %d / %d (%.1f%%)\n",
+    n_other, n_total, pct_other
+  ))
+
+  if (!is.null(output_dir)) {
+    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+    out_csv <- file.path(output_dir, "other_pathways.csv")
+    write.csv(
+      data.frame(pathway = other_pathways),
+      out_csv, row.names = FALSE
+    )
+    cat(sprintf("  Other pathway names written to: %s\n", out_csv))
+  }
+
+  list(table = tbl, other_pathways = other_pathways)
 }

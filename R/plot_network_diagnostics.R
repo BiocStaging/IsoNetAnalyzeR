@@ -2,7 +2,12 @@
 ## Plotting function for NetworkDiagnostics results.
 ##
 ## Produces a 2-row x 3-column panel figure suitable for thesis and
-## publication use.  All panels use a minimal, greyscale-friendly aesthetic.
+## publication use. No in-plot titles (Row/panel titles live in the LaTeX
+## caption); panels are tagged A-F via patchwork. Panels are grouped and
+## coloured by network level: isoform-level panels (top row) share one
+## accent colour, gene-level panels (bottom row, left two) share a second
+## accent colour, and the categorical connectivity-status panel (bottom
+## right) uses a 3-colour categorical scheme.
 ##
 ## Internal helpers (prefixed with ".") are not exported.
 ## Exported: plot_network_diagnostics
@@ -22,6 +27,46 @@ utils::globalVariables(c(
   "n_isoforms_total"
 ))
 
+# Semantic accent colours (Okabe-Ito palette)
+.ISOFORM_COLOUR <- "#0072B2"   # blue  - isoform-level panels
+.GENE_COLOUR    <- "#E69F00"   # orange - gene-level panels
+
+
+#' Bin a strictly-positive numeric vector in log10 space
+#'
+#' Standard fixed-width histogram binning done on log10(values), so the
+#' result can be plotted on an ordinary linear x-axis (with custom power-of-
+#' ten tick labels) using a single constant bin width. This avoids both the
+#' zero-count log(0) problem (empty bins are simply dropped) and the
+#' variable relative-width approach, which is fragile when combined with
+#' scale_x_log10().
+#' @noRd
+.log_hist_table <- function(values, bins = 30L) {
+  lv <- log10(values)
+  rng <- range(lv)
+  if (diff(rng) == 0) rng <- rng + c(-0.5, 0.5)   # guard: all-identical values
+  breaks <- seq(rng[1], rng[2], length.out = bins + 1L)
+  h <- graphics::hist(lv, breaks = breaks, plot = FALSE)
+  out <- data.frame(
+    log10_x    = h$mids,
+    n          = h$counts,
+    bin_width  = diff(h$breaks)[1]
+  )
+  out[out$n > 0, , drop = FALSE]   # drop empty bins; nothing left to log(0)
+}
+
+
+#' Build integer power-of-ten breaks/labels spanning a log10-scale range
+#'
+#' Labels are plain decimal numbers (1, 10, 100, ...), matching the default
+#' label style ggplot2 produces for scale_x_log10()/scale_y_log10() in the
+#' other panels, rather than exponent notation.
+#' @noRd
+.log10_breaks_labels <- function(log10_range) {
+  brks <- seq(floor(log10_range[1]), ceiling(log10_range[2]))
+  list(breaks = brks, labels = format(10^brks, scientific = FALSE))
+}
+
 
 # ==============================================================================
 #  Internal panel helpers
@@ -32,7 +77,6 @@ utils::globalVariables(c(
 .diag_theme <- function() {
   ggplot2::theme_classic(base_size = 10) +
     ggplot2::theme(
-      plot.title       = ggplot2::element_text(face = "bold", size = 10),
       axis.title       = ggplot2::element_text(size = 9),
       axis.text        = ggplot2::element_text(size = 8),
       panel.grid.major = ggplot2::element_line(colour = "grey92"),
@@ -41,29 +85,34 @@ utils::globalVariables(c(
 }
 
 
-#' Panel 1 — Isoform degree distribution
+#' Panel A — Isoform degree distribution (isoform-level, top row)
 #' @noRd
 .panel_isoform_degree <- function(diag) {
   df <- diag@isoform_degree_table
   df <- df[df$degree > 0L, , drop = FALSE]   # exclude isolated
 
-  ggplot2::ggplot(df, ggplot2::aes(x = degree)) +
-    ggplot2::geom_histogram(
-      bins   = 40,
-      fill   = "grey40",
+  ht <- .log_hist_table(df$degree, bins = 30L)
+  axis_info <- .log10_breaks_labels(range(ht$log10_x))
+  thr_log   <- log10(diag@sticky_isoform_threshold)
+
+  ggplot2::ggplot(ht, ggplot2::aes(x = log10_x, y = n)) +
+    ggplot2::geom_col(
+      fill   = .ISOFORM_COLOUR,
       colour = "white",
-      linewidth = 0.2
+      linewidth = 0.2,
+      width  = ht$bin_width
     ) +
-    ggplot2::scale_x_log10() +
+    ggplot2::scale_x_continuous(breaks = axis_info$breaks, labels = axis_info$labels) +
+    ggplot2::scale_y_log10() +
     ggplot2::geom_vline(
-      xintercept = diag@sticky_isoform_threshold,
+      xintercept = thr_log,
       linetype   = "dashed",
       colour     = "grey20",
       linewidth  = 0.6
     ) +
     ggplot2::annotate(
       "text",
-      x      = diag@sticky_isoform_threshold,
+      x      = thr_log,
       y      = Inf,
       hjust  = -0.15,
       vjust  = 1.4,
@@ -72,36 +121,41 @@ utils::globalVariables(c(
       label  = "sticky\nthreshold"
     ) +
     ggplot2::labs(
-      title = "Isoform Degree Distribution",
-      x     = "Degree (log scale)",
-      y     = "Count"
+      x = "Degree (log scale)",
+      y = "Number of isoforms (log scale)"
     ) +
     .diag_theme()
 }
 
 
-#' Panel 2 — Gene degree distribution
+#' Panel D — Gene degree distribution (gene-level, bottom row)
 #' @noRd
 .panel_gene_degree <- function(diag) {
   df <- diag@gene_degree_table
+  df <- df[df$degree > 0L, , drop = FALSE]   # exclude isolated, consistent with panel A
 
-  ggplot2::ggplot(df, ggplot2::aes(x = degree)) +
-    ggplot2::geom_histogram(
-      bins      = 40,
-      fill      = "grey40",
+  ht <- .log_hist_table(df$degree, bins = 30L)
+  axis_info <- .log10_breaks_labels(range(ht$log10_x))
+  thr_log   <- log10(diag@sticky_gene_threshold)
+
+  ggplot2::ggplot(ht, ggplot2::aes(x = log10_x, y = n)) +
+    ggplot2::geom_col(
+      fill      = .GENE_COLOUR,
       colour    = "white",
-      linewidth = 0.2
+      linewidth = 0.2,
+      width     = ht$bin_width
     ) +
-    ggplot2::scale_x_log10() +
+    ggplot2::scale_x_continuous(breaks = axis_info$breaks, labels = axis_info$labels) +
+    ggplot2::scale_y_log10() +
     ggplot2::geom_vline(
-      xintercept = diag@sticky_gene_threshold,
+      xintercept = thr_log,
       linetype   = "dashed",
       colour     = "grey20",
       linewidth  = 0.6
     ) +
     ggplot2::annotate(
       "text",
-      x      = diag@sticky_gene_threshold,
+      x      = thr_log,
       y      = Inf,
       hjust  = -0.15,
       vjust  = 1.4,
@@ -110,15 +164,14 @@ utils::globalVariables(c(
       label  = "sticky\nthreshold"
     ) +
     ggplot2::labs(
-      title = "Gene Degree Distribution",
-      x     = "Degree (log scale)",
-      y     = "Count"
+      x = "Degree (log scale)",
+      y = "Number of genes (log scale)"
     ) +
     .diag_theme()
 }
 
 
-#' Panel 3 — Connected component sizes
+#' Panel B — Connected component sizes (isoform-level, top row)
 #' @noRd
 .panel_components <- function(diag) {
   df <- diag@component_table
@@ -157,50 +210,66 @@ utils::globalVariables(c(
 
   ggplot2::ggplot(plot_df,
                   ggplot2::aes(x = x_label, y = n_nodes)) +
-    ggplot2::geom_col(fill = "grey40", colour = "white", linewidth = 0.2) +
+    ggplot2::geom_col(fill = .ISOFORM_COLOUR, colour = "white", linewidth = 0.2) +
     ggplot2::scale_y_log10() +
     ggplot2::scale_x_discrete(labels = display_labels) +
     ggplot2::labs(
-      title = "Connected Component Sizes",
-      x     = "Component rank",
-      y     = "Nodes (log scale)"
+      x = "Component rank",
+      y = "Nodes (log scale)"
     ) +
     ggplot2::theme(axis.text.x = ggplot2::element_text(size = 7)) +
     .diag_theme()
 }
 
 
-#' Panel 4 — Isoforms per gene histogram
+#' Panel E — Isoforms per gene histogram (gene-level, bottom row)
 #' @noRd
 .panel_isoforms_per_gene <- function(diag) {
   df <- diag@isoform_per_gene_table
 
-  ggplot2::ggplot(df, ggplot2::aes(x = n_isoforms_total)) +
-    ggplot2::geom_histogram(
-      binwidth  = 1,
-      fill      = "grey40",
+  counts <- as.data.frame(table(n_isoforms_total = df$n_isoforms_total),
+                          stringsAsFactors = FALSE)
+  names(counts) <- c("n_isoforms_total", "n")
+  counts$n_isoforms_total <- as.numeric(as.character(counts$n_isoforms_total))
+
+  ggplot2::ggplot(counts, ggplot2::aes(x = n_isoforms_total, y = n)) +
+    ggplot2::geom_col(
+      fill      = .GENE_COLOUR,
       colour    = "white",
-      linewidth = 0.2
+      linewidth = 0.2,
+      width     = 0.8
     ) +
+    ggplot2::scale_y_log10() +
     ggplot2::labs(
-      title = "Isoforms per Gene",
-      x     = "Number of isoforms",
-      y     = "Number of genes"
+      x = "Number of isoforms",
+      y = "Number of genes (log scale)"
     ) +
     .diag_theme()
 }
 
 
-#' Panel 5 — Clustering coefficient vs degree scatter
+#' Panel C — Clustering coefficient vs degree scatter (isoform-level, top row)
 #' @noRd
 .panel_clustering <- function(diag) {
   df <- diag@clustering_table
   df <- df[df$degree > 0L, , drop = FALSE]
 
-  # Downsample for large networks to keep rendering fast
+  # Downsample for large networks to keep rendering fast.
+  # Uses a fixed local seed so the figure is reproducible across calls;
+  # the caller's global RNG state is saved and restored afterwards.
   max_pts <- 5000L
-  if (nrow(df) > max_pts)
+  if (nrow(df) > max_pts) {
+    old_seed <- if (exists(".Random.seed", envir = .GlobalEnv))
+      get(".Random.seed", envir = .GlobalEnv) else NULL
+    on.exit({
+      if (!is.null(old_seed))
+        assign(".Random.seed", old_seed, envir = .GlobalEnv)
+      else if (exists(".Random.seed", envir = .GlobalEnv))
+        rm(".Random.seed", envir = .GlobalEnv)
+    }, add = TRUE)
+    set.seed(42)
     df <- df[sample.int(nrow(df), max_pts), , drop = FALSE]
+  }
 
   ggplot2::ggplot(df,
                   ggplot2::aes(x = degree,
@@ -208,7 +277,7 @@ utils::globalVariables(c(
     ggplot2::geom_point(
       alpha  = 0.25,
       size   = 0.8,
-      colour = "grey30"
+      colour = .ISOFORM_COLOUR
     ) +
     ggplot2::geom_smooth(
       method    = "loess",
@@ -220,15 +289,14 @@ utils::globalVariables(c(
     ) +
     ggplot2::scale_x_log10() +
     ggplot2::labs(
-      title = "Clustering Coefficient vs Degree",
-      x     = "Degree (log scale)",
-      y     = "Local clustering coefficient"
+      x = "Degree (log scale)",
+      y = "Local clustering coefficient"
     ) +
     .diag_theme()
 }
 
 
-#' Panel 6 — Gene connectivity status bar chart
+#' Panel F — Gene connectivity status bar chart (categorical, bottom row)
 #' @noRd
 .panel_connectivity_status <- function(diag) {
   df <- diag@isoform_per_gene_table
@@ -252,18 +320,23 @@ utils::globalVariables(c(
                           labels = c("All connected", "Partial", "All isolated"))
 
   ggplot2::ggplot(counts,
-                  ggplot2::aes(x = status, y = n_genes)) +
-    ggplot2::geom_col(fill = "grey40", colour = "white", linewidth = 0.2) +
+                  ggplot2::aes(x = status, y = n_genes, fill = status)) +
+    ggplot2::geom_col(colour = "white", linewidth = 0.2) +
     ggplot2::geom_text(
       ggplot2::aes(label = n_genes),
       vjust  = -0.4,
       size   = 3,
       colour = "grey20"
     ) +
+    ggplot2::scale_fill_manual(
+      values = c("All connected" = "#009E73",
+                 "Partial"        = "#D55E00",
+                 "All isolated"   = "#CC79A7"),
+      guide  = "none"
+    ) +
     ggplot2::labs(
-      title = "Gene Connectivity Status",
-      x     = "Status",
-      y     = "Number of genes"
+      x = "Status",
+      y = "Number of genes"
     ) +
     .diag_theme()
 }
@@ -277,22 +350,29 @@ utils::globalVariables(c(
 #'
 #' Produces a 2-row x 3-column panel figure summarising the
 #' \linkS4class{NetworkDiagnostics} result stored in an
-#' \linkS4class{IsoNetAnalyzeR} session object.
+#' \linkS4class{IsoNetAnalyzeR} session object.  Panels carry no in-plot
+#' titles; panel content and the overall figure title are intended to live
+#' in the surrounding caption/body text rather than the image itself.
 #'
-#' \strong{Panel layout (2 rows x 3 columns):}
+#' \strong{Panel layout (2 rows x 3 columns), grouped by network level:}
 #' \itemize{
-#'   \item Row 1: Isoform degree distribution | Gene degree distribution | Connected component sizes
-#'   \item Row 2: Isoforms per gene | Clustering coefficient vs degree | Gene connectivity status
+#'   \item Row 1 (isoform-level, blue): (A) Isoform degree distribution |
+#'     (B) Connected component sizes | (C) Clustering coefficient vs degree
+#'   \item Row 2 (gene-level, orange / categorical): (D) Gene degree
+#'     distribution | (E) Isoforms per gene | (F) Gene connectivity status
 #' }
 #'
 #' Sticky degree thresholds are shown as dashed vertical lines in the two
-#' degree distribution panels.  A LOESS smoothing line is overlaid on the
-#' clustering coefficient panel.
+#' degree distribution panels (A, D).  A LOESS smoothing line is overlaid on
+#' the clustering coefficient panel (C).  Degree-distribution panels (A, D)
+#' and the isoforms-per-gene panel (E) use log-scaled counts to make the
+#' heavy right tail readable; no power-law shape is implied by this choice.
 #'
 #' @param obj    An \linkS4class{IsoNetAnalyzeR} session object with a
 #'   completed network diagnostics run (see \code{\link{run_network_diagnostics}}).
-#' @param title  Character scalar or \code{NULL}.  Overall figure title.
-#'   Defaults to \code{"Network Diagnostics"}.
+#' @param title  Character scalar or \code{NULL}.  Optional overall figure
+#'   title, off by default since titles are intended to live in the
+#'   caption rather than the figure itself.  Set to a string to override.
 #'
 #' @return A \code{patchwork} object (invisibly).  Print it to display, or
 #'   save with \code{ggplot2::ggsave()}.
@@ -301,7 +381,7 @@ utils::globalVariables(c(
 #' \dontrun{
 #' obj <- run_network_diagnostics(obj)
 #'
-#' # Display
+#' # Display (no title; tagged panels A-F only)
 #' plot_network_diagnostics(obj)
 #'
 #' # Save to file
@@ -310,7 +390,7 @@ utils::globalVariables(c(
 #' }
 #'
 #' @export
-plot_network_diagnostics <- function(obj, title = "Network Diagnostics") {
+plot_network_diagnostics <- function(obj, title = NULL) {
 
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
@@ -331,24 +411,24 @@ plot_network_diagnostics <- function(obj, title = "Network Diagnostics") {
 
   diag <- obj@network_diagnostics
 
-  p1 <- .panel_isoform_degree(diag)
-  p2 <- .panel_gene_degree(diag)
-  p3 <- .panel_components(diag)
-  p4 <- .panel_isoforms_per_gene(diag)
-  p5 <- .panel_clustering(diag)
-  p6 <- .panel_connectivity_status(diag)
+  p_iso_degree   <- .panel_isoform_degree(diag)        # A
+  p_components   <- .panel_components(diag)            # B
+  p_clustering   <- .panel_clustering(diag)             # C
+  p_gene_degree  <- .panel_gene_degree(diag)            # D
+  p_iso_per_gene <- .panel_isoforms_per_gene(diag)       # E
+  p_connectivity <- .panel_connectivity_status(diag)     # F
 
-  fig <- (p1 | p2 | p3) / (p4 | p5 | p6)
+  fig <- (p_iso_degree | p_components | p_clustering) /
+    (p_gene_degree | p_iso_per_gene | p_connectivity)
 
+  ann_args <- list(tag_levels = "A")
   if (!is.null(title)) {
-    fig <- fig +
-      patchwork::plot_annotation(
-        title = title,
-        theme = ggplot2::theme(
-          plot.title = ggplot2::element_text(face = "bold", size = 12)
-        )
-      )
+    ann_args$title <- title
+    ann_args$theme <- ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 12)
+    )
   }
+  fig <- fig + do.call(patchwork::plot_annotation, ann_args)
 
   print(fig)
   invisible(fig)

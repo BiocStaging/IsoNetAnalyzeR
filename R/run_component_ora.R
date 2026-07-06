@@ -519,10 +519,20 @@ run_component_ora <- function(obj,
   comp_ids <- sort(unique(node_table$component_id))
 
   result <- lapply(comp_ids, function(cid) {
-    isoforms <- node_table$node[node_table$component_id == cid]
-    genes    <- iso_to_gene[isoforms]
-    genes    <- genes[!is.na(genes)]
-    unique(as.character(genes))
+    nodes_in_comp <- node_table$node[node_table$component_id == cid]
+
+    # At gene level, node IDs are already gene IDs — mapping would produce
+    # all NAs. Detect this by checking whether any node matches a known
+    # isoform ID in the mapping.
+    if (any(nodes_in_comp %in% names(iso_to_gene))) {
+      # Isoform level: translate isoform IDs -> gene IDs
+      genes <- iso_to_gene[nodes_in_comp]
+      genes <- genes[!is.na(genes)]
+      unique(as.character(genes))
+    } else {
+      # Gene level: nodes are already gene IDs
+      unique(nodes_in_comp)
+    }
   })
 
   names(result) <- as.character(comp_ids)

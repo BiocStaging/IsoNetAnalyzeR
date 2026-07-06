@@ -373,7 +373,7 @@ run_component_analysis <- function(obj,
   }
 
   g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
-  g <- .annotate_seed_direction(g, gene_results_subset, direction)
+  g <- .annotate_seed_direction(g, gene_results_subset, direction, level)
 
   # -- Decompose and filter ----------------------------------------------------
   message("Decomposing into connected components ...")
@@ -465,26 +465,44 @@ run_component_analysis <- function(obj,
 
 #' Tag each seed vertex with its direction ("up", "down", or "both")
 #' @noRd
-.annotate_seed_direction <- function(g, gene_results, direction) {
+.annotate_seed_direction <- function(g, gene_results, direction, level) {
 
-  up_seeds   <- character(0)
-  down_seeds <- character(0)
+  vnames <- igraph::V(g)$name
 
-  for (gr in gene_results) {
-    if (direction %in% c("up", "both") && !is.null(gr@up_graph))
-      up_seeds   <- union(up_seeds,   gr@up_isoforms)
-    if (direction %in% c("down", "both") && !is.null(gr@down_graph))
-      down_seeds <- union(down_seeds, gr@down_isoforms)
+  if (level == "gene") {
+    # At gene level, vertex names are gene IDs. A gene node is a seed if it
+    # appears as gr@gene_id for a result that has isoforms in the given direction.
+    up_seed_genes   <- character(0)
+    down_seed_genes <- character(0)
+    for (gr in gene_results) {
+      if (direction %in% c("up", "both") && !is.null(gr@up_graph) &&
+          length(gr@up_isoforms) > 0L)
+        up_seed_genes   <- union(up_seed_genes,   gr@gene_id)
+      if (direction %in% c("down", "both") && !is.null(gr@down_graph) &&
+          length(gr@down_isoforms) > 0L)
+        down_seed_genes <- union(down_seed_genes, gr@gene_id)
+    }
+    check_up   <- vnames %in% up_seed_genes
+    check_down <- vnames %in% down_seed_genes
+  } else {
+    # At isoform level, vertex names are isoform IDs matched directly.
+    up_seeds   <- character(0)
+    down_seeds <- character(0)
+    for (gr in gene_results) {
+      if (direction %in% c("up", "both") && !is.null(gr@up_graph))
+        up_seeds   <- union(up_seeds,   gr@up_isoforms)
+      if (direction %in% c("down", "both") && !is.null(gr@down_graph))
+        down_seeds <- union(down_seeds, gr@down_isoforms)
+    }
+    check_up   <- vnames %in% up_seeds
+    check_down <- vnames %in% down_seeds
   }
 
-  vnames   <- igraph::V(g)$name
-  seed_dir <- vapply(vnames, function(v) {
-    is_up   <- v %in% up_seeds
-    is_down <- v %in% down_seeds
-    if      (is_up && is_down) "both"
-    else if (is_up)            "up"
-    else if (is_down)          "down"
-    else                       NA_character_
+  seed_dir <- vapply(seq_along(vnames), function(i) {
+    if      (check_up[i] && check_down[i]) "both"
+    else if (check_up[i])                  "up"
+    else if (check_down[i])                "down"
+    else                                   NA_character_
   }, character(1))
 
   igraph::V(g)$seed_direction <- seed_dir

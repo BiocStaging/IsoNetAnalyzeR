@@ -459,14 +459,14 @@ run_fgsea <- function(obj,
                   go_category))
 
   if (go_category == "ALL") {
-    go_sets <- msigdbr::msigdbr(species = "Homo sapiens", category = "C5")
+    go_sets <- msigdbr::msigdbr(species = "Homo sapiens", collection = "C5")
     # Restrict to GO subcollections only (exclude HPO)
-    go_sets <- go_sets[go_sets$gs_subcat %in% c("GO:BP", "GO:MF", "GO:CC"), ]
+    go_sets <- go_sets[go_sets$gs_subcollection %in% c("GO:BP", "GO:MF", "GO:CC"), ]
   } else {
     go_sets <- msigdbr::msigdbr(
-      species     = "Homo sapiens",
-      category    = "C5",
-      subcategory = go_category
+      species       = "Homo sapiens",
+      collection    = "C5",
+      subcollection = go_category
     )
   }
 

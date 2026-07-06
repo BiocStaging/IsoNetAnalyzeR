@@ -1066,15 +1066,8 @@ setMethod(
   membership_colours <- .membership_palette
   edge_colours       <- .edge_membership_palette
 
+  # All shapes support fill + stroke so both branches render consistently
   seed_shapes <- c(
-    non_seed   = 16L,   # filled circle
-    up_seed    = 17L,   # triangle (pointing up)
-    down_seed  = 25L,   # inverted triangle (pointing down)
-    both_seeds = 18L    # diamond
-  )
-
-  # Shapes that support fill + stroke (for group_by_gene overlay)
-  seed_shapes_filled <- c(
     non_seed   = 21L,   # filled circle
     up_seed    = 24L,   # filled triangle up
     down_seed  = 25L,   # filled triangle down
@@ -1163,15 +1156,15 @@ setMethod(
       ) +
       ggplot2::scale_shape_manual(
         name   = "Seed status",
-        values = seed_shapes_filled,
+        values = seed_shapes,
         labels = seed_labels,
-        drop   = FALSE
+        drop   = TRUE
       ) +
       ggplot2::scale_size_manual(
         name   = "Seed status",
         values = size_vals,
         labels = seed_labels,
-        drop   = FALSE
+        drop   = TRUE
       ) +
       ggraph::geom_node_text(
         ggplot2::aes(label = .data[["name"]]),
@@ -1214,32 +1207,40 @@ setMethod(
         name   = "Edge membership",
         values = edge_colours,
         labels = membership_labels,
-        drop   = FALSE
+        drop   = TRUE
       ) +
       ggraph::geom_node_point(
         ggplot2::aes(
           colour = .data[["membership"]],
+          fill   = .data[["membership"]],
           shape  = .data[["seed_direction"]],
           size   = .data[["seed_direction"]]
-        )
+        ),
+        stroke = 0.5
       ) +
       ggplot2::scale_colour_manual(
         name   = "Node membership",
         values = membership_colours,
         labels = membership_labels,
-        drop   = FALSE
+        drop   = TRUE
+      ) +
+      ggplot2::scale_fill_manual(
+        name   = "Node membership",
+        values = membership_colours,
+        labels = membership_labels,
+        guide  = "none"
       ) +
       ggplot2::scale_shape_manual(
         name   = "Seed status",
         values = seed_shapes,
         labels = seed_labels,
-        drop   = FALSE
+        drop   = TRUE
       ) +
       ggplot2::scale_size_manual(
         name   = "Seed status",
         values = size_vals,
         labels = seed_labels,
-        drop   = FALSE
+        drop   = TRUE
       ) +
       ggraph::geom_node_text(
         ggplot2::aes(label = .data[["name"]]),

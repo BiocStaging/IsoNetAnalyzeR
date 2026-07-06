@@ -14,7 +14,6 @@ Description: Provides tools for isoform-level protein interaction network
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends: 
     R (>= 3.5)
 Imports: 
@@ -60,3 +59,4 @@ Collate:
     'run_network_diagnostics.R'
     'virtual_pulldown.R'
     'virtual_pulldown_analysis.R'
+Config/roxygen2/version: 8.0.0

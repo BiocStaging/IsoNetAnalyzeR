@@ -256,7 +256,7 @@ plot_component <- function(obj,
     stop("The merged cross-gene graph is empty; nothing to plot.", call. = FALSE)
 
   g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
-  g <- .annotate_seed_direction(g, gene_results_subset, direction)
+  g <- .annotate_seed_direction(g, gene_results_subset, direction, ca@level)
 
   # -- Decompose and sort (must match run_component_analysis exactly) ----------
   comps      <- igraph::decompose(g)

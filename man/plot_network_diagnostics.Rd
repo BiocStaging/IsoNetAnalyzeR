@@ -4,14 +4,15 @@
 \alias{plot_network_diagnostics}
 \title{Plot network diagnostics}
 \usage{
-plot_network_diagnostics(obj, title = "Network Diagnostics")
+plot_network_diagnostics(obj, title = NULL)
 }
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object with a
 completed network diagnostics run (see \code{\link{run_network_diagnostics}}).}
 
-\item{title}{Character scalar or \code{NULL}.  Overall figure title.
-Defaults to \code{"Network Diagnostics"}.}
+\item{title}{Character scalar or \code{NULL}.  Optional overall figure
+title, off by default since titles are intended to live in the
+caption rather than the figure itself.  Set to a string to override.}
 }
 \value{
 A \code{patchwork} object (invisibly).  Print it to display, or
@@ -20,24 +21,30 @@ save with \code{ggplot2::ggsave()}.
 \description{
 Produces a 2-row x 3-column panel figure summarising the
 \linkS4class{NetworkDiagnostics} result stored in an
-\linkS4class{IsoNetAnalyzeR} session object.
+\linkS4class{IsoNetAnalyzeR} session object.  Panels carry no in-plot
+titles; panel content and the overall figure title are intended to live
+in the surrounding caption/body text rather than the image itself.
 }
 \details{
-\strong{Panel layout (2 rows x 3 columns):}
+\strong{Panel layout (2 rows x 3 columns), grouped by network level:}
 \itemize{
-\item Row 1: Isoform degree distribution | Gene degree distribution | Connected component sizes
-\item Row 2: Isoforms per gene | Clustering coefficient vs degree | Gene connectivity status
+\item Row 1 (isoform-level, blue): (A) Isoform degree distribution |
+(B) Connected component sizes | (C) Clustering coefficient vs degree
+\item Row 2 (gene-level, orange / categorical): (D) Gene degree
+distribution | (E) Isoforms per gene | (F) Gene connectivity status
 }
 
 Sticky degree thresholds are shown as dashed vertical lines in the two
-degree distribution panels.  A LOESS smoothing line is overlaid on the
-clustering coefficient panel.
+degree distribution panels (A, D).  A LOESS smoothing line is overlaid on
+the clustering coefficient panel (C).  Degree-distribution panels (A, D)
+and the isoforms-per-gene panel (E) use log-scaled counts to make the
+heavy right tail readable; no power-law shape is implied by this choice.
 }
 \examples{
 \dontrun{
 obj <- run_network_diagnostics(obj)
 
-# Display
+# Display (no title; tagged panels A-F only)
 plot_network_diagnostics(obj)
 
 # Save to file

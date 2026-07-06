@@ -404,19 +404,18 @@ compute_network_cutoff <- function(isoform_network_df,
   }) %>%
     select(label, method, quantile, everything())
 
-  # Report the recommended cutoff operating point
-  best_v <- validation %>% filter(quantile == "unweighted_q50")
-  cat(sprintf(
-    "    PR/F1 q50 (recommended): %.4f  (prec=%.3f, recall=%.3f, F1=%.3f)\n\n",
-    best_v$cutoff, best_v$precision, best_v$recall, best_v$f1))
-  best_v <- validation %>% filter(quantile == "unweighted_q75")
-  cat(sprintf(
-    "    PR/F1 q75: %.4f  (prec=%.3f, recall=%.3f, F1=%.3f)\n\n",
-    best_v$cutoff, best_v$precision, best_v$recall, best_v$f1))
-  best_v <- validation %>% filter(quantile == "unweighted_q90")
-  cat(sprintf(
-    "    PR/F1 q90: %.4f  (prec=%.3f, recall=%.3f, F1=%.3f)\n\n",
-    best_v$cutoff, best_v$precision, best_v$recall, best_v$f1))
+  for (q in c("unweighted_q50", "unweighted_q75", "unweighted_q90")) {
+
+    roc_row <- validation %>% filter(method == "ROC", quantile == q)
+    f1_row  <- validation %>% filter(method == "PR/F1", quantile == q)
+
+    cat(sprintf(
+      "%s | ROC:   cutoff=%.4f  sens=%.3f  spec=%.3f  F1=%.3f\n",
+      q, roc_row$cutoff, roc_row$sensitivity, roc_row$specificity, roc_row$f1))
+    cat(sprintf(
+      "%s | PR/F1: cutoff=%.4f  prec=%.3f  recall=%.3f  F1=%.3f\n\n",
+      q, f1_row$cutoff, f1_row$precision, f1_row$recall, f1_row$f1))
+  }
 
   # --------------------------------------------------------------------------
   # [9/9] Multi-pathway gene handling strategies (optional)

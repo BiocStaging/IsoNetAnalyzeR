@@ -255,17 +255,21 @@ plot_component <- function(obj,
   if (igraph::vcount(g) == 0L)
     stop("The merged cross-gene graph is empty; nothing to plot.", call. = FALSE)
 
-  g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
   g <- .annotate_seed_direction(g, gene_results_subset, direction, ca@level)
 
-  # -- Decompose and sort (must match run_component_analysis exactly) ----------
-  comps      <- igraph::decompose(g)
-  comp_sizes <- vapply(comps, igraph::vcount, double(1))
-  comp_edges <- vapply(comps, igraph::ecount, double(1))
-  comps      <- comps[order(comp_sizes, comp_edges, decreasing = TRUE)]
-
-  # -- Extract requested component ---------------------------------------------
-  cg         <- comps[[component_id]]
+  # -- Extract exactly the component stored by run_component_analysis() --------
+  # Component analyses may have explicit component filters. Re-decomposing and
+  # sorting the unfiltered graph here can therefore assign a different graph to
+  # the stored component_id. The node table is the authoritative membership
+  # record and also preserves valid one-node/zero-edge components.
+  component_nodes <- ca@node_table$node[
+    ca@node_table$component_id == component_id
+  ]
+  component_nodes <- intersect(component_nodes, igraph::V(g)$name)
+  if (length(component_nodes) == 0L)
+    stop("The stored component has no vertices in the rebuilt graph.",
+         call. = FALSE)
+  cg <- igraph::induced_subgraph(g, vids = component_nodes)
   seed_names <- igraph::V(cg)$name[!is.na(igraph::V(cg)$seed_direction)]
 
   # -- Auto-generate title -----------------------------------------------------

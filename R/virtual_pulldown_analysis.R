@@ -129,14 +129,17 @@ summarize_subgraphs <- function(vp_list) {
     # Collapse multiple seeds into a single readable string
     seed_str <- paste(.get_seeds(g)$name, collapse = ", ")
 
+    n_nodes <- igraph::vcount(g)
     data.frame(
       seed        = seed_str,
-      nodes       = igraph::vcount(g),
+      nodes       = n_nodes,
       edges       = igraph::ecount(g),
-      density     = igraph::edge_density(g),
+      density     = if (n_nodes < 2L) 0 else igraph::edge_density(g),
       avg_degree  = mean(igraph::degree(g)),
-      clustering  = igraph::transitivity(g, type = "average"),
-      starness    = igraph::centr_degree(g, normalized = TRUE)$centralization,
+      clustering  = if (n_nodes < 2L) 0 else
+        igraph::transitivity(g, type = "average", isolates = "zero"),
+      starness    = if (n_nodes < 2L) NA_real_ else
+        igraph::centr_degree(g, normalized = TRUE)$centralization,
       genes       = length(unique(igraph::V(g)$gene)),
       stringsAsFactors = FALSE
     )
@@ -162,6 +165,8 @@ summarize_subgraphs <- function(vp_list) {
 #' @return A data frame with one row per vertex and the following columns:
 #' \describe{
 #'   \item{isoform}{Vertex name (transcript ID).}
+#'   \item{is_seed}{Logical flag copied directly from the graph's
+#'     \code{order == 0} annotation.}
 #'   \item{degree}{Number of edges connected to the vertex.}
 #'   \item{clustering}{Local clustering coefficient.}
 #'   \item{distance_from_seed}{Average shortest-path distance from all seeds.
@@ -202,8 +207,11 @@ analyze_subgraph <- function(graph) {
 
   data.frame(
     isoform            = all_names,
+    is_seed            = all_names %in% seed_names,
     degree             = igraph::degree(graph),
-    clustering         = igraph::transitivity(graph, type = "local"),
+    clustering         = igraph::transitivity(
+      graph, type = "local", isolates = "zero"
+    ),
     distance_from_seed = avg_dist_from_seed,
     mean_pi            = vapply(pi_stats, `[[`, numeric(1), "mean_pi"),
     pi_entropy         = vapply(pi_stats, `[[`, numeric(1), "pi_entropy"),

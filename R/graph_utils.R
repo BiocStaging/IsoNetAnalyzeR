@@ -137,8 +137,6 @@ NULL
 
   # Gene-level contraction if requested ----------------------------------------
   if (level == "gene") {
-    pre_source <- stats::setNames(igraph::V(g)$source_gene, igraph::V(g)$name)
-
     g <- .contract_to_gene(g)
 
     # Re-derive source_gene at gene level: a gene node is "multi-gene" if
@@ -164,9 +162,6 @@ NULL
     ))
     igraph::V(g)$is_seed <- gv_names %in% seed_genes
   }
-
-  # Remove isolated vertices
-  g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
 
   list(
     graph      = g,

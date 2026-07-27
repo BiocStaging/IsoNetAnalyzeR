@@ -202,8 +202,8 @@ which is meaningful for inspecting nodes that were filtered out.
 
 \strong{Gene-level plot}: Isoforms are contracted by the \code{gene} vertex
 attribute.  Isoforms with a missing \code{gene} attribute are grouped as
-\code{"NA_gene"}.  Isolated gene nodes (no edges after contraction) are
-removed.
+\code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid
+one-node/zero-edge results; isolated non-seed nodes are omitted.
 
 All colour palettes are colour-blind-safe (Okabe-Ito).
 

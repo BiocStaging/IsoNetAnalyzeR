@@ -163,14 +163,17 @@ setValidity("GeneDiffPulldown", function(object) {
         stringsAsFactors = FALSE
       ))
     }
+    n_nodes <- igraph::vcount(g)
     data.frame(
       direction  = direction,
-      nodes      = igraph::vcount(g),
+      nodes      = n_nodes,
       edges      = igraph::ecount(g),
-      density    = igraph::edge_density(g),
+      density    = if (n_nodes < 2L) 0 else igraph::edge_density(g),
       avg_degree = mean(igraph::degree(g)),
-      clustering = igraph::transitivity(g, type = "average"),
-      starness   = igraph::centr_degree(g, normalized = TRUE)$centralization,
+      clustering = if (n_nodes < 2L) 0 else
+        igraph::transitivity(g, type = "average", isolates = "zero"),
+      starness   = if (n_nodes < 2L) NA_real_ else
+        igraph::centr_degree(g, normalized = TRUE)$centralization,
       genes      = length(unique(igraph::V(g)$gene)),
       stringsAsFactors = FALSE
     )

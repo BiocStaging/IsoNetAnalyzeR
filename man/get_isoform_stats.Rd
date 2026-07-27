@@ -29,8 +29,10 @@ A data frame with one row per isoform per direction and columns:
 Merges the per-node statistics from the up- and down-regulated subgraphs of
 a single gene into one long-format data frame, with a \code{direction}
 column (\code{"up"} / \code{"down"}) identifying the condition.  A
-\code{is_seed} column flags isoforms that were supplied as seeds (i.e.
-distance from seed == 0).  Isoforms that appear in only one condition are
+\code{is_seed} column flags isoforms that were supplied as seeds, using the
+explicit seed annotation stored by \code{analyze_subgraph()}. Legacy saved
+objects without that column fall back to distance from seed equal to zero.
+Isoforms that appear in only one condition are
 represented in that condition's rows only; no artificial NAs are introduced
 for the missing direction.
 }

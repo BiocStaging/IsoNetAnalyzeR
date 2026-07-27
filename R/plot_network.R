@@ -54,8 +54,8 @@ NULL
 #'
 #' **Gene-level plot**: Isoforms are contracted by the \code{gene} vertex
 #' attribute.  Isoforms with a missing \code{gene} attribute are grouped as
-#' \code{"NA_gene"}.  Isolated gene nodes (no edges after contraction) are
-#' removed.
+#' \code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid
+#' one-node/zero-edge results; isolated non-seed nodes are omitted.
 #'
 #' @return A \code{ggplot} object, invisibly.  Can be further modified with
 #'   \pkg{ggplot2} layers or saved with \code{\link[ggplot2]{ggsave}}.
@@ -151,7 +151,8 @@ setMethod(
       graph     = object@network,
       level     = level,
       all_edges = all_edges,
-      threshold = object@metadata[["pi_threshold"]]
+      threshold = object@metadata[["pi_threshold"]],
+      seed_vertices = character(0)
     )
 
     if (is.null(title)) {
@@ -200,12 +201,20 @@ setMethod(
     .check_plot_args(all_edges, group_by_gene, level)
     .check_plot_pkgs()
 
+    # Resolve the actual order-0 seed vertices before filtering/contraction so
+    # isolated seeds can be protected by .build_plot_graph().
+    raw_seed_vertices <- igraph::V(object@subgraph)$name[
+      !is.na(igraph::V(object@subgraph)$order) &
+        igraph::V(object@subgraph)$order == 0
+    ]
+
     # For a lookup the threshold comes from params, not session metadata
     g <- .build_plot_graph(
       graph     = object@subgraph,
       level     = level,
       all_edges = all_edges,
-      threshold = object@params[["cutoff"]]
+      threshold = object@params[["cutoff"]],
+      seed_vertices = raw_seed_vertices
     )
 
     if (is.null(title)) {
@@ -218,13 +227,12 @@ setMethod(
 
     # Resolve seed vertex name(s) after possible gene contraction
     seed_vertices <- if (level == "gene") {
-      # After contraction the node name is the gene; look up the seed's gene
       seed_gene <- igraph::V(object@subgraph)$gene[
-        igraph::V(object@subgraph)$name == object@seed
+        igraph::V(object@subgraph)$name %in% raw_seed_vertices
       ]
-      if (length(seed_gene) && !is.na(seed_gene)) seed_gene else object@seed
+      unique(stats::na.omit(seed_gene))
     } else {
-      object@seed
+      raw_seed_vertices
     }
 
     .render_plot(
@@ -330,11 +338,17 @@ setMethod(
 #' @param threshold Numeric scalar or NULL; the pi_score cutoff to apply when
 #'   \code{all_edges = FALSE}.
 #'
-#' @return A prepared igraph object with isolated vertices removed.
+#' @param seed_vertices Character vector of seed vertex names in the input
+#'   graph. Isolated vertices in this set are protected from cleanup.
+#'
+#' @return A prepared igraph object. Isolated seed vertices are retained;
+#'   isolated non-seed vertices are removed.
 #' @noRd
-.build_plot_graph <- function(graph, level, all_edges, threshold = NULL) {
+.build_plot_graph <- function(graph, level, all_edges, threshold = NULL,
+                              seed_vertices = character(0)) {
 
   g <- graph
+  protected_seeds <- intersect(seed_vertices, igraph::V(g)$name)
 
   # -- Edge filtering ----------------------------------------------------------
   # Only acts when the pi_score attribute exists AND all_edges is FALSE AND a
@@ -344,12 +358,19 @@ setMethod(
       !is.null(igraph::edge_attr(g, "pi_score")) &&
       !is.null(threshold) && !is.na(threshold)) {
     keep <- igraph::E(g)$pi_score >= threshold
-    g    <- igraph::subgraph.edges(g, igraph::E(g)[keep],
-                                   delete.vertices = FALSE)
+    g    <- igraph::subgraph_from_edges(g, igraph::E(g)[keep],
+                                        delete.vertices = FALSE)
   }
 
   # -- Gene-level contraction --------------------------------------------------
   if (level == "gene") {
+    gene_attr <- igraph::V(g)$gene
+    if (!is.null(gene_attr)) {
+      gene_attr[is.na(gene_attr)] <- "NA_gene"
+      protected_seeds <- unique(stats::na.omit(
+        gene_attr[igraph::V(g)$name %in% protected_seeds]
+      ))
+    }
     g <- .contract_to_gene(g)
   }
 
@@ -362,8 +383,11 @@ setMethod(
       g <- igraph::delete_vertex_attr(g, attr)
   }
 
-  # Remove isolated vertices for a cleaner plot
-  igraph::delete.vertices(g, igraph::degree(g) == 0L)
+  # Keep biologically meaningful isolated seeds, while retaining the original
+  # cleanup for isolated non-seed vertices (especially in full-network plots).
+  drop <- igraph::degree(g) == 0L &
+    !(igraph::V(g)$name %in% protected_seeds)
+  igraph::delete_vertices(g, drop)
 }
 
 
@@ -692,7 +716,8 @@ setMethod(
       graph     = g_slot,
       level     = level,
       all_edges = FALSE,
-      threshold = NULL        # graph is already interaction-filtered
+      threshold = NULL,       # graph is already interaction-filtered
+      seed_vertices = iso_seed
     )
 
     if (is.null(title))
@@ -763,7 +788,8 @@ setMethod(
       graph     = g_slot,
       level     = level,
       all_edges = FALSE,
-      threshold = NULL
+      threshold = NULL,
+      seed_vertices = iso_seed
     )
 
     seed_vertices <- if (level == "gene") {
@@ -1056,11 +1082,14 @@ setMethod(
     }
   }
 
-  # Remove isolated vertices
-  g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
+  # Preserve isolated seed nodes. Isolated non-seeds add no information to the
+  # overlay and can still be removed for readability.
+  drop <- igraph::degree(g) == 0L &
+    igraph::V(g)$seed_direction == "non_seed"
+  g <- igraph::delete_vertices(g, drop)
 
   if (igraph::vcount(g) == 0L)
-    stop("Overlay graph has no vertices after cleanup.", call. = FALSE)
+    stop("Overlay graph has no vertices to plot.", call. = FALSE)
 
   # -- Colour palettes (CVD-safe, Okabe-Ito) ----------------------------------
   membership_colours <- .membership_palette
@@ -1129,12 +1158,14 @@ setMethod(
         ggplot2::aes(colour = .data[["membership"]]),
         alpha = edge_alpha
       ) +
-      ggraph::scale_edge_colour_manual(
-        name   = "Edge membership",
-        values = edge_colours,
-        labels = membership_labels,
-        drop   = FALSE
-      ) +
+      (if (igraph::ecount(g) > 0L) {
+        ggraph::scale_edge_colour_manual(
+          name   = "Edge membership",
+          values = edge_colours,
+          labels = membership_labels,
+          drop   = FALSE
+        )
+      } else NULL) +
       ggraph::geom_node_point(
         ggplot2::aes(
           fill   = .data[["gene"]],
@@ -1203,12 +1234,14 @@ setMethod(
         ggplot2::aes(colour = .data[["membership"]]),
         alpha = edge_alpha
       ) +
-      ggraph::scale_edge_colour_manual(
-        name   = "Edge membership",
-        values = edge_colours,
-        labels = membership_labels,
-        drop   = TRUE
-      ) +
+      (if (igraph::ecount(g) > 0L) {
+        ggraph::scale_edge_colour_manual(
+          name   = "Edge membership",
+          values = edge_colours,
+          labels = membership_labels,
+          drop   = TRUE
+        )
+      } else NULL) +
       ggraph::geom_node_point(
         ggplot2::aes(
           colour = .data[["membership"]],
@@ -1543,8 +1576,8 @@ setMethod(
 #' @param min_edges           Integer or NULL.  Minimum edge count per
 #'   component.
 #'
-#' @return The filtered igraph (isolated vertices already removed upstream, so
-#'   every retained vertex has degree >= 1).
+#' @return The filtered igraph. Explicit filters may remove singleton
+#'   components, but unfiltered isolated seed components are retained.
 #' @noRd
 .filter_cross_gene_components <- function(g,
                                           min_shared_nodes    = NULL,

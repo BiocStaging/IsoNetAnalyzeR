@@ -604,6 +604,7 @@ run_differential_pulldown <- function(obj,
   if (is.null(g))
     return(data.frame(
       isoform            = character(0),
+      is_seed            = logical(0),
       degree             = integer(0),
       clustering         = numeric(0),
       distance_from_seed = numeric(0),

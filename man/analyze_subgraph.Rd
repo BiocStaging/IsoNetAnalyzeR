@@ -14,6 +14,8 @@ from the full network after \code{interact == 1} filtering).}
 A data frame with one row per vertex and the following columns:
 \describe{
 \item{isoform}{Vertex name (transcript ID).}
+\item{is_seed}{Logical flag copied directly from the graph's
+\code{order == 0} annotation.}
 \item{degree}{Number of edges connected to the vertex.}
 \item{clustering}{Local clustering coefficient.}
 \item{distance_from_seed}{Average shortest-path distance from all seeds.

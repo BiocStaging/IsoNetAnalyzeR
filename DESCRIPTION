@@ -1,10 +1,15 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
 Version: 0.3.2
-Authors@R: 
-    person("Nikolas", "Mumm", email = "s242825@dtu.dk", role = c("aut", "cre"))
-Author: Nikolas Mumm [aut, cre]
-Maintainer: Nikolas Mumm <s242825@dtu.dk>
+Authors@R: c(
+    person("Dimitrios S.", "Kanakoglou",
+           email = "dimkan@dtu.dk", role = c("aut", "cre")),
+    person("Nikolas", "Mumm",
+           email = "s242825@dtu.dk", role = "aut")
+    )
+Author: Dimitrios S. Kanakoglou [aut, cre],
+    Nikolas Mumm [aut]
+Maintainer: Dimitrios S. Kanakoglou <dimkan@dtu.dk>
 Description: Provides tools for isoform-level protein interaction network
     analysis, with a focus on how alternative splicing reshapes protein
     interaction landscapes. Core functionality includes virtual pulldown

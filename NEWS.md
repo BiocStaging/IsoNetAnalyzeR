@@ -20,10 +20,16 @@
 
 - Correct package author/maintainer metadata, Rd markup, and tidy-evaluation
   global-variable declarations.
+- Transfer release maintenance to Dimitrios S. Kanakoglou while retaining
+  Nikolas Mumm as the original package author.
 - Correct the GitHub installation URL, vignette name, and cross-gene summary
   column count in the README and vignette.
 - Add regression and end-to-end tests covering gene/isoform component counts,
-  isolated seeds, explicit filters, plotting, and serialization.
+  isolated seeds, explicit filters, plotting, serialization, invalid public
+  inputs, fully unmapped analyses, typed empty outputs, and single-direction
+  sparse analyses.
+- Run plotting regressions on an explicit temporary graphics device so package
+  tests cannot leave `Rplots.pdf` in the source tree.
 - Replace soft-deprecated igraph plotting aliases with their current API names;
   singleton and filtered plotting now complete without deprecation warnings and
   retain identical graph semantics.

@@ -4,9 +4,11 @@
 
 1. Run `testthat::test_local("source_fork")` and archive the complete result.
 2. Run `R CMD build source_fork` with vignettes enabled.
-3. Run `R CMD check --as-cran <tarball>` and archive `00check.log` and all
-   warnings/notes.
-4. Verify the built package version is 0.3.2 and includes this validation
+3. Run `R CMD check --no-manual <tarball>` and require `Status: OK`.
+4. With LaTeX, qpdf, current HTML Tidy, and V8 available, run
+   `R CMD check --as-cran <tarball>`. Archive `00check.log`, the generated
+   manual, and every remaining finding.
+5. Verify the built package version is 0.3.2 and includes this validation
    directory and `NEWS.md`.
 
 ## Required regression cases
@@ -22,6 +24,11 @@
 - Save/read RDS round trip followed by component access and plotting.
 - Explicit seed flags for disconnected multi-seed graphs.
 - Legacy node-stat tables without an explicit `is_seed` column.
+- Invalid labels, orders, cutoffs, required columns, directions, lookup seeds,
+  component references, and diagnostic thresholds.
+- Fully unmapped inputs retain typed empty statistics and component tables.
+- Single-direction inputs remain reportable.
+- Plot tests use an explicit temporary device and leave no `Rplots.pdf`.
 
 ## Real-data repair-only validation
 
@@ -54,5 +61,6 @@ rewiring by itself.
 - source tarball with SHA-256;
 - Git patch against the `source_fork` base commit with SHA-256;
 - issue register and audited change log;
+- detailed repair report in Markdown and standalone HTML;
 - automated-test output, package build log, and `R CMD check` log;
 - real-data before/after component comparison and checksums.

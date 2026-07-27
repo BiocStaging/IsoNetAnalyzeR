@@ -1,37 +1,3 @@
-make_isolated_seed_fixture <- function() {
-  vertices <- data.frame(
-    name = c("tx_up", "tx_down", "tx_neighbour", "tx_isolated", "tx_other"),
-    gene = c("G1", "G1", "G2", "G3", "G4"),
-    stringsAsFactors = FALSE
-  )
-  edges <- data.frame(
-    from = c("tx_up", "tx_down"),
-    to = c("tx_neighbour", "tx_neighbour"),
-    interact = c(1L, 1L),
-    pi = c(0.9, 0.8),
-    pi_score = c(0.9, 0.8),
-    stringsAsFactors = FALSE
-  )
-  network <- igraph::graph_from_data_frame(
-    edges, directed = FALSE, vertices = vertices
-  )
-  obj <- IsoNetAnalyzeR(
-    "isolated-seed-test",
-    network = network,
-    metadata = list(network_cutoff = 0, pi_threshold = 0.5)
-  )
-  input <- data.frame(
-    gene_id = c("G1", "G1", "G3", "G3", "G_missing", "G_missing"),
-    isoform_id = c(
-      "tx_up", "tx_down", "tx_isolated", "tx_isolated",
-      "tx_absent_up", "tx_absent_down"
-    ),
-    direction = c("up", "down", "up", "down", "up", "down"),
-    stringsAsFactors = FALSE
-  )
-  list(obj = obj, input = input)
-}
-
 test_that("isolated and unmapped seeds are distinguished end to end", {
   fixture <- make_isolated_seed_fixture()
   suppressWarnings(
@@ -128,6 +94,19 @@ test_that("isolated seed plots and serialization remain valid", {
       ))
     )
     expect_s3_class(p_component, "ggplot")
+
+    obj <- run_component_analysis(
+      obj, "test", "gene_edges_only",
+      direction = "both", level = "gene", min_edges = 1
+    )
+    p_filtered_component <- suppressWarnings(
+      suppressMessages(plot_component(
+        obj, "test", "gene_edges_only", component_id = 1,
+        colour_by = "direction"
+      ))
+    )
+    expect_s3_class(p_filtered_component, "ggplot")
+    expect_setequal(as.character(p_filtered_component$data$name), c("G1", "G2"))
 
     obj <- lookup_virtual_pulldown(
       obj, "isolated_lookup", seed = "tx_isolated", order = 1, cutoff = 0

@@ -35,14 +35,14 @@ NULL
 #'   Colours nodes by their parent gene when \code{TRUE}.  Default
 #'   \code{FALSE}.
 #' @param layout Character scalar.  Any layout supported by
-#'   \code{\link[ggraph]{create_layout}}.  Defaults to \code{"stress"}, which
+#'   \code{ggraph::create_layout()}.  Defaults to \code{"stress"}, which
 #'   is faster and generally better than \code{"fr"} for biological networks.
 #' @param node_size Numeric scalar.  Base node size.  Default \code{3}.
 #' @param label_size Numeric scalar.  Node label text size.  Default \code{2.5}.
 #' @param edge_alpha Numeric in \[0, 1\].  Edge opacity.  Default \code{0.4}.
 #' @param title Character scalar.  Plot title.  Auto-generated when \code{NULL}
 #'   (default).
-#' @param ... Additional arguments forwarded to \code{\link[ggraph]{ggraph}}.
+#' @param ... Additional arguments forwarded to \code{ggraph::ggraph()}.
 #'
 #' @details
 #' **\code{all_edges}**: For \linkS4class{IsoNetAnalyzeR} the stored network
@@ -58,7 +58,7 @@ NULL
 #' one-node/zero-edge results; isolated non-seed nodes are omitted.
 #'
 #' @return A \code{ggplot} object, invisibly.  Can be further modified with
-#'   \pkg{ggplot2} layers or saved with \code{\link[ggplot2]{ggsave}}.
+#'   \pkg{ggplot2} layers or saved with \code{ggplot2::ggsave()}.
 #'
 #' @examples
 #' \dontrun{
@@ -644,7 +644,7 @@ setMethod(
 #' @param edge_alpha Numeric in \[0, 1\].  Default \code{0.4}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #' @param ...       Additional arguments forwarded to
-#'   \code{\link[ggraph]{ggraph}}.
+#'   \code{ggraph::ggraph()}.
 #' @param direction Character scalar: \code{"up"}, \code{"down"},
 #'   \code{"side_by_side"} (default), or \code{"overlay"}.  Must be passed
 #'   as a named argument.
@@ -1325,7 +1325,7 @@ setMethod(
 #' @param edge_alpha Numeric in \[0, 1\].  Default \code{0.4}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #' @param ...       Additional arguments forwarded to
-#'   \code{\link[ggraph]{ggraph}}.
+#'   \code{ggraph::ggraph()}.
 #' @param direction Character scalar: \code{"up"} (merge all up-regulated
 #'   subgraphs), \code{"down"} (merge all down-regulated subgraphs), or
 #'   \code{"both"} (default; union of up and down per gene).  Must be

@@ -53,7 +53,7 @@ of neutral grey.  Default \code{FALSE}.}
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 
 \item{...}{Additional arguments forwarded to
-\code{\link[ggraph]{ggraph}}.}
+\code{ggraph::ggraph()}.}
 }
 \value{
 A \code{ggplot} object, invisibly.

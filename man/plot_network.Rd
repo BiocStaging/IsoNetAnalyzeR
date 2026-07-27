@@ -107,7 +107,7 @@ Colours nodes by their parent gene when \code{TRUE}.  Default
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 
 \item{...}{Additional arguments forwarded to
-\code{\link[ggraph]{ggraph}}.}
+\code{ggraph::ggraph()}.}
 
 \item{force}{Logical. If \code{TRUE}, bypass the size guard and attempt to
 plot the full network regardless of its size. Default \code{FALSE}.}
@@ -164,7 +164,7 @@ Must be passed as a named argument.}
 }
 \value{
 A \code{ggplot} object, invisibly.  Can be further modified with
-\pkg{ggplot2} layers or saved with \code{\link[ggplot2]{ggsave}}.
+\pkg{ggplot2} layers or saved with \code{ggplot2::ggsave()}.
 
 A \code{ggplot} / \code{patchwork} object, invisibly.
 

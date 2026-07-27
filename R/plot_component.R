@@ -131,7 +131,7 @@ NULL
 #'   \code{0.4}.
 #' @param title              Character scalar or \code{NULL} (auto-generated).
 #' @param ...                Additional arguments forwarded to
-#'   \code{\link[ggraph]{ggraph}}.
+#'   \code{ggraph::ggraph()}.
 #'
 #' @return A \code{ggplot} object, invisibly.
 #'

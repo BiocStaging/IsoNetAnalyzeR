@@ -372,7 +372,6 @@ run_component_analysis <- function(obj,
     ))
   }
 
-  g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
   g <- .annotate_seed_direction(g, gene_results_subset, direction, level)
 
   # -- Decompose and filter ----------------------------------------------------
@@ -402,7 +401,7 @@ run_component_analysis <- function(obj,
 
   # -- Build all four tables ---------------------------------------------------
   message("Computing Tier-1 structural statistics ...")
-  component_table <- .build_component_table(comps, gene_results_subset, direction)
+  component_table <- .build_component_table(comps, gene_results_subset, direction, level)
   node_table      <- .build_node_table(comps)
 
   message("Computing Tier-2 topological statistics ...")
@@ -552,7 +551,9 @@ run_component_analysis <- function(obj,
 
 #' Build the per-component structural summary (Tier 1)
 #' @noRd
-.build_component_table <- function(comps, gene_results, direction) {
+.build_component_table <- function(comps, gene_results, direction, level = c("isoform", "gene")) {
+
+  level <- match.arg(level)
 
   rows <- lapply(seq_along(comps), function(i) {
     cg     <- comps[[i]]
@@ -560,9 +561,10 @@ run_component_analysis <- function(obj,
 
     n_nodes <- igraph::vcount(cg)
     n_edges <- igraph::ecount(cg)
-    density <- igraph::edge_density(cg)
+    density <- if (n_nodes < 2L) 0 else igraph::edge_density(cg)
     avg_deg <- mean(igraph::degree(cg))
-    clust   <- igraph::transitivity(cg, type = "average")
+    clust   <- if (n_nodes < 2L) 0 else
+      igraph::transitivity(cg, type = "average", isolates = "zero")
 
     is_seed   <- !is.na(vattrs$seed_direction)
     n_seeds   <- sum(is_seed)
@@ -573,11 +575,20 @@ run_component_analysis <- function(obj,
     n_seeds_down <- sum(seed_dir %in% c("down", "both"))
 
     seed_vnames  <- vattrs$name[is_seed]
+    seed_dirs_by_name <- stats::setNames(seed_dir, seed_vnames)
     n_genes_up   <- 0L
     n_genes_down <- 0L
     for (gr in gene_results) {
-      if (any(gr@up_isoforms   %in% seed_vnames)) n_genes_up   <- n_genes_up   + 1L
-      if (any(gr@down_isoforms %in% seed_vnames)) n_genes_down <- n_genes_down + 1L
+      if (level == "gene") {
+        gene_seed_dir <- seed_dirs_by_name[gr@gene_id]
+        if (any(gene_seed_dir %in% c("up", "both")))
+          n_genes_up <- n_genes_up + 1L
+        if (any(gene_seed_dir %in% c("down", "both")))
+          n_genes_down <- n_genes_down + 1L
+      } else {
+        if (any(gr@up_isoforms   %in% seed_vnames)) n_genes_up   <- n_genes_up   + 1L
+        if (any(gr@down_isoforms %in% seed_vnames)) n_genes_down <- n_genes_down + 1L
+      }
     }
 
     n_shared    <- sum(vattrs$source_gene == "multi-gene", na.rm = TRUE)

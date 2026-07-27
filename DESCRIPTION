@@ -1,8 +1,10 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.3.1
+Version: 0.3.2
 Authors@R: 
-    person("Nikolas", "Mumm", , "s242825@dtu.dk", role = c("aut", "cre"))
+    person("Nikolas", "Mumm", email = "s242825@dtu.dk", role = c("aut", "cre"))
+Author: Nikolas Mumm [aut, cre]
+Maintainer: Nikolas Mumm <s242825@dtu.dk>
 Description: Provides tools for isoform-level protein interaction network
     analysis, with a focus on how alternative splicing reshapes protein
     interaction landscapes. Core functionality includes virtual pulldown
@@ -36,8 +38,10 @@ Suggests:
     knitr,
     rmarkdown,
     colorspace,
-    readxl
+    readxl,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
+Config/testthat/edition: 3
 Collate: 
     'isonetanalyzer_class.R'
     'diff_pulldown_gene_class.R'

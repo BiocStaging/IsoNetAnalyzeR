@@ -13,11 +13,12 @@ editor_options:
     wrap: 72
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(
   collapse  = TRUE,
   comment   = "#>",
-  eval      = FALSE
+  eval      = FALSE,
+  purl      = FALSE
 )
 ```
 
@@ -42,13 +43,13 @@ down-condition subnetworks across all genes simultaneously.
 
 Install CRAN packages:
 
-```{r install-cran}
+```{r install-cran, purl=FALSE}
 install.packages(c("igraph", "cli", "ggplot2", "ggraph", "ggrepel", "patchwork"))
 ```
 
 Install Bioconductor packages:
 
-```{r install-bioc}
+```{r install-bioc, purl=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install(c("fgsea", "org.Hs.eg.db", "AnnotationDbi"))
@@ -56,19 +57,19 @@ BiocManager::install(c("fgsea", "org.Hs.eg.db", "AnnotationDbi"))
 
 **Optional** — parallel execution:
 
-```{r install-parallel}
+```{r install-parallel, purl=FALSE}
 install.packages(c("future", "future.apply"))
 ```
 
 **Optional** — Excel input:
 
-```{r install-excel}
+```{r install-excel, purl=FALSE}
 install.packages("readxl")
 ```
 
 Install IsoNetAnalyzeR from GitHub:
 
-```{r install-pkg}
+```{r install-pkg, purl=FALSE}
 devtools::install_github("IsoformAnalysisGroup/IsoNetAnalyzeR", build_vignettes = TRUE)
 ```
 
@@ -81,7 +82,7 @@ class `IsoNetAnalyzeR`. It holds the interaction network, all analyses,
 quick lookups, and network diagnostics. You create one at the start of
 every session:
 
-```{r create-session}
+```{r create-session, purl=FALSE}
 library(IsoNetAnalyzeR)
 
 obj <- IsoNetAnalyzeR("my_experiment")
@@ -92,13 +93,13 @@ By default the package's built-in predicted human protein interaction
 network is loaded automatically. You can supply your own `igraph` object
 instead:
 
-```{r custom-network}
+```{r custom-network, purl=FALSE}
 obj <- IsoNetAnalyzeR("custom", network = my_igraph)
 ```
 
 Printing the object gives a compact session summary:
 
-```{r show-session}
+```{r show-session, purl=FALSE}
 obj
 #> ── IsoNetAnalyzeR session ─────────────────────────────────────
 #> Name       : my_experiment
@@ -114,7 +115,7 @@ obj
 
 Arbitrary key–value metadata can be attached to the session at any time:
 
-```{r metadata}
+```{r metadata, purl=FALSE}
 obj <- set_metadata(obj, "author",    "Jane Doe")
 obj <- set_metadata(obj, "condition", "tumour_vs_normal")
 obj <- set_metadata(obj, "notes",     "First pilot run")
@@ -140,7 +141,7 @@ Two methods are available for defining the sticky-node threshold:
     (the default for this method) flags nodes more than 2 SDs above the
     mean, which is more aggressive on heavy-tailed distributions.
 
-```{r diagnostics}
+```{r diagnostics, purl=FALSE}
 # Quantile method — top 5% of nodes by degree
 obj <- run_network_diagnostics(obj, sticky_method = "quantile", sticky_cutoff = 0.95)
 
@@ -155,7 +156,7 @@ The six-panel diagnostic figure covers degree distributions at isoform
 and gene level, component size structure, isoforms per gene, clustering
 vs degree, and gene connectivity status:
 
-```{r plot-diagnostics}
+```{r plot-diagnostics, purl=FALSE}
 plot_network_diagnostics(obj)
 ```
 
@@ -193,7 +194,7 @@ required columns:
 Extra columns are retained but ignored. You can supply a CSV path, an
 Excel path, or a data frame directly:
 
-```{r input-example}
+```{r input-example, purl=FALSE}
 # From a CSV
 obj <- run_differential_pulldown(obj, "tumour_vs_normal", "de_isoforms.csv", order = 1)
 
@@ -220,10 +221,10 @@ gene it:
     predominantly external to the subnetwork (the `cutoff` parameter).
 3.  Computes per-node statistics (degree, clustering, distance from
     seed, interaction confidence) for each direction subgraph.
-4.  Assembles a cross-gene summary with 35 columns comparing the two
+4.  Assembles a cross-gene summary with 32 columns comparing the two
     subgraphs.
 
-```{r run-pulldown}
+```{r run-pulldown, purl=FALSE}
 obj <- run_differential_pulldown(
   obj,
   label   = "tumour_vs_normal",
@@ -248,7 +249,7 @@ you to confirm before proceeding; set `confirm = FALSE` in scripts.
 For analyses with many genes, parallelism is opt-in via the `future`
 package:
 
-```{r parallel}
+```{r parallel, purl=FALSE}
 library(future)
 plan(multisession, workers = 4)
 
@@ -274,10 +275,10 @@ plan(sequential)
 
 ### Cross-gene summary
 
-The 35-column cross-gene summary has one row per gene and is the primary
+The 32-column cross-gene summary has one row per gene and is the primary
 starting point for most downstream questions:
 
-```{r cgs}
+```{r cgs, purl=FALSE}
 cgs <- get_cross_gene_summary(obj, "tumour_vs_normal")
 ```
 
@@ -300,7 +301,7 @@ confidence distribution — high entropy means many edges of similar
 moderate confidence; low entropy means a few high-confidence
 interactions).
 
-```{r cgs-explore}
+```{r cgs-explore, purl=FALSE}
 # Most rewired genes
 cgs$delta_edges <- cgs$up_edges - cgs$down_edges
 head(cgs[order(-abs(cgs$delta_edges)), c("gene_id", "up_edges", "down_edges",
@@ -319,7 +320,7 @@ Two families of plots read directly from the cross-gene summary table.
 The overview functions produce multi-panel patchwork figures; the single
 functions let you customise any column pair:
 
-```{r cgs-plots-scatter}
+```{r cgs-plots-scatter, purl=FALSE}
 # Six-panel scatter overview (up vs down for nodes, edges, degree, density,
 # clustering, and edges gained vs lost)
 plot_cross_gene_overview(obj, "tumour_vs_normal")
@@ -332,7 +333,7 @@ plot_cross_gene_scatter(obj, "tumour_vs_normal",
                         label   = "delta")
 ```
 
-```{r cgs-plots-boxplot}
+```{r cgs-plots-boxplot, purl=FALSE}
 # Multi-panel boxplot overview of topology deltas
 plot_cross_gene_boxplot_overview(obj, "tumour_vs_normal")
 
@@ -347,7 +348,7 @@ plot_cross_gene_boxplot(obj, "tumour_vs_normal",
 For any individual gene you can retrieve per-isoform statistics for both
 conditions as a single long-format data frame:
 
-```{r isoform-stats}
+```{r isoform-stats, purl=FALSE}
 iso <- get_isoform_stats(obj, "tumour_vs_normal", "ENSG00000012048")
 # Returns columns: direction, isoform, is_seed, degree, clustering,
 #                  distance_from_seed, mean_pi, pi_entropy
@@ -363,7 +364,7 @@ up[order(-up$degree), ]
 The full `GeneDiffPulldown` object (containing the igraph subgraphs) is
 retrieved with `get_gene_result()`:
 
-```{r gene-result}
+```{r gene-result, purl=FALSE}
 gr <- get_gene_result(obj, "tumour_vs_normal", "ENSG00000012048")
 gr   # show() summary
 ```
@@ -383,7 +384,7 @@ display modes via the `direction` argument:
 The `group_by_gene` argument (isoform level only) colours nodes by their
 parent gene, useful when several genes share interaction partners:
 
-```{r gene-result-plots}
+```{r gene-result-plots, purl=FALSE}
 # Side-by-side (default) — produces two panels
 plot_network(gr)
 
@@ -413,7 +414,7 @@ argument controls how shared nodes are highlighted:
     coloured on a sequential scale by degree, making high-connectivity
     hubs the visual focus.
 
-```{r cross-gene-plot}
+```{r cross-gene-plot, purl=FALSE}
 result <- get_analysis(obj, "tumour_vs_normal")
 
 # Default: all genes, both directions, coloured by source gene
@@ -438,7 +439,7 @@ differential input table, use `lookup_virtual_pulldown()`. One or more
 seeds can be supplied; all are treated as order-0 anchors in a single
 pulldown.
 
-```{r lookup}
+```{r lookup, purl=FALSE}
 # Single isoform seed
 obj <- lookup_virtual_pulldown(
   obj,
@@ -471,7 +472,7 @@ plot_network(get_lookup(obj, "BRCA1_isoform_1"))
 Gene-level lookup: supply a gene ID and set `level = "gene"` to seed
 from all isoforms of that gene simultaneously:
 
-```{r lookup-gene}
+```{r lookup-gene, purl=FALSE}
 obj <- lookup_virtual_pulldown(
   obj,
   label = "BRCA1_gene",
@@ -507,7 +508,7 @@ The `genes` argument restricts the analysis to a subset of genes, and
 subgraphs is merged. `level = "gene"` contracts isoform nodes to their
 parent gene before decomposition:
 
-```{r component-run}
+```{r component-run, purl=FALSE}
 # Default: isoform level, both directions, all genes, no filters
 obj <- run_component_analysis(
   obj,
@@ -541,7 +542,7 @@ obj <- run_component_analysis(
 (topological) statistics joined into one wide table — one row per
 component:
 
-```{r comp-overview}
+```{r comp-overview, purl=FALSE}
 overview <- get_component_overview(obj, "tumour_vs_normal", "comp_both")
 ```
 
@@ -555,7 +556,7 @@ overview <- get_component_overview(obj, "tumour_vs_normal", "comp_both")
 degree distribution, 1 = pure star), `topology_class` (`"hub-spoke"`,
 `"chain-like"`, or `"clique-like"`).
 
-```{r comp-filter}
+```{r comp-filter, purl=FALSE}
 # Rewiring candidates: components with both up and down seeds
 overview[overview$mixed, c("component_id", "n_nodes", "n_seeds_up",
                             "n_seeds_down", "topology_class")]
@@ -572,7 +573,7 @@ hub_spoke[order(-hub_spoke$degree_centralization), ]
 For any component, `get_component()` returns a per-node table with hub
 betweenness scores for shared nodes:
 
-```{r comp-node}
+```{r comp-node, purl=FALSE}
 nodes <- get_component(obj, "tumour_vs_normal", "comp_both", component_id = 1)
 # columns: component_id, node, source_gene, seed_direction, is_seed, degree,
 #          betweenness, betweenness_norm, betweenness_rank
@@ -592,7 +593,7 @@ nodes[!is.na(nodes$betweenness_norm) & nodes$betweenness_norm > 0.5, ]
 -   `"hub_degree"`: shared nodes coloured by degree on a sequential
     scale, making cross-gene hubs the visual focus.
 
-```{r comp-plot}
+```{r comp-plot, purl=FALSE}
 # Territory map: up/down seed zones + neighbour colouring
 plot_component(obj, "tumour_vs_normal", "comp_both", component_id = 1,
                colour_by = "direction", colour_neighbours = TRUE)
@@ -626,7 +627,7 @@ background. The `go_category` argument selects the GO sub-ontology:
 The `nodes` argument controls whether all component members or seeds
 only form the foreground gene set:
 
-```{r ora}
+```{r ora, purl=FALSE}
 obj <- run_component_ora(
   obj,
   analysis           = "tumour_vs_normal",
@@ -665,7 +666,7 @@ For direct access to the full S4 result object (e.g. to inspect run
 parameters, the background universe, or slot directly into custom code),
 use `get_component_ora_result()`:
 
-```{r ora-result-object}
+```{r ora-result-object, purl=FALSE}
 ora_obj <- get_component_ora_result(obj, "tumour_vs_normal", "comp_both", "ora_bp")
 ora_obj                 # show() summary: components tested, significant terms
 ora_obj@params          # minSize, maxSize, universe_size, n_components_tested
@@ -682,7 +683,7 @@ The `go_category` argument accepts the same options as
 `run_component_ora()` (`"GO:BP"`, `"GO:MF"`, `"GO:CC"`, `"ALL"`),
 defaulting to `"GO:BP"`.
 
-```{r gsea}
+```{r gsea, purl=FALSE}
 obj <- run_fgsea(
   obj,
   analysis  = "tumour_vs_normal",
@@ -724,7 +725,7 @@ directly via the `stats` argument. This completely bypasses `rank_by` —
 names must be gene IDs and the vector is used as-is as the fgsea rank
 statistic. Genes with `NA` values are silently dropped before running.
 
-```{r gsea-custom}
+```{r gsea-custom, purl=FALSE}
 cgs <- get_cross_gene_summary(obj, "tumour_vs_normal")
 
 # Example: weighted combination of node and edge delta
@@ -748,7 +749,7 @@ For direct access to the full S4 result object (e.g. to inspect
 `@ranked_genes` directly, check `@params`, or extract `@go_category`),
 use `get_gsea_result()`:
 
-```{r gsea-result-object}
+```{r gsea-result-object, purl=FALSE}
 gsea_obj <- get_gsea_result(obj, "tumour_vs_normal", "gsea_nodes")
 gsea_obj                  # show() summary: pathways tested, significant hits
 gsea_obj@params           # minSize, maxSize, nperm, n_genes_ranked
@@ -764,7 +765,7 @@ All analyses and lookups are stored inside the session object under
 user-supplied labels. Use the list functions to inspect what has been
 run:
 
-```{r list}
+```{r list, purl=FALSE}
 list_analyses(obj)   # character vector of analysis labels
 list_lookups(obj)    # character vector of lookup labels
 
@@ -774,7 +775,7 @@ analysis_obj <- get_analysis(obj, "tumour_vs_normal")
 
 Sessions can be saved and reloaded with standard R serialisation:
 
-```{r save}
+```{r save, purl=FALSE}
 saveRDS(obj, "isonetanalyzer_session.rds")
 obj <- readRDS("isonetanalyzer_session.rds")
 ```
@@ -805,6 +806,6 @@ obj <- readRDS("isonetanalyzer_session.rds")
 
 ## Session info
 
-```{r session-info}
+```{r session-info, purl=FALSE}
 sessionInfo()
 ```

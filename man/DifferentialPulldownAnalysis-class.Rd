@@ -56,7 +56,7 @@ found in the network; \code{NA} when \code{n_input == 0}),
 \code{n_up_unique} (nodes exclusive to the up subgraph),
 \code{n_down_unique} (nodes exclusive to the down subgraph),
 \code{jaccard} (Jaccard index of node-set overlap between up and down
-subgraphs: e8BOHUEuJpkG9B1Leef8cFoe4gJ8YtgP-2\code{NA} when either
+subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 subgraph is absent),
 \code{n_edges_gained} (edges present in the up subgraph but absent from
 the down subgraph — interactions gained when switching to the up

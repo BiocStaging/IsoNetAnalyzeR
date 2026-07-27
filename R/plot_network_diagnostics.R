@@ -24,7 +24,9 @@ utils::globalVariables(c(
   "n_nodes",
   "status",
   "n_genes",
-  "n_isoforms_total"
+  "n_isoforms_total",
+  "log10_x",
+  "n"
 ))
 
 # Semantic accent colours (Okabe-Ito palette)

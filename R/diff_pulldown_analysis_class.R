@@ -47,7 +47,7 @@ NULL
 #'   \code{n_up_unique} (nodes exclusive to the up subgraph),
 #'   \code{n_down_unique} (nodes exclusive to the down subgraph),
 #'   \code{jaccard} (Jaccard index of node-set overlap between up and down
-#'     subgraphs: \code{|up ∩ down| / |up ∪ down|}; \code{NA} when either
+#'     subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 #'     subgraph is absent),
 #'   \code{n_edges_gained} (edges present in the up subgraph but absent from
 #'     the down subgraph — interactions gained when switching to the up
@@ -510,8 +510,10 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' Merges the per-node statistics from the up- and down-regulated subgraphs of
 #' a single gene into one long-format data frame, with a \code{direction}
 #' column (\code{"up"} / \code{"down"}) identifying the condition.  A
-#' \code{is_seed} column flags isoforms that were supplied as seeds (i.e.
-#' distance from seed == 0).  Isoforms that appear in only one condition are
+#' \code{is_seed} column flags isoforms that were supplied as seeds, using the
+#' explicit seed annotation stored by \code{analyze_subgraph()}. Legacy saved
+#' objects without that column fall back to distance from seed equal to zero.
+#' Isoforms that appear in only one condition are
 #' represented in that condition's rows only; no artificial NAs are introduced
 #' for the missing direction.
 #'
@@ -548,7 +550,11 @@ setMethod("get_isoform_stats", "IsoNetAnalyzeR",
               if (nrow(stats_df) == 0L) return(NULL)
               df            <- stats_df
               df$direction  <- direction
-              df$is_seed    <- df$distance_from_seed == 0
+              if (!"is_seed" %in% names(df)) {
+                df$is_seed <- df$distance_from_seed == 0
+              } else {
+                df$is_seed <- as.logical(df$is_seed)
+              }
               # Return with direction and is_seed as the first columns for readability
               df[, c("direction", "isoform", "is_seed",
                      "degree", "clustering", "distance_from_seed",

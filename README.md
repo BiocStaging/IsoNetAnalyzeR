@@ -8,7 +8,7 @@ Alternative splicing can rewire protein interaction networks without changing ge
 
 -   Expands each isoform seed set through a predicted human protein interaction network via BFS (virtual pulldown)
 -   Computes per-node and subgraph-level topology statistics for each condition
--   Summarises rewiring across all genes in a single 35-column table
+-   Summarises rewiring across all genes in a single 32-column table
 -   Decomposes the merged cross-gene network into connected components and classifies their topology
 -   Runs gene set enrichment (GSEA) on topology delta scores and over-representation analysis (ORA) per component
 -   Provides diagnostic plots for the underlying network and all result layers
@@ -49,7 +49,7 @@ Install version from GitHub
 
 ``` r
 # Install from GitHub
-devtools::install_github("IsoformAnalysisGroup/IsoNetAnalyzeR ", build_vignettes = TRUE)
+devtools::install_github("IsoformAnalysisGroup/IsoNetAnalyzeR", build_vignettes = TRUE)
 ```
 
 ## Quick start
@@ -87,7 +87,7 @@ get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.05)
 > For a full walkthrough with extended examples, see the package vignette:
 >
 > ``` r
-> vignette("IsoNetAnalyzeR")
+> vignette("vignette_introduction")
 > ```
 
 ## Ad hoc virtual pulldown
@@ -115,7 +115,7 @@ plot_network(get_lookup(obj, "my_lkp"))  # visualise the subgraph
 ```         
 IsoNetAnalyzeR()                    # create session, load network
   └── run_differential_pulldown()   # per-gene virtual pulldown (up vs down)
-        ├── get_cross_gene_summary()    # 35-col table: topology, Jaccard, edge gain/loss
+        ├── get_cross_gene_summary()    # 32-col table: topology, Jaccard, edge gain/loss
         ├── get_isoform_stats()         # per-isoform: degree, clustering, pi confidence
         ├── plot_network()              # subgraph visualisation (gene, analysis, or lookup)
         ├── plot_cross_gene_overview()          # scatter panel overview (patchwork)

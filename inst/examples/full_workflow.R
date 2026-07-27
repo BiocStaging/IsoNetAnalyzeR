@@ -191,7 +191,7 @@ plan(sequential)
 # ==============================================================================
 #  5. Cross-gene exploration
 #
-#  The 35-column cross-gene summary has one row per gene. Scatter and boxplot
+#  The 32-column cross-gene summary has one row per gene. Scatter and boxplot
 #  overviews give a quick visual read on which topology metrics differ most
 #  between the up and down conditions across all genes.
 # ==============================================================================

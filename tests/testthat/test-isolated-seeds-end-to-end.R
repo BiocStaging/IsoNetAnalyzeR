@@ -89,62 +89,71 @@ test_that("isolated and unmapped seeds are distinguished end to end", {
 
 test_that("isolated seed plots and serialization remain valid", {
   skip_if_not_installed("ggraph")
-  fixture <- make_isolated_seed_fixture()
-  suppressWarnings(
-    obj <- run_differential_pulldown(
-      fixture$obj, "test", fixture$input, order = 1, cutoff = 0,
-      confirm = FALSE, verbose = FALSE
+  default_plot_paths <- c(
+    file.path(getwd(), "Rplots.pdf"),
+    file.path(getwd(), "tests", "testthat", "Rplots.pdf")
+  )
+
+  with_temp_plot_device({
+    fixture <- make_isolated_seed_fixture()
+    suppressWarnings(
+      obj <- run_differential_pulldown(
+        fixture$obj, "test", fixture$input, order = 1, cutoff = 0,
+        confirm = FALSE, verbose = FALSE
+      )
     )
-  )
-  obj <- run_component_analysis(
-    obj, "test", "gene_components", direction = "both", level = "gene"
-  )
+    obj <- run_component_analysis(
+      obj, "test", "gene_components", direction = "both", level = "gene"
+    )
 
-  isolated <- get_gene_result(obj, "test", "G3")
-  p_isolated_up <- expect_no_warning(
-    suppressMessages(plot_network(isolated, direction = "up"))
-  )
-  expect_s3_class(p_isolated_up, "ggplot")
-  p_isolated_overlay <- expect_no_warning(
-    suppressMessages(plot_network(isolated, direction = "overlay"))
-  )
-  expect_s3_class(p_isolated_overlay, "ggplot")
+    isolated <- get_gene_result(obj, "test", "G3")
+    p_isolated_up <- expect_no_warning(
+      suppressMessages(plot_network(isolated, direction = "up"))
+    )
+    expect_s3_class(p_isolated_up, "ggplot")
+    p_isolated_overlay <- expect_no_warning(
+      suppressMessages(plot_network(isolated, direction = "overlay"))
+    )
+    expect_s3_class(p_isolated_overlay, "ggplot")
 
-  singleton_id <- get_component_overview(
-    obj, "test", "gene_components"
-  )$component_id[
-    get_component_overview(obj, "test", "gene_components")$n_nodes == 1L
-  ]
-  p_component <- expect_no_warning(
-    suppressMessages(plot_component(
-      obj, "test", "gene_components", singleton_id,
-      colour_by = "direction"
-    ))
-  )
-  expect_s3_class(p_component, "ggplot")
+    singleton_id <- get_component_overview(
+      obj, "test", "gene_components"
+    )$component_id[
+      get_component_overview(obj, "test", "gene_components")$n_nodes == 1L
+    ]
+    p_component <- expect_no_warning(
+      suppressMessages(plot_component(
+        obj, "test", "gene_components", singleton_id,
+        colour_by = "direction"
+      ))
+    )
+    expect_s3_class(p_component, "ggplot")
 
-  obj <- lookup_virtual_pulldown(
-    obj, "isolated_lookup", seed = "tx_isolated", order = 1, cutoff = 0
-  )
-  lookup_stats <- get_lookup_stats(obj, "isolated_lookup")
-  expect_equal(nrow(lookup_stats), 1L)
-  expect_true(lookup_stats$is_seed)
-  p_lookup <- expect_no_warning(
-    suppressMessages(plot_network(get_lookup(obj, "isolated_lookup")))
-  )
-  expect_s3_class(p_lookup, "ggplot")
+    obj <- lookup_virtual_pulldown(
+      obj, "isolated_lookup", seed = "tx_isolated", order = 1, cutoff = 0
+    )
+    lookup_stats <- get_lookup_stats(obj, "isolated_lookup")
+    expect_equal(nrow(lookup_stats), 1L)
+    expect_true(lookup_stats$is_seed)
+    p_lookup <- expect_no_warning(
+      suppressMessages(plot_network(get_lookup(obj, "isolated_lookup")))
+    )
+    expect_s3_class(p_lookup, "ggplot")
 
-  path <- tempfile(fileext = ".rds")
-  saveRDS(obj, path)
-  restored <- readRDS(path)
-  expect_equal(
-    get_component_overview(restored, "test", "gene_components"),
-    get_component_overview(obj, "test", "gene_components")
-  )
-  p_restored_lookup <- expect_no_warning(
-    suppressMessages(plot_network(get_lookup(restored, "isolated_lookup")))
-  )
-  expect_s3_class(p_restored_lookup, "ggplot")
+    path <- tempfile(fileext = ".rds")
+    saveRDS(obj, path)
+    restored <- readRDS(path)
+    expect_equal(
+      get_component_overview(restored, "test", "gene_components"),
+      get_component_overview(obj, "test", "gene_components")
+    )
+    p_restored_lookup <- expect_no_warning(
+      suppressMessages(plot_network(get_lookup(restored, "isolated_lookup")))
+    )
+    expect_s3_class(p_restored_lookup, "ggplot")
+  })
+
+  expect_false(any(file.exists(default_plot_paths)))
 })
 
 test_that("plot graph filtering preserves isolated seeds without warnings", {

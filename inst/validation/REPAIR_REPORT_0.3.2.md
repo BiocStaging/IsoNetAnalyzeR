@@ -57,6 +57,7 @@ in the analysis repository and are not presented as package defects here.
 | ISO-BUG-005 | Low | Singleton density, clustering, degree, or centralization calculations could return `NaN`. | Density, mean degree, and clustering use zero for singletons; centralization remains undefined and is represented by `NA`. | Singleton tables are machine-readable and no longer mix valid zeros with `NaN`. |
 | ISO-DOC-001 | Low | README installation text, vignette naming, and the documented cross-gene column count were stale or incorrect. | Installation text, vignette calls, example workflow, and the 32-column description were aligned with the package. | Users receive a coherent executable workflow description. |
 | ISO-DOC-002 | Low | Generated class documentation contained corrupted intersection/union text. | Roxygen source uses portable wording and the generated Rd file was repaired. | Installed help renders correctly. |
+| ISO-DOC-003 | Low | Cross-package plot references produced unresolved PDF-manual destinations on the release toolchain. | External plot functions are documented with explicit namespace-qualified calls. | The installed manual remains unambiguous without unresolved cross-package PDF anchors. |
 | ISO-MAINT-001 | Low | Metadata did not parse robustly for all build/check tools, the package stayed at 0.3.1 after repairs, and testthat was undeclared. | Metadata was completed, version advanced to 0.3.2, testthat edition 3 was declared, and maintenance ownership moved to Dimitrios S. Kanakoglou while Nikolas Mumm remains an author. | The repaired package builds and its tests are part of package checking. |
 | ISO-MAINT-002 | Low | Generated tidy-evaluation columns in network-diagnostic plots caused code-analysis notes. | `log10_x` and `n` were registered as global variables. | Package checks no longer report these false-positive notes. |
 | ISO-MAINT-003 | Low | Singleton and filtered plotting paths used igraph aliases soft-deprecated in igraph 2.x. | Exact current equivalents `subgraph_from_edges()` and `delete_vertices()` are used. | Deprecation warnings are removed without changing graph contents. |
@@ -214,7 +215,7 @@ pipeline change is separate from the IsoNetAnalyzeR package repairs.
 
 ## Package-check evidence
 
-The authoritative pre-handoff standard check is:
+The authoritative pre-handoff standard check was:
 
 - package: IsoNetAnalyzeR 0.3.2;
 - tarball SHA-256:
@@ -224,11 +225,25 @@ The authoritative pre-handoff standard check is:
 - result: `Status: OK`.
 
 That check predates the maintainer handoff and expanded input/sparse tests.
-The final release evidence must therefore be regenerated from the committed
-branch. The prior `--as-cran` failure was produced without LaTeX, qpdf, recent
-HTML Tidy, or the R V8 package. The release check is run only after installing
-those tools and must successfully build the PDF manual before any remaining
-finding is classified.
+Final release-candidate evidence was therefore regenerated on 2026-07-27 from
+the committed repair branch and the rebuilt 0.3.2 source tarball:
+
+- `R CMD check --no-manual` completed with `Status: OK`;
+- `R CMD check --as-cran` completed with no ERRORs or WARNINGs;
+- the indexed PDF manual, no-index PDF manual, and HTML manual all completed
+  successfully;
+- the two `--as-cran` NOTEs are the expected incoming-feasibility maintainer
+  note for a new submission and inability to verify wall-clock time in the
+  check environment;
+- package examples, tests, vignettes, installation, namespace loading, Rd
+  validation, qpdf validation, and HTML validation all completed successfully.
+
+The full toolchain used TinyTeX with Courier fonts and `makeindex`, qpdf,
+HTML Tidy, and the R V8 package. This replaces the prior unfalsifiable
+"environmental limitation" classification with a completed manual build.
+Checksums and copied logs for the final transfer tarball are recorded in the
+external release manifest so the tarball does not attempt to embed its own
+recursive checksum.
 
 ## Affected historical outputs
 

@@ -112,8 +112,8 @@ Colours nodes by their parent gene when \code{TRUE}.  Default
 \item{force}{Logical. If \code{TRUE}, bypass the size guard and attempt to
 plot the full network regardless of its size. Default \code{FALSE}.}
 
-\item{direction}{Character scalar: \code{"up"} (merge all up-regulated
-subgraphs), \code{"down"} (merge all down-regulated subgraphs), or
+\item{direction}{Character scalar: \code{"up"} (merge all up-labelled
+subgraphs), \code{"down"} (merge all down-labelled subgraphs), or
 \code{"both"} (default; union of up and down per gene).  Must be
 passed as a named argument.}
 
@@ -182,7 +182,7 @@ available via the \code{direction} argument:
 highlighting the seed isoforms.
 \item \code{"side_by_side"} (default) - renders the two subgraphs
 side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
-\item \code{"overlay"} - merges the up- and down-regulated subgraphs
+\item \code{"overlay"} - merges the up- and down-labelled subgraphs
 into a single network.  Nodes and edges are coloured by membership:
 \emph{up-only} (orange), \emph{down-only} (sky blue), or
 \emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
@@ -275,7 +275,7 @@ plot_network(gene_result, direction = "overlay")
 # Overlay with gene colouring (membership shown via border + edge colour)
 plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
 
-# Plot only the up-regulated subgraph
+# Plot only the up-labelled seed neighbourhood
 plot_network(gene_result, direction = "up")
 }
 
@@ -284,7 +284,7 @@ plot_network(gene_result, direction = "up")
 obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
 result <- obj@analyses$my_run
 
-# Cross-gene view of up-regulated subgraphs
+# Cross-gene view of up-labelled seed neighbourhoods
 plot_network(result, direction = "up")
 
 # Both directions, subset to specific genes

@@ -26,7 +26,7 @@ A data frame with one row per isoform per direction and columns:
 \code{pi_entropy}.
 }
 \description{
-Merges the per-node statistics from the up- and down-regulated subgraphs of
+Merges the per-node statistics from the up- and down-labelled subgraphs of
 a single gene into one long-format data frame, with a \code{direction}
 column (\code{"up"} / \code{"down"}) identifying the condition.  A
 \code{is_seed} column flags isoforms that were supplied as seeds, using the

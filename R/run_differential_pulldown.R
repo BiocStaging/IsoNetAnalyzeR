@@ -17,9 +17,9 @@ NULL
 
 #' Run a differential virtual pulldown analysis
 #'
-#' Reads a long-format table of differentially expressed isoforms (one isoform
-#' per row), runs a virtual pulldown for the up- and down-regulated isoforms
-#' of each gene separately, computes per-direction and per-gene statistics, and
+#' Reads a long-format table of caller-selected isoform seeds (one isoform per
+#' row), runs a virtual pulldown for the up- and down-labelled seeds of each
+#' gene separately, computes per-direction and per-gene statistics, and
 #' adds a \linkS4class{DifferentialPulldownAnalysis} object to the
 #' \linkS4class{IsoNetAnalyzeR} session object.
 #'
@@ -146,7 +146,8 @@ run_differential_pulldown <- function(obj,
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(trimws(label)))
     stop("`label` must be a single non-empty character string.", call. = FALSE)
 
   if (label %in% names(obj@analyses))
@@ -154,12 +155,13 @@ run_differential_pulldown <- function(obj,
       "An analysis labelled '%s' already exists and will be overwritten.", label
     ))
 
-  if (!is.numeric(order) || length(order) != 1L || order < 1L)
-    stop("`order` must be a positive integer scalar.", call. = FALSE)
-  order <- as.integer(order)
+  order <- .validate_positive_integer(order, "order")
 
   if (!is.logical(parallel) || length(parallel) != 1L || is.na(parallel))
     stop("`parallel` must be a single non-NA logical value.", call. = FALSE)
+
+  if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose))
+    stop("`verbose` must be a single non-NA logical value.", call. = FALSE)
 
   # -- Check for future packages when parallel = TRUE -------------------------
   if (parallel) {
@@ -186,18 +188,17 @@ run_differential_pulldown <- function(obj,
   # -- Cutoff resolution -------------------------------------------------------
   if (is.null(cutoff)) {
     cutoff <- obj@metadata[["network_cutoff"]]
-    if (is.null(cutoff) || is.na(cutoff))
+    if (is.null(cutoff))
       stop(
         "`cutoff` not supplied and `obj@metadata$network_cutoff` is not set. ",
         "Please provide a numeric cutoff explicitly.",
         call. = FALSE
       )
+    cutoff <- .validate_cutoff(cutoff, "obj@metadata$network_cutoff")
     if (verbose)
       message(sprintf("Using stored network_cutoff: %.4f", cutoff))
   } else {
-    if (!is.numeric(cutoff) || length(cutoff) != 1L ||
-        cutoff < 0 || cutoff > 1)
-      stop("`cutoff` must be a single numeric value in [0, 1].", call. = FALSE)
+    cutoff <- .validate_cutoff(cutoff)
     if (verbose)
       message(sprintf("Using user-supplied cutoff: %.4f", cutoff))
   }
@@ -207,7 +208,7 @@ run_differential_pulldown <- function(obj,
 
   # -- Load and validate input table -------------------------------------------
   tbl      <- .load_diff_input(input)
-  tbl      <- .validate_diff_table(tbl)
+  tbl      <- .validate_diff_table(tbl, obj@network)
   gene_ids <- unique(tbl$gene_id)
 
   # -- Network coverage report -------------------------------------------------
@@ -218,7 +219,15 @@ run_differential_pulldown <- function(obj,
   # That case will produce a single-node subgraph (zero interactions), which
   # is a valid and interpretable result.
   network_vertices <- igraph::V(obj@network)$name
-  .report_network_coverage(tbl, network_vertices, gene_ids, confirm)
+  pred_edge_ids <- which(igraph::edge_attr(obj@network, "interact") == 1L)
+  interacting_vertices <- if (length(pred_edge_ids)) {
+    unique(as.vector(igraph::ends(obj@network, pred_edge_ids, names = TRUE)))
+  } else {
+    character(0)
+  }
+  coverage <- .report_network_coverage(
+    tbl, network_vertices, gene_ids, confirm, interacting_vertices
+  )
 
   if (verbose)
     message(sprintf(
@@ -262,12 +271,14 @@ run_differential_pulldown <- function(obj,
   # list(error = <character>) sentinel so that one bad gene does not abort
   # the whole run.
   gene_results <- stats::setNames(vector("list", length(gene_ids)), gene_ids)
+  gene_errors  <- character(0)
 
   for (i in seq_along(gene_ids)) {
     gid <- gene_ids[[i]]
     res <- gene_results_list[[i]]
 
     if (is.list(res) && identical(names(res), "error")) {
+      gene_errors[[gid]] <- res$error
       warning(sprintf(
         "Gene '%s': processing failed - %s", gid, res$error
       ), call. = FALSE)
@@ -278,6 +289,16 @@ run_differential_pulldown <- function(obj,
 
   # Drop NULL slots (failed genes) before assembly
   gene_results <- Filter(Negate(is.null), gene_results)
+
+  if (length(gene_results) == 0L && length(gene_errors) > 0L)
+    stop(
+      paste0(
+        "Every gene failed during differential pulldown processing:\n",
+        paste(sprintf("- %s: %s", names(gene_errors), gene_errors),
+              collapse = "\n")
+      ),
+      call. = FALSE
+    )
 
   # -- Assemble top-level result -----------------------------------------------
   result <- .new_diff_pulldown_analysis(
@@ -292,6 +313,9 @@ run_differential_pulldown <- function(obj,
     message(sprintf("Done. DifferentialPulldownAnalysis '%s' created.", label))
 
   obj@analyses[[label]] <- result
+  if (is.null(obj@metadata[["analysis_network_coverage"]]))
+    obj@metadata[["analysis_network_coverage"]] <- list()
+  obj@metadata[["analysis_network_coverage"]][[label]] <- coverage
   message(sprintf("Done. Access the analysis with:\n  get_analysis(obj, \"%s\")", label))
   invisible(obj)
 }
@@ -355,40 +379,53 @@ run_differential_pulldown <- function(obj,
 #' Print a network coverage report and optionally ask the user to confirm
 #'
 #' Called once before the per-gene loop.  Computes how many isoforms and genes
-#' from the input table are represented in the \emph{interaction-filtered}
-#' subgraph (edges with \code{interact == 1}), which is the graph actually used
-#' by \code{virtual_pulldown()}.  Prints a formatted summary via \pkg{cli} and
+#' from the input table are unmapped, mapped without a predicted edge, or
+#' mapped with at least one \code{interact == 1} edge. Prints a formatted
+#' summary via \pkg{cli} and
 #' - when \code{confirm = TRUE} in an interactive session - asks the user
 #' whether to proceed.
 #'
 #' @param tbl              Validated long-format input data frame.
-#' @param network_vertices Character vector of vertex names in the
-#'   \emph{interaction-filtered} subgraph (passed in from the main function
-#'   body, which constructs it once to avoid repeating the edge filter).
+#' @param network_vertices Character vector of all network vertex names.
 #' @param gene_ids         Character vector of unique gene IDs in \code{tbl}.
 #' @param confirm          Logical. Prompt the user before proceeding.
+#' @param interacting_vertices Character vector of vertices incident to at
+#'   least one edge with \code{interact == 1}.
+#' @param min_coverage_warn Mapping fraction below which a warning is emitted.
 #'
-#' @return Invisibly \code{NULL}.  Stops with an informative message if the
-#'   user declines to proceed.
+#' @return Invisibly, a typed list containing overall, per-direction, and gene
+#'   coverage summaries. Stops if the user declines to proceed.
 #' @noRd
-.report_network_coverage <- function(tbl, network_vertices, gene_ids, confirm) {
+.report_network_coverage <- function(tbl, network_vertices, gene_ids, confirm,
+                                     interacting_vertices = character(0),
+                                     min_coverage_warn = 0.10) {
+
+  classify <- function(ids, direction) {
+    ids <- unique(ids)
+    mapped <- ids %in% network_vertices
+    with_edge <- mapped & ids %in% interacting_vertices
+    n_input <- length(ids)
+    n_mapped <- sum(mapped)
+    data.frame(
+      direction = as.character(direction),
+      n_input = as.integer(n_input),
+      n_unmapped = as.integer(sum(!mapped)),
+      n_mapped_no_predicted_edge = as.integer(sum(mapped & !with_edge)),
+      n_mapped_with_predicted_edge = as.integer(sum(with_edge)),
+      n_mapped = as.integer(n_mapped),
+      pct_mapped = as.numeric(if (n_input) 100 * n_mapped / n_input else NA_real_),
+      stringsAsFactors = FALSE
+    )
+  }
 
   # ---- isoform-level coverage ------------------------------------------------
   all_isoforms     <- unique(tbl$isoform_id)
-  found_isoforms   <- all_isoforms[all_isoforms %in% network_vertices]
-  n_iso_total      <- length(all_isoforms)
-  n_iso_found      <- length(found_isoforms)
-  pct_iso          <- if (n_iso_total > 0L) 100 * n_iso_found / n_iso_total else 0
-
-  up_isoforms_all   <- unique(tbl$isoform_id[tbl$direction == "up"])
-  down_isoforms_all <- unique(tbl$isoform_id[tbl$direction == "down"])
-  n_up_found_all   <- sum(up_isoforms_all   %in% network_vertices)
-  n_down_found_all <- sum(down_isoforms_all %in% network_vertices)
-
-  pct_up           <- if (length(up_isoforms_all)   > 0L)
-    100 * n_up_found_all   / length(up_isoforms_all)   else 0
-  pct_down         <- if (length(down_isoforms_all) > 0L)
-    100 * n_down_found_all / length(down_isoforms_all) else 0
+  overall <- classify(all_isoforms, "overall")
+  directions <- unique(tbl$direction)
+  by_direction <- do.call(rbind, lapply(directions, function(direction) {
+    classify(tbl$isoform_id[tbl$direction == direction], direction)
+  }))
+  rownames(by_direction) <- NULL
 
   # ---- gene-level coverage ---------------------------------------------------
   # A gene is "covered" if at least one of its isoforms is in the network
@@ -407,18 +444,17 @@ run_differential_pulldown <- function(obj,
   cli::cli_text("")
 
   cli::cli_text("{.strong Isoforms}")
-  cli::cli_text(
-    "  Total in input   : {n_iso_total}"
-  )
-  cli::cli_text(
-    "  Found in network : {n_iso_found} / {n_iso_total} ({round(pct_iso, 1)}%)"
-  )
-  cli::cli_text(
-    "  Up-regulated     : {n_up_found_all} / {length(up_isoforms_all)} found ({round(pct_up, 1)}%)"
-  )
-  cli::cli_text(
-    "  Down-regulated   : {n_down_found_all} / {length(down_isoforms_all)} found ({round(pct_down, 1)}%)"
-  )
+  cli::cli_text("  Unique submitted IDs       : {overall$n_input}")
+  cli::cli_text("  Mapped, predicted edge     : {overall$n_mapped_with_predicted_edge}")
+  cli::cli_text("  Mapped, no predicted edge  : {overall$n_mapped_no_predicted_edge}")
+  cli::cli_text("  Unmapped                   : {overall$n_unmapped}")
+  cli::cli_text("  Mapping                    : {overall$n_mapped} / {overall$n_input} ({round(overall$pct_mapped, 1)}%)")
+  for (i in seq_len(nrow(by_direction))) {
+    row <- by_direction[i, , drop = FALSE]
+    cli::cli_text(
+      "  {row$direction}: mapped with edge {row$n_mapped_with_predicted_edge}; mapped without edge {row$n_mapped_no_predicted_edge}; unmapped {row$n_unmapped} ({round(row$pct_mapped, 1)}% mapped)"
+    )
+  }
   cli::cli_text("")
 
   cli::cli_text("{.strong Genes}")
@@ -428,9 +464,7 @@ run_differential_pulldown <- function(obj,
   cli::cli_text(
     "  At least 1 isoform in network : {n_genes_covered} / {n_genes_total} ({round(pct_genes, 1)}%)"
   )
-  cli::cli_text(
-    "  No isoforms in network        : {n_genes_total - n_genes_covered} gene(s) - these will produce no subgraph"
-  )
+  cli::cli_text("  No submitted isoforms mapped  : {n_genes_total - n_genes_covered}")
   cli::cli_text(
     "  Note: isoforms found in network with no interact==1 edges will produce a"
   )
@@ -440,6 +474,24 @@ run_differential_pulldown <- function(obj,
   cli::cli_text("")
   cli::cli_rule()
 
+  warn_rows <- rbind(overall, by_direction)
+  warn_rows <- warn_rows[warn_rows$n_input > 0L &
+                           warn_rows$pct_mapped < 100 * min_coverage_warn,
+                         , drop = FALSE]
+  for (i in seq_len(nrow(warn_rows))) {
+    row <- warn_rows[i, , drop = FALSE]
+    input_examples <- unique(tbl$isoform_id[
+      if (row$direction == "overall") rep(TRUE, nrow(tbl)) else
+        tbl$direction == row$direction
+    ])
+    cli::cli_warn(c(
+      "!" = "Only {round(row$pct_mapped, 1)}% of {row$direction} input isoforms were found in the network.",
+      "i" = "This often indicates an annotation-release, version-suffix, or identifier-type mismatch.",
+      "i" = "Network IDs look like: {paste(utils::head(network_vertices, 2L), collapse = ', ')}",
+      "i" = "Input IDs look like: {paste(utils::head(input_examples, 2L), collapse = ', ')}"
+    ))
+  }
+
   # ---- optional confirmation prompt ------------------------------------------
   if (confirm && interactive()) {
     answer <- readline("Proceed with the analysis? [y/N] ")
@@ -447,7 +499,20 @@ run_differential_pulldown <- function(obj,
       stop("Analysis cancelled by user.", call. = FALSE)
   }
 
-  invisible(NULL)
+  gene_summary <- data.frame(
+    n_genes_input = as.integer(n_genes_total),
+    n_genes_with_mapped_isoform = as.integer(n_genes_covered),
+    n_genes_without_mapped_isoform = as.integer(n_genes_total - n_genes_covered),
+    pct_genes_with_mapped_isoform = as.numeric(pct_genes),
+    stringsAsFactors = FALSE
+  )
+
+  invisible(list(
+    overall = overall,
+    by_direction = by_direction,
+    genes = gene_summary,
+    warning_threshold = as.numeric(min_coverage_warn)
+  ))
 }
 
 #' Load the differential input from a file path or data frame
@@ -507,7 +572,7 @@ run_differential_pulldown <- function(obj,
 #' @param tbl data.frame.
 #' @return Cleaned data.frame.
 #' @noRd
-.validate_diff_table <- function(tbl) {
+.validate_diff_table <- function(tbl, network = NULL) {
 
   required <- c("gene_id", "isoform_id", "direction")
   missing  <- setdiff(required, names(tbl))
@@ -522,26 +587,69 @@ run_differential_pulldown <- function(obj,
   tbl$isoform_id <- trimws(as.character(tbl$isoform_id))
   tbl$direction  <- tolower(trimws(as.character(tbl$direction)))
 
-  blank_gene    <- nchar(tbl$gene_id)    == 0L
-  blank_isoform <- nchar(tbl$isoform_id) == 0L
+  blank_gene    <- is.na(tbl$gene_id) | !nzchar(tbl$gene_id)
+  blank_isoform <- is.na(tbl$isoform_id) | !nzchar(tbl$isoform_id)
 
   if (any(blank_gene | blank_isoform)) {
     n_drop <- sum(blank_gene | blank_isoform)
     warning(sprintf(
-      "Dropping %d row(s) with empty gene_id or isoform_id.", n_drop
+      "Dropping %d row(s) with missing or empty gene_id or isoform_id.", n_drop
     ), call. = FALSE)
     tbl <- tbl[!(blank_gene | blank_isoform), , drop = FALSE]
   }
 
-  bad_dirs <- !tbl$direction %in% c("up", "down")
+  bad_dirs <- is.na(tbl$direction) | !tbl$direction %in% c("up", "down")
   if (any(bad_dirs))
     stop(sprintf(
       "Unrecognised direction value(s): %s. Must be 'up' or 'down'.",
-      paste(unique(tbl$direction[bad_dirs]), collapse = ", ")
+      paste(unique(ifelse(is.na(tbl$direction[bad_dirs]), "<missing>",
+                          tbl$direction[bad_dirs])), collapse = ", ")
     ), call. = FALSE)
 
   if (nrow(tbl) == 0L)
     stop("Input table is empty after cleaning.", call. = FALSE)
+
+  duplicate_rows <- duplicated(tbl[required])
+  if (any(duplicate_rows)) {
+    warning(sprintf(
+      "Removing %d exact duplicate input row(s).", sum(duplicate_rows)
+    ), call. = FALSE)
+    tbl <- tbl[!duplicate_rows, , drop = FALSE]
+  }
+
+  isoform_directions <- tapply(tbl$direction, tbl$isoform_id,
+                               function(x) length(unique(x)))
+  direction_conflicts <- names(isoform_directions)[isoform_directions > 1L]
+  if (length(direction_conflicts))
+    stop(sprintf(
+      "Each isoform must have one direction; conflicting isoform(s): %s.",
+      paste(direction_conflicts, collapse = ", ")
+    ), call. = FALSE)
+
+  isoform_genes <- tapply(tbl$gene_id, tbl$isoform_id,
+                          function(x) length(unique(x)))
+  gene_conflicts <- names(isoform_genes)[isoform_genes > 1L]
+  if (length(gene_conflicts))
+    stop(sprintf(
+      "Each isoform must belong to one input gene; conflicting isoform(s): %s.",
+      paste(gene_conflicts, collapse = ", ")
+    ), call. = FALSE)
+
+  if (!is.null(network)) {
+    network_gene <- stats::setNames(
+      as.character(igraph::V(network)$gene), igraph::V(network)$name
+    )
+    mapped <- tbl$isoform_id %in% names(network_gene)
+    mismatched <- mapped & tbl$gene_id != unname(network_gene[tbl$isoform_id])
+    if (any(mismatched))
+      stop(sprintf(
+        paste0(
+          "Input transcript-to-gene assignment disagrees with the network for: %s. ",
+          "Check identifiers and annotation release."
+        ),
+        paste(unique(tbl$isoform_id[mismatched]), collapse = ", ")
+      ), call. = FALSE)
+  }
 
   tbl
 }

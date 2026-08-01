@@ -10,7 +10,7 @@ test_that("isolated and unmapped seeds are distinguished end to end", {
   isolated <- get_gene_result(obj, "test", "G3")
   expect_equal(igraph::vcount(isolated@up_graph), 1L)
   expect_equal(igraph::ecount(isolated@up_graph), 0L)
-  expect_equal(igraph::V(isolated@up_graph)$name, "tx_isolated")
+  expect_equal(igraph::V(isolated@up_graph)$name, "tx_isolated_up")
   expect_true(isolated@up_stats$is_seed)
   expect_equal(isolated@graph_summary$density, c(0, 0))
   expect_equal(isolated@graph_summary$clustering, c(0, 0))
@@ -29,7 +29,7 @@ test_that("isolated and unmapped seeds are distinguished end to end", {
     obj, "test", "iso_components", direction = "both", level = "isoform"
   )
   iso_overview <- get_component_overview(obj, "test", "iso_components")
-  expect_equal(nrow(iso_overview), 2L)
+  expect_equal(nrow(iso_overview), 3L)
   expect_true(any(iso_overview$n_nodes == 1L & iso_overview$n_edges == 0L))
 
   obj <- run_component_analysis(
@@ -109,7 +109,7 @@ test_that("isolated seed plots and serialization remain valid", {
     expect_setequal(as.character(p_filtered_component$data$name), c("G1", "G2"))
 
     obj <- lookup_virtual_pulldown(
-      obj, "isolated_lookup", seed = "tx_isolated", order = 1, cutoff = 0
+      obj, "isolated_lookup", seed = "tx_isolated_up", order = 1, cutoff = 0
     )
     lookup_stats <- get_lookup_stats(obj, "isolated_lookup")
     expect_equal(nrow(lookup_stats), 1L)
@@ -143,14 +143,14 @@ test_that("plot graph filtering preserves isolated seeds without warnings", {
       level = "isoform",
       all_edges = FALSE,
       threshold = 0.85,
-      seed_vertices = "tx_isolated"
+      seed_vertices = "tx_isolated_up"
     )
   )
 
   expect_equal(igraph::ecount(filtered), 1L)
   expect_setequal(
     igraph::V(filtered)$name,
-    c("tx_up", "tx_neighbour", "tx_isolated")
+    c("tx_up", "tx_neighbour", "tx_isolated_up")
   )
   expect_equal(igraph::E(filtered)$pi_score, 0.9)
 })

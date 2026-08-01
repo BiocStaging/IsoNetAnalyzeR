@@ -6,7 +6,7 @@ and are referenced by the change log and validation report.
 | ID | Class | Severity | Status | Problem and impact |
 |---|---|---|---|---|
 | ISO-BUG-001 | bug | high | fixed | Gene-level component summaries compared ENSG vertex names with ENST seed lists. `n_genes_up`, `n_genes_down`, and `mixed` could be wrong at gene level. Core isoform pulldowns and graph edges were unaffected. |
-| ISO-BUG-002 | bug | high | fixed | Mapped degree-zero seeds were preserved by `virtual_pulldown()` but deleted by cross-gene construction, component analysis, component plotting, generic plotting, and overlay cleanup. Valid loss-of-interaction results and 24 real gene-level singleton components disappeared. |
+| ISO-BUG-002 | bug | high | fixed | Mapped degree-zero seeds were preserved by `virtual_pulldown()` but deleted by cross-gene construction, component analysis, component plotting, generic plotting, and overlay cleanup. Valid single-node inventory results disappeared. |
 | ISO-BUG-003 | bug | medium | fixed | `plot_component()` rebuilt and sorted unfiltered components rather than using the stored filtered membership. Component IDs could refer to a different graph when filters had been used. |
 | ISO-BUG-004 | bug | medium | fixed | `get_isoform_stats()` inferred seed status from an average distance equal to zero. Multiple disconnected seeds can have infinite average distance even though each is an order-zero seed. |
 | ISO-BUG-005 | bug | low | fixed | Singleton structural summaries could contain `NaN` density/clustering/centralization values. Density, mean degree, and clustering now use zero; centralization remains undefined. |
@@ -17,7 +17,7 @@ and are referenced by the change log and validation report.
 | ISO-MAINT-003 | maintenance defect | low | fixed | Singleton and filtered plot paths used igraph aliases soft-deprecated in igraph 2.x, producing four package-test warnings under igraph 2.3.0. Current API names are now used with identical arguments and graph semantics. |
 | ISO-METH-001 | methodological limitation | informational | documented | Gene-level adjacency is an any/max-threshold collapse: a gene-gene edge exists when at least one contributing isoform pair passes the interaction threshold. It does not represent an average isoform interaction. |
 | ISO-METH-002 | methodological limitation | medium | open/managed | Network interpretation depends on exact transcript-ID coverage. Unmapped inputs and post-mapping one-direction-only genes must be reported; they are not package failures. |
-| ISO-METH-003 | methodological limitation | medium | open/managed | Singletons and tiny components are valid inventory results but do not by themselves support rewiring claims. Claims are restricted downstream to nontrivial mixed components. |
+| ISO-METH-003 | methodological limitation | medium | documented | Singletons and tiny components are valid static-network inventory results. They do not establish biological interaction loss, and mixed components do not establish rewiring. |
 | ISO-SPARSE-001 | expected sparse-data behavior | informational | documented | A direction with no mapped seed produces no subgraph. A mapped seed with no predicted interaction produces a one-node/zero-edge subgraph. These cases are now distinguished. |
 
 ## Reproduction summaries

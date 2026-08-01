@@ -146,10 +146,10 @@ setMethod("show", "FgseaResult", function(object) {
 #' @section Ranking tiers:
 #' \describe{
 #'   \item{Tier 1 - built-in preset (\code{rank_by})}{
-#'     A named delta computed as the up-condition metric minus the
-#'     down-condition metric from \code{cross_gene_summary}.  Positive values
-#'     indicate a gene whose up-regulated isoform produced a larger network
-#'     effect; negative values indicate the opposite.
+#'     A named delta computed as the up-seed metric minus the down-seed metric
+#'     from \code{cross_gene_summary}. Positive values indicate a larger
+#'     static predicted neighbourhood metric for the up-labelled seeds;
+#'     negative values indicate the opposite.
 #'
 #'     Available presets:
 #'     \itemize{
@@ -189,6 +189,9 @@ setMethod("show", "FgseaResult", function(object) {
 #' \code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
 #' \code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
 #' Gene sets are keyed by Ensembl gene ID (\code{ensembl_gene}).
+#' For reproducible analyses, prefer a saved, versioned \code{pathways} list,
+#' set the random seed before this call, and record the list checksum and run
+#' parameters. Live pathway collections can change over time.
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis   Character scalar.  Label of the
@@ -264,13 +267,16 @@ run_fgsea <- function(obj,
 
   diff_res <- .resolve_diff_analysis(obj, analysis)
 
-  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(trimws(label)))
     stop("`label` must be a non-empty character scalar.", call. = FALSE)
 
   go_category <- match.arg(go_category)
-  minSize     <- as.integer(minSize)
-  maxSize     <- as.integer(maxSize)
-  nperm       <- as.integer(nperm)
+  minSize <- .validate_positive_integer(minSize, "minSize")
+  maxSize <- .validate_positive_integer(maxSize, "maxSize")
+  nperm   <- .validate_positive_integer(nperm, "nperm")
+  if (maxSize < minSize)
+    stop("`maxSize` must be greater than or equal to `minSize`.", call. = FALSE)
 
   # -- Build ranked stats vector -----------------------------------------------
   if (!is.null(stats)) {

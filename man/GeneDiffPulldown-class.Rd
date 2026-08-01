@@ -13,7 +13,7 @@
 }
 \description{
 Stores the virtual pulldown subgraphs and statistics for a single gene's
-up- and down-regulated isoforms.  One \linkS4class{GeneDiffPulldown} object
+up- and down-labelled isoform seeds. One \linkS4class{GeneDiffPulldown} object
 is created per gene in a \linkS4class{DifferentialPulldownAnalysis} run.
 }
 \section{Methods (by generic)}{
@@ -28,17 +28,17 @@ is created per gene in a \linkS4class{DifferentialPulldownAnalysis} run.
 table.}
 
 \item{\code{up_isoforms}}{Character vector. Isoform IDs from the input table that
-were marked as up-regulated for this gene.}
+were labelled up for this gene.}
 
 \item{\code{down_isoforms}}{Character vector. Isoform IDs from the input table that
-were marked as down-regulated for this gene.}
+were labelled down for this gene.}
 
 \item{\code{up_graph}}{An \code{igraph} object. Virtual pulldown subgraph seeded
-from \code{up_isoforms}, or \code{NULL} when no up-regulated isoforms were
+from \code{up_isoforms}, or \code{NULL} when no up-labelled isoforms were
 present in the network.}
 
 \item{\code{down_graph}}{An \code{igraph} object. Virtual pulldown subgraph seeded
-from \code{down_isoforms}, or \code{NULL} when no down-regulated isoforms
+from \code{down_isoforms}, or \code{NULL} when no down-labelled isoforms
 were present in the network.}
 
 \item{\code{up_stats}}{Data frame. Per-node statistics for \code{up_graph}

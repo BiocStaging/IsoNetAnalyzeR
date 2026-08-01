@@ -23,10 +23,10 @@ plot_cross_gene_boxplot(
 to see available labels.}
 
 \item{x_col}{Character scalar.  Column for the minuend / numerator
-(e.g. the up-condition metric).  Must be numeric.}
+(e.g. the up-seed neighbourhood metric). Must be numeric.}
 
 \item{y_col}{Character scalar.  Column for the subtrahend / denominator
-(e.g. the down-condition metric).  Must be numeric.
+(e.g. the down-seed neighbourhood metric). Must be numeric.
 Delta = \code{x_col - y_col} (or \code{log10(x_col/y_col)} when
 \code{log_ratio = TRUE}).}
 
@@ -39,8 +39,8 @@ Default \code{FALSE}.}
 Default \code{10}.  Set \code{0} to suppress all labels.}
 
 \item{label}{Character vector.  One or more of \code{"delta"}
-(largest absolute delta), \code{"up"} (most up-regulated - largest
-positive delta, orange points), \code{"down"} (most down-regulated -
+(largest absolute delta), \code{"up"} (largest positive delta, orange
+points), \code{"down"} (largest negative delta,
 largest negative delta, blue points).  Default \code{"delta"}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}

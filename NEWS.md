@@ -1,3 +1,29 @@
+# IsoNetAnalyzeR 0.4.0
+
+## Usability and validation
+
+- Add a persistent three-state network coverage summary: unmapped, mapped
+  without a predicted edge, and mapped with a predicted edge, overall and per
+  supplied direction. Mapping below 10% now emits diagnostic warnings.
+- Validate non-finite and fractional integer arguments, stored cutoffs, input
+  duplicates and conflicts, transcript-to-gene mappings, and the complete
+  custom-network contract.
+- Support networks with no predicted edges and report complete per-gene
+  processing failure clearly while preserving valid unmapped, isolated, and
+  one-direction results.
+- Correct partially missing multi-seed lookups.
+- Return plot objects visibly without explicit printing, enabling assignment
+  and headless `ggsave()` without creating `Rplots.pdf`.
+
+## Documentation
+
+- Define the package as analysis-agnostic and keep seed derivation and
+  publication-specific analyses outside the package.
+- Replace proxy-direction examples with a caller-prepared synthetic workflow,
+  qualify compositional dIF guidance, and describe results as static predicted
+  seed neighbourhoods.
+- Document reproducible enrichment using seeded runs and frozen pathway lists.
+
 # IsoNetAnalyzeR 0.3.2
 
 ## Correctness fixes

@@ -12,20 +12,20 @@
 #' GeneDiffPulldown - per-gene differential pulldown result
 #'
 #' Stores the virtual pulldown subgraphs and statistics for a single gene's
-#' up- and down-regulated isoforms.  One \linkS4class{GeneDiffPulldown} object
+#' up- and down-labelled isoform seeds. One \linkS4class{GeneDiffPulldown} object
 #' is created per gene in a \linkS4class{DifferentialPulldownAnalysis} run.
 #'
 #' @slot gene_id       Character scalar. The gene identifier from the input
 #'   table.
 #' @slot up_isoforms   Character vector. Isoform IDs from the input table that
-#'   were marked as up-regulated for this gene.
+#'   were labelled up for this gene.
 #' @slot down_isoforms Character vector. Isoform IDs from the input table that
-#'   were marked as down-regulated for this gene.
+#'   were labelled down for this gene.
 #' @slot up_graph      An \code{igraph} object. Virtual pulldown subgraph seeded
-#'   from \code{up_isoforms}, or \code{NULL} when no up-regulated isoforms were
+#'   from \code{up_isoforms}, or \code{NULL} when no up-labelled isoforms were
 #'   present in the network.
 #' @slot down_graph    An \code{igraph} object. Virtual pulldown subgraph seeded
-#'   from \code{down_isoforms}, or \code{NULL} when no down-regulated isoforms
+#'   from \code{down_isoforms}, or \code{NULL} when no down-labelled isoforms
 #'   were present in the network.
 #' @slot up_stats      Data frame. Per-node statistics for \code{up_graph}
 #'   (output of \code{\link{analyze_subgraph}}), or a zero-row data frame when
@@ -95,8 +95,8 @@ setValidity("GeneDiffPulldown", function(object) {
 #' Assembles all slots from pre-computed components.
 #'
 #' @param gene_id          Character scalar.
-#' @param up_isoforms      Character vector of input up-regulated isoform IDs.
-#' @param down_isoforms    Character vector of input down-regulated isoform IDs.
+#' @param up_isoforms      Character vector of input up-labelled isoform IDs.
+#' @param down_isoforms    Character vector of input down-labelled isoform IDs.
 #' @param up_graph         igraph or NULL.
 #' @param down_graph       igraph or NULL.
 #' @param up_stats         Data frame from \code{analyze_subgraph}, or zero-row.

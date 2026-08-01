@@ -49,14 +49,13 @@ NULL
 #'   \code{jaccard} (Jaccard index of node-set overlap between up and down
 #'     subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 #'     subgraph is absent),
-#'   \code{n_edges_gained} (edges present in the up subgraph but absent from
-#'     the down subgraph — interactions gained when switching to the up
-#'     isoform),
-#'   \code{n_edges_lost} (edges present in the down subgraph but absent from
-#'     the up subgraph — interactions lost when switching to the up isoform),
+#'   \code{n_edges_gained} (legacy field name for edges unique to the
+#'     up-seed neighbourhood),
+#'   \code{n_edges_lost} (legacy field name for edges unique to the
+#'     down-seed neighbourhood),
 #'   \code{n_edges_shared} (edges present in both subgraphs; together with
-#'     \code{n_edges_gained} and \code{n_edges_lost} this gives a complete
-#'     edge-level accounting of rewiring).  All three edge columns are
+#'     \code{n_edges_gained} and \code{n_edges_lost} this partitions the edges
+#'     in the two seed-derived neighbourhoods). All three edge columns are
 #'     \code{NA} when either subgraph is absent,
 #'   \code{up_seed_mean_pi} (mean of per-seed mean-pi values across all up
 #'     seeds; summarises average interaction confidence of the up seed set),
@@ -256,10 +255,11 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
       jaccard       <- NA_real_
     }
 
-    # ---- Edge-level gain / loss between up and down subgraphs ---------------
-    # An edge is "gained" in the up condition if it is present in up_graph but
-    # absent from down_graph, and "lost" if present in down_graph but absent
-    # from up_graph.  Because the graphs are undirected, endpoints are sorted
+# ---- Edge-set comparison between up and down seed neighbourhoods ---------
+    # Legacy result names call edges unique to up_graph "gained" and edges
+    # unique to down_graph "lost". They are descriptive set differences in a
+    # static network, not observed condition-specific interaction changes.
+    # Because the graphs are undirected, endpoints are sorted
     # before hashing so that A--B and B--A collapse to the same key.
     .edge_keys <- function(g) {
       if (is.null(g) || igraph::ecount(g) == 0L) return(character(0))
@@ -425,7 +425,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #' Get the cross-gene summary table from a differential pulldown analysis
 #'
 #' Returns the wide-format summary data frame with one row per gene,
-#' containing subgraph topology metrics for both the up- and down-regulated
+#' containing subgraph topology metrics for both the up- and down-labelled
 #' conditions side by side.
 #'
 #' @param obj      An \linkS4class{IsoNetAnalyzeR} session object.
@@ -507,7 +507,7 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' Get combined isoform-level statistics for a gene from a differential
 #' pulldown analysis
 #'
-#' Merges the per-node statistics from the up- and down-regulated subgraphs of
+#' Merges the per-node statistics from the up- and down-labelled subgraphs of
 #' a single gene into one long-format data frame, with a \code{direction}
 #' column (\code{"up"} / \code{"down"}) identifying the condition.  A
 #' \code{is_seed} column flags isoforms that were supplied as seeds, using the

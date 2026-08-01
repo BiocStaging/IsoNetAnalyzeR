@@ -317,8 +317,7 @@ setMethod(
     )
   }
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -616,7 +615,7 @@ setMethod(
 #'     highlighting the seed isoforms.
 #'   \item \code{"side_by_side"} (default) - renders the two subgraphs
 #'     side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
-#'   \item \code{"overlay"} - merges the up- and down-regulated subgraphs
+#'   \item \code{"overlay"} - merges the up- and down-labelled subgraphs
 #'     into a single network.  Nodes and edges are coloured by membership:
 #'     \emph{up-only} (orange), \emph{down-only} (sky blue), or
 #'     \emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
@@ -665,7 +664,7 @@ setMethod(
 #' # Overlay with gene colouring (membership shown via border + edge colour)
 #' plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
 #'
-#' # Plot only the up-regulated subgraph
+#' # Plot only the up-labelled seed neighbourhood
 #' plot_network(gene_result, direction = "up")
 #' }
 #'
@@ -745,7 +744,7 @@ setMethod(
       ...
     )
 
-    invisible(p)
+    p
   }
 )
 
@@ -814,8 +813,8 @@ setMethod(
     )
   }
 
-  p_up   <- make_panel(object@up_graph,   object@up_isoforms,   "up-regulated")
-  p_down <- make_panel(object@down_graph, object@down_isoforms, "down-regulated")
+  p_up   <- make_panel(object@up_graph,   object@up_isoforms,   "up seeds")
+  p_down <- make_panel(object@down_graph, object@down_isoforms, "down seeds")
 
   combined <- p_up + p_down +
     patchwork::plot_annotation(
@@ -823,8 +822,7 @@ setMethod(
       caption = sprintf("level: %s", level)
     )
 
-  print(combined)
-  invisible(combined)
+  combined
 }
 
 
@@ -834,14 +832,14 @@ setMethod(
 
 #' Merge up and down subgraphs into a single overlay graph
 #'
-#' Performs a graph union of the up- and down-regulated subgraphs and annotates
+#' Performs a graph union of the up- and down-labelled subgraphs and annotates
 #' every vertex and edge with a \code{membership} attribute:
 #' \code{"up_only"}, \code{"down_only"}, or \code{"shared"}.
 #'
 #' @param up_graph   igraph or NULL.
 #' @param down_graph igraph or NULL.
-#' @param up_isoforms   Character vector of up-regulated seed isoform IDs.
-#' @param down_isoforms Character vector of down-regulated seed isoform IDs.
+#' @param up_isoforms   Character vector of up-labelled seed isoform IDs.
+#' @param down_isoforms Character vector of down-labelled seed isoform IDs.
 #' @param level      "isoform" or "gene".
 #'
 #' @return A list with components:
@@ -977,7 +975,7 @@ setMethod(
 
 #' Render the overlay plot for a GeneDiffPulldown
 #'
-#' Merges up- and down-regulated subgraphs and renders them as a single
+#' Merges up- and down-labelled subgraphs and renders them as a single
 #' network with colour-coded membership.  When \code{group_by_gene = TRUE}
 #' and \code{level = "isoform"}, node fill encodes gene identity while
 #' the node border (stroke) and edge colour encode membership.
@@ -1295,8 +1293,7 @@ setMethod(
       )
   }
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -1326,8 +1323,8 @@ setMethod(
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #' @param ...       Additional arguments forwarded to
 #'   \code{ggraph::ggraph()}.
-#' @param direction Character scalar: \code{"up"} (merge all up-regulated
-#'   subgraphs), \code{"down"} (merge all down-regulated subgraphs), or
+#' @param direction Character scalar: \code{"up"} (merge all up-labelled
+#'   subgraphs), \code{"down"} (merge all down-labelled subgraphs), or
 #'   \code{"both"} (default; union of up and down per gene).  Must be
 #'   passed as a named argument.
 #' @param genes     Character vector of gene IDs to include.  Defaults to
@@ -1378,7 +1375,7 @@ setMethod(
 #' obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
 #' result <- obj@@analyses$my_run
 #'
-#' # Cross-gene view of up-regulated subgraphs
+#' # Cross-gene view of up-labelled seed neighbourhoods
 #' plot_network(result, direction = "up")
 #'
 #' # Both directions, subset to specific genes
@@ -1430,9 +1427,7 @@ setMethod(
 
     # -- Validate filter arguments ---------------------------------------------
     .check_filter_arg <- function(x, name) {
-      if (!is.null(x) && (!is.numeric(x) || length(x) != 1L || x < 1L))
-        stop(sprintf("`%s` must be a single positive integer or NULL.", name),
-             call. = FALSE)
+      if (!is.null(x)) .validate_positive_integer(x, name)
     }
     .check_filter_arg(min_nodes,           "min_nodes")
     .check_filter_arg(min_shared_nodes,    "min_shared_nodes")
@@ -1529,8 +1524,8 @@ setMethod(
 
     # -- Render ---------------------------------------------------------------
     dir_label <- switch(direction,
-                        up   = "up-regulated",
-                        down = "down-regulated",
+                        up   = "up seeds",
+                        down = "down seeds",
                         both = "up + down")
 
     if (is.null(title))
@@ -1739,8 +1734,7 @@ setMethod(
         size   = ggplot2::guide_legend(title = "Role", order = 1)
       )
 
-    print(p)
-    return(invisible(p))
+    return(p)
   }
 
   # ============================================================================
@@ -1810,6 +1804,5 @@ setMethod(
       size  = ggplot2::guide_legend(title = "Role", order = 1)
     )
 
-  print(p)
-  invisible(p)
+  p
 }

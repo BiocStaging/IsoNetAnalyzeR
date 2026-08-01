@@ -22,7 +22,7 @@ columns.
 }
 \description{
 Returns the wide-format summary data frame with one row per gene,
-containing subgraph topology metrics for both the up- and down-regulated
+containing subgraph topology metrics for both the up- and down-labelled
 conditions side by side.
 }
 \section{Methods (by class)}{

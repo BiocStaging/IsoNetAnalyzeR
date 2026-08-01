@@ -54,10 +54,10 @@ obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
 
 overview <- get_component_overview(obj, "cond_A", "comp_iso")
 
-# Mixed rewiring candidates
+# Components containing both seed labels
 overview[overview$mixed, ]
 
-# Hub-spoke components (potential master regulators)
+# Components with a descriptive hub-spoke topology
 overview[!is.na(overview$topology_class) &
            overview$topology_class == "hub-spoke", ]
 

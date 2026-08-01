@@ -85,17 +85,15 @@ NULL
 #' Each component is heuristically classified based on its degree
 #' centralization score:
 #' \describe{
-#'   \item{\code{"hub-spoke"}}{Centralization > 0.6: one or a few highly
-#'     connected nodes dominate, suggesting a master regulator or scaffold
-#'     protein.}
+#'   \item{\code{"hub-spoke"}}{Centralization > 0.6: degree is concentrated
+#'     in one or a few nodes.}
 #'   \item{\code{"clique-like"}}{Centralization < 0.2: connectivity is
-#'     uniformly distributed, consistent with a protein complex where all
-#'     members interact with each other.}
+#'     relatively uniformly distributed.}
 #'   \item{\code{"chain-like"}}{Centralization between 0.2 and 0.6: a
-#'     more linear or pathway-like topology.}
+#'     intermediate degree concentration.}
 #' }
-#' These thresholds are heuristic and intended as a starting point for
-#' biological interpretation.
+#' These thresholds are descriptive heuristics and do not establish a
+#' regulator, complex, pathway, or mechanism.
 #'
 #' @exportClass ComponentAnalysis
 setClass(
@@ -211,7 +209,7 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #'   \item \strong{Seed enrichment}: count and fraction of seed vs. neighbour
 #'     nodes.
 #'   \item \strong{Direction mixing}: up/down seed counts and contributing
-#'     genes; the \code{mixed} flag marks rewiring candidates.
+#'     genes; the \code{mixed} flag records components containing both labels.
 #'   \item \strong{Multi-gene hubs}: count and fraction of shared nodes.
 #' }
 #'
@@ -221,16 +219,15 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #'     diameter suggests a signalling cascade rather than a tight complex.
 #'   \item \strong{Radius}: minimum eccentricity across all nodes.
 #'   \item \strong{Degree centralization}: how unequally degree is distributed
-#'     (0 = perfectly uniform, 1 = pure star graph).  High values flag
-#'     potential master regulators.
+#'     (0 = perfectly uniform, 1 = pure star graph).
 #'   \item \strong{Topology class}: heuristic classification into
 #'     \code{"hub-spoke"}, \code{"chain-like"}, or \code{"clique-like"} based
 #'     on degree centralization (see \linkS4class{ComponentAnalysis} Details).
 #'   \item \strong{Hub betweenness}: for every shared (multi-gene) node,
 #'     betweenness centrality computed within its component, normalised to
 #'     \[0, 1\], and ranked.  Nodes with high normalised betweenness are
-#'     critical bridges across the sub-communities pulled in by different
-#'     genes - the most disease-relevant positions in the network.
+#'     structural bridges across the sub-communities pulled in by different
+#'     genes. Biological relevance requires external evidence.
 #' }
 #'
 #' @param obj          An \linkS4class{IsoNetAnalyzeR} session object.
@@ -267,10 +264,10 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #' # Combined Tier-1 + Tier-2 overview (one row per component)
 #' overview <- get_component_overview(obj, "cond_A", "comp_both")
 #'
-#' # Rewiring candidates: components with both up and down seeds
+#' # Components containing both up and down seed labels
 #' overview[overview$mixed, ]
 #'
-#' # Hub-spoke components (potential master regulators)
+#' # Components with a descriptive hub-spoke topology
 #' overview[!is.na(overview$topology_class) &
 #'            overview$topology_class == "hub-spoke", ]
 #'
@@ -297,8 +294,8 @@ run_component_analysis <- function(obj,
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  if (!is.character(analysis) || length(analysis) != 1L ||
-      nchar(trimws(analysis)) == 0L)
+  if (!is.character(analysis) || length(analysis) != 1L || is.na(analysis) ||
+      !nzchar(trimws(analysis)))
     stop("`analysis` must be a single non-empty character string.", call. = FALSE)
 
   if (!analysis %in% names(obj@analyses))
@@ -313,8 +310,8 @@ run_component_analysis <- function(obj,
       "Analysis '%s' is not a DifferentialPulldownAnalysis object.", analysis
     ), call. = FALSE)
 
-  if (!is.character(label) || length(label) != 1L ||
-      nchar(trimws(label)) == 0L)
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(trimws(label)))
     stop("`label` must be a single non-empty character string.", call. = FALSE)
 
   if (label %in% names(diff_result@component_analyses))
@@ -327,9 +324,7 @@ run_component_analysis <- function(obj,
   level     <- match.arg(level)
 
   .check_int_filter <- function(x, name) {
-    if (!is.null(x) && (!is.numeric(x) || length(x) != 1L || x < 1L))
-      stop(sprintf("`%s` must be a single positive integer or NULL.", name),
-           call. = FALSE)
+    if (!is.null(x)) .validate_positive_integer(x, name)
   }
   .check_int_filter(min_component_nodes, "min_component_nodes")
   .check_int_filter(min_shared_nodes,    "min_shared_nodes")
@@ -913,10 +908,10 @@ run_component_analysis <- function(obj,
 #'
 #' overview <- get_component_overview(obj, "cond_A", "comp_iso")
 #'
-#' # Mixed rewiring candidates
+#' # Components containing both seed labels
 #' overview[overview$mixed, ]
 #'
-#' # Hub-spoke components (potential master regulators)
+#' # Components with a descriptive hub-spoke topology
 #' overview[!is.na(overview$topology_class) &
 #'            overview$topology_class == "hub-spoke", ]
 #'
@@ -1018,11 +1013,7 @@ get_component <- function(obj, analysis, component_analysis, component_id) {
   ca <- .resolve_component_analysis(obj, analysis, component_analysis)
 
   # -- Validate component_id --------------------------------------------------
-  if (!is.numeric(component_id) || length(component_id) != 1L ||
-      is.na(component_id) || component_id < 1L)
-    stop("`component_id` must be a single positive integer.", call. = FALSE)
-
-  component_id <- as.integer(component_id)
+  component_id <- .validate_positive_integer(component_id, "component_id")
 
   valid_ids <- ca@component_table$component_id
   if (!component_id %in% valid_ids)

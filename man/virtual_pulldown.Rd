@@ -27,8 +27,8 @@ the nearest seed) and a \code{frac_internal} attribute (fraction of
 their interaction edges that remain internal to the subnetwork).
 Seed vertices with zero \code{interact == 1} edges are retained as
 isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
-representing isoforms present in the network but forming no predicted
-physical interactions.
+representing isoforms present in the pinned network but incident to no
+predicted edge in that network.
 }
 \description{
 Performs a virtual pulldown by first restricting the network to predicted

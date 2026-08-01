@@ -84,7 +84,8 @@ lookup_virtual_pulldown <- function(obj,
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(trimws(label)))
     stop("`label` must be a single non-empty character string.", call. = FALSE)
 
   if (label %in% names(obj@lookups))
@@ -92,14 +93,12 @@ lookup_virtual_pulldown <- function(obj,
       "A look-up labelled '%s' already exists and will be overwritten.", label
     ))
 
-  if (!is.character(seed) || length(seed) == 0L || any(nchar(trimws(seed)) == 0L))
+  if (!is.character(seed) || length(seed) == 0L || anyNA(seed) ||
+      any(!nzchar(trimws(seed))))
     stop("`seed` must be a non-empty character vector with no blank strings.",
          call. = FALSE)
 
-  if (!is.numeric(order) || length(order) != 1L || order < 1L)
-    stop("`order` must be a positive integer scalar.", call. = FALSE)
-
-  order <- as.integer(order)
+  order <- .validate_positive_integer(order, "order")
 
   # -- Cutoff resolution -------------------------------------------------------
   # Resolved here so we can report the value in the progress message and store
@@ -107,17 +106,16 @@ lookup_virtual_pulldown <- function(obj,
   # but that is a cheap operation.
   if (is.null(cutoff)) {
     cutoff <- obj@metadata[["network_cutoff"]]
-    if (is.null(cutoff) || is.na(cutoff))
+    if (is.null(cutoff))
       stop(
         "`cutoff` not supplied and `obj@metadata$network_cutoff` is not set. ",
         "Please provide a numeric cutoff explicitly.",
         call. = FALSE
       )
+    cutoff <- .validate_cutoff(cutoff, "obj@metadata$network_cutoff")
     message(sprintf("Using stored network_cutoff: %.4f", cutoff))
   } else {
-    if (!is.numeric(cutoff) || length(cutoff) != 1L ||
-        cutoff < 0 || cutoff > 1)
-      stop("`cutoff` must be a single numeric value in [0, 1].", call. = FALSE)
+    cutoff <- .validate_cutoff(cutoff)
     message(sprintf("Using user-supplied cutoff: %.4f", cutoff))
   }
 
@@ -182,7 +180,13 @@ lookup_virtual_pulldown <- function(obj,
 #' @noRd
 .resolve_seeds <- function(network, seeds, level) {
   if (level == "isoform") {
-    return(stats::setNames(as.list(seeds), seeds))
+    network_vertices <- igraph::V(network)$name
+    return(stats::setNames(
+      lapply(seeds, function(seed) {
+        if (seed %in% network_vertices) seed else character(0)
+      }),
+      seeds
+    ))
   }
 
   # Gene level: look up via vertex attribute

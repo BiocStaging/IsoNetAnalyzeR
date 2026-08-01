@@ -29,6 +29,7 @@ NULL
 #' @return Numeric scalar threshold.
 #' @noRd
 .sticky_threshold <- function(deg, method, cutoff) {
+  if (length(deg) == 0L) return(NA_real_)
   switch(method,
          quantile = unname(stats::quantile(deg, cutoff)),
          sd       = mean(deg) + cutoff * stats::sd(deg),
@@ -145,7 +146,7 @@ run_network_diagnostics <- function(obj,
   }
 
   if (!is.numeric(sticky_cutoff) || length(sticky_cutoff) != 1L ||
-      is.na(sticky_cutoff) || sticky_cutoff <= 0)
+      is.na(sticky_cutoff) || !is.finite(sticky_cutoff) || sticky_cutoff <= 0)
     stop("`sticky_cutoff` must be a single positive numeric scalar.",
          call. = FALSE)
 
@@ -161,26 +162,23 @@ run_network_diagnostics <- function(obj,
 
   g <- obj@network
 
-  # -- Validate required vertex / edge attributes ------------------------------
-  if (is.null(igraph::V(g)$gene))
-    stop("Network is missing the 'gene' vertex attribute.", call. = FALSE)
-
-  if (is.null(igraph::edge_attr(g, "interact")))
-    stop("Network is missing the 'interact' edge attribute.", call. = FALSE)
+  .validate_network_contract(g)
 
   message("Running network diagnostics...")
 
   # -- Build subgraphs ---------------------------------------------------------
   message("  Building predicted subgraphs...")
 
-  pred_edges <- igraph::E(g)[igraph::edge_attr(g, "interact") == 1]
+  pred_edges <- which(igraph::edge_attr(g, "interact") == 1L)
+  has_predicted_edges <- length(pred_edges) > 0L
 
-  if (length(pred_edges) == 0L)
-    stop("No edges with `interact == 1` found in the network.", call. = FALSE)
+  g_pred <- if (has_predicted_edges) {
+    igraph::subgraph_from_edges(g, pred_edges, delete.vertices = TRUE)
+  } else {
+    igraph::make_empty_graph(n = 0L, directed = FALSE)
+  }
 
-  g_pred <- igraph::subgraph_from_edges(g, pred_edges, delete.vertices = TRUE)
-
-  g_gene <- {
+  g_gene <- if (has_predicted_edges) {
     edges_df    <- igraph::as_data_frame(g_pred, what = "edges")
     iso_to_gene <- stats::setNames(igraph::V(g_pred)$gene,
                                    igraph::V(g_pred)$name)
@@ -192,28 +190,38 @@ run_network_diagnostics <- function(obj,
       ),
       remove.multiple = TRUE, remove.loops = TRUE
     )
+  } else {
+    igraph::make_empty_graph(n = 0L, directed = FALSE)
   }
 
   # -- Connected components ----------------------------------------------------
   message("  Computing connected components...")
 
-  comps      <- igraph::components(g_pred)
-  comp_sizes <- sort(comps$csize, decreasing = TRUE)
-  largest_id <- which.max(comps$csize)
-  g_largest  <- igraph::induced_subgraph(
-    g_pred, igraph::V(g_pred)[comps$membership == largest_id]
-  )
+  if (has_predicted_edges) {
+    comps      <- igraph::components(g_pred)
+    comp_sizes <- sort(comps$csize, decreasing = TRUE)
+    largest_id <- which.max(comps$csize)
+    g_largest  <- igraph::induced_subgraph(
+      g_pred, igraph::V(g_pred)[comps$membership == largest_id]
+    )
 
-  component_table <- data.frame(
-    component_id = seq_along(comp_sizes),
-    n_nodes      = comp_sizes,
-    n_edges      = vapply(seq_along(comp_sizes), function(i) {
-      vid <- igraph::V(g_pred)[comps$membership ==
-                                 order(comps$csize, decreasing = TRUE)[i]]
-      igraph::ecount(igraph::induced_subgraph(g_pred, vid))
-    }, numeric(1L)),
-    stringsAsFactors = FALSE
-  )
+    component_table <- data.frame(
+      component_id = as.integer(seq_along(comp_sizes)),
+      n_nodes      = as.integer(comp_sizes),
+      n_edges      = as.integer(vapply(seq_along(comp_sizes), function(i) {
+        vid <- igraph::V(g_pred)[comps$membership ==
+                                   order(comps$csize, decreasing = TRUE)[i]]
+        igraph::ecount(igraph::induced_subgraph(g_pred, vid))
+      }, numeric(1L))),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    comps <- list(no = 0L)
+    g_largest <- igraph::make_empty_graph(n = 0L, directed = FALSE)
+    component_table <- data.frame(
+      component_id = integer(0), n_nodes = integer(0), n_edges = integer(0)
+    )
+  }
 
   # -- Degree tables -----------------------------------------------------------
   message("  Computing degree distributions...")
@@ -231,9 +239,9 @@ run_network_diagnostics <- function(obj,
   )
   isoform_degree_table$degree[is.na(isoform_degree_table$degree)] <- 0L
 
-  gene_deg <- igraph::degree(g_gene)
+  gene_deg <- if (igraph::vcount(g_gene)) igraph::degree(g_gene) else numeric(0)
   gene_degree_table <- data.frame(
-    gene_id = names(gene_deg),
+    gene_id = if (length(gene_deg)) names(gene_deg) else character(0),
     degree  = as.integer(gene_deg),
     stringsAsFactors = FALSE
   )
@@ -241,10 +249,11 @@ run_network_diagnostics <- function(obj,
   # -- Clustering table --------------------------------------------------------
   message("  Computing clustering coefficients...")
 
-  clust_vals  <- igraph::transitivity(g_pred, type = "local", isolates = "zero")
-  pred_names  <- igraph::V(g_pred)$name
-  pred_genes  <- igraph::V(g_pred)$gene
-  pred_deg_v  <- igraph::degree(g_pred)
+  clust_vals  <- if (has_predicted_edges)
+    igraph::transitivity(g_pred, type = "local", isolates = "zero") else numeric(0)
+  pred_names  <- if (has_predicted_edges) igraph::V(g_pred)$name else character(0)
+  pred_genes  <- if (has_predicted_edges) igraph::V(g_pred)$gene else character(0)
+  pred_deg_v  <- if (has_predicted_edges) igraph::degree(g_pred) else numeric(0)
 
   clustering_table <- data.frame(
     isoform_id              = pred_names,
@@ -299,13 +308,13 @@ run_network_diagnostics <- function(obj,
     pred_isoforms            = igraph::vcount(g_pred),
     pred_genes               = length(unique(igraph::V(g_pred)$gene)),
     pred_edges               = igraph::ecount(g_pred),
-    pred_density             = igraph::edge_density(g_pred),
-    pred_avg_degree          = mean(igraph::degree(g_pred)),
-    pred_avg_clustering      = igraph::transitivity(g_pred, type = "average"),
+    pred_density             = if (has_predicted_edges) igraph::edge_density(g_pred) else NA_real_,
+    pred_avg_degree          = if (has_predicted_edges) mean(igraph::degree(g_pred)) else NA_real_,
+    pred_avg_clustering      = if (has_predicted_edges) igraph::transitivity(g_pred, type = "average") else NA_real_,
     pred_n_components        = comps$no,
     pred_largest_component_n = igraph::vcount(g_largest),
-    pred_largest_component_pct = 100 * igraph::vcount(g_largest) /
-      igraph::vcount(g_pred),
+    pred_largest_component_pct = if (has_predicted_edges)
+      100 * igraph::vcount(g_largest) / igraph::vcount(g_pred) else NA_real_,
     pred_diameter            = .diameter(g_largest),
     pred_avg_path_length     = .avg_path_length(g_largest),
     # Gene-level network

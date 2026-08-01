@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.3.2
+Version: 0.4.0
 Authors@R: c(
     person("Dimitrios S.", "Kanakoglou",
            email = "dimkan@dtu.dk", role = c("aut", "cre")),
@@ -10,12 +10,12 @@ Authors@R: c(
 Author: Dimitrios S. Kanakoglou [aut, cre],
     Nikolas Mumm [aut]
 Maintainer: Dimitrios S. Kanakoglou <dimkan@dtu.dk>
-Description: Provides tools for isoform-level protein interaction network
-    analysis, with a focus on how alternative splicing reshapes protein
-    interaction landscapes. Core functionality includes virtual pulldown
-    simulations, differential pulldown analysis across splicing conditions,
+Description: Builds and compares static predicted interaction neighbourhoods
+    around caller-supplied isoform seed sets. Core functionality includes
+    virtual pulldown simulations, directional seed-neighbourhood comparisons,
     connected component analysis, and gene set enrichment and
     over-representation analysis (GSEA/ORA) on network topology statistics.
+    Seed derivation and biological classification remain upstream of the package.
     Developed as part of a master's thesis at the Technical University
     of Denmark (DTU).
 License: MIT + file LICENSE

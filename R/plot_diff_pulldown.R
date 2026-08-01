@@ -335,8 +335,7 @@ plot_cross_gene_scatter <- function(obj,
       caption = paste0("n = ", nrow(p$data), " genes  |  analysis: ", analysis)
     )
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -440,7 +439,7 @@ plot_cross_gene_overview <- function(obj,
     patchwork::plot_annotation(
       title    = title %||% sprintf("Cross-gene overview  [%s]", analysis),
       subtitle = paste0(
-        "Each panel: up-condition (X) vs down-condition (Y).  ",
+        "Each panel: up-seed neighbourhood (X) vs down-seed neighbourhood (Y).  ",
         "Points on the diagonal = no change between conditions.\n",
         if (log_counts) paste0(
           "Axes labelled (log) use log10(x) scaling.  ",
@@ -455,8 +454,7 @@ plot_cross_gene_overview <- function(obj,
       )
     )
 
-  print(combined)
-  invisible(combined)
+  combined
 }
 
 
@@ -481,9 +479,9 @@ plot_cross_gene_overview <- function(obj,
 #'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)}
 #'   to see available labels.
 #' @param x_col     Character scalar.  Column for the minuend / numerator
-#'   (e.g. the up-condition metric).  Must be numeric.
+#'   (e.g. the up-seed neighbourhood metric). Must be numeric.
 #' @param y_col     Character scalar.  Column for the subtrahend / denominator
-#'   (e.g. the down-condition metric).  Must be numeric.
+#'   (e.g. the down-seed neighbourhood metric). Must be numeric.
 #'   Delta = \code{x_col - y_col} (or \code{log10(x_col/y_col)} when
 #'   \code{log_ratio = TRUE}).
 #' @param log_ratio Logical.  When \code{TRUE}, plot
@@ -493,8 +491,8 @@ plot_cross_gene_overview <- function(obj,
 #' @param label_n   Integer.  Maximum total genes to label across all strategies.
 #'   Default \code{10}.  Set \code{0} to suppress all labels.
 #' @param label     Character vector.  One or more of \code{"delta"}
-#'   (largest absolute delta), \code{"up"} (most up-regulated - largest
-#'   positive delta, orange points), \code{"down"} (most down-regulated -
+#'   (largest absolute delta), \code{"up"} (largest positive delta, orange
+#'   points), \code{"down"} (largest negative delta,
 #'   largest negative delta, blue points).  Default \code{"delta"}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #'
@@ -603,8 +601,7 @@ plot_cross_gene_boxplot <- function(obj,
       panel.grid.major.x = ggplot2::element_blank()
     )
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -766,8 +763,8 @@ plot_cross_gene_boxplot <- function(obj,
 #'   map to 0 (no change) and no genes are dropped.
 #' @param label_n    Integer.  Maximum total genes to label per panel.  Default \code{0}.
 #' @param label      Character vector.  One or more of \code{"delta"}
-#'   (largest absolute delta), \code{"up"} (most up-regulated - largest
-#'   positive delta, orange points), \code{"down"} (most down-regulated -
+#'   (largest absolute delta), \code{"up"} (largest positive delta, orange
+#'   points), \code{"down"} (largest negative delta,
 #'   largest negative delta, blue points).  Default \code{"delta"}.
 #' @param title      Character scalar or \code{NULL} (auto-generated).
 #'
@@ -826,8 +823,7 @@ plot_cross_gene_boxplot_overview <- function(obj,
       )
     )
 
-  print(combined)
-  invisible(combined)
+  combined
 }
 
 

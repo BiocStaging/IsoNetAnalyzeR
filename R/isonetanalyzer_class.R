@@ -140,6 +140,17 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
                            network  = NULL,
                            metadata = list()) {
 
+  user_supplied_network <- !is.null(network)
+
+  if (!is.character(name) || length(name) != 1L || is.na(name) ||
+      !nzchar(trimws(name)))
+    stop("`name` must be a single non-empty character string.", call. = FALSE)
+
+  if (!is.list(metadata) ||
+      (length(metadata) > 0L && (is.null(names(metadata)) ||
+       any(is.na(names(metadata))) || any(!nzchar(names(metadata))))))
+    stop("`metadata` must be a named list.", call. = FALSE)
+
   # -- Network resolution ------------------------------------------------------
   auto_meta <- list()
 
@@ -177,8 +188,17 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
     ))
   }
 
+  if (user_supplied_network)
+    .validate_network_contract(network)
+
   # User metadata wins on collision
   merged_meta <- utils::modifyList(auto_meta, metadata)
+
+  if (!is.null(merged_meta[["network_cutoff"]]) &&
+      !(!user_supplied_network &&
+        length(merged_meta[["network_cutoff"]]) == 1L &&
+        is.na(merged_meta[["network_cutoff"]])))
+    .validate_cutoff(merged_meta[["network_cutoff"]], "metadata$network_cutoff")
 
   #-- Construct & validate -----------------------------------------------------
   obj <- new(
@@ -244,6 +264,64 @@ setMethod("show", "IsoNetAnalyzeR", function(object) {
 #' Return the package name from within the package namespace
 #' @noRd
 packageName <- function() "IsoNetAnalyzeR"
+
+#' Validate a positive whole-number scalar
+#' @noRd
+.validate_positive_integer <- function(x, arg) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || !is.finite(x) ||
+      x < 1 || x > .Machine$integer.max || x != floor(x))
+    stop(sprintf("`%s` must be a finite positive integer scalar.", arg),
+         call. = FALSE)
+  as.integer(x)
+}
+
+#' Validate a probability-like cutoff
+#' @noRd
+.validate_cutoff <- function(x, arg = "cutoff") {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || !is.finite(x) ||
+      x < 0 || x > 1)
+    stop(sprintf("`%s` must be a single finite numeric value in [0, 1].", arg),
+         call. = FALSE)
+  as.numeric(x)
+}
+
+#' Validate the internal network contract
+#' @noRd
+.validate_network_contract <- function(network) {
+  if (!inherits(network, "igraph"))
+    stop("`network` must be an igraph object.", call. = FALSE)
+
+  if (igraph::is_directed(network))
+    stop("`network` must be undirected.", call. = FALSE)
+
+  if (igraph::vcount(network) == 0L)
+    stop("`network` must contain at least one vertex.", call. = FALSE)
+
+  vertex_names <- igraph::V(network)$name
+  if (is.null(vertex_names) || length(vertex_names) != igraph::vcount(network) ||
+      anyNA(vertex_names) || any(!nzchar(trimws(vertex_names))) ||
+      anyDuplicated(vertex_names))
+    stop("`network` vertex names must be unique, non-missing, and non-empty.",
+         call. = FALSE)
+
+  genes <- igraph::vertex_attr(network, "gene")
+  if (is.null(genes) || length(genes) != igraph::vcount(network) ||
+      anyNA(genes) || any(!nzchar(trimws(as.character(genes)))))
+    stop("`network` must have a non-missing, non-empty `gene` attribute for every vertex.",
+         call. = FALSE)
+
+  if (!"interact" %in% igraph::edge_attr_names(network))
+    stop("`network` must have a binary `interact` edge attribute.", call. = FALSE)
+
+  interact <- igraph::edge_attr(network, "interact")
+  if (!(is.numeric(interact) || is.logical(interact)) || anyNA(interact) ||
+      any(!is.finite(as.numeric(interact))) ||
+      any(!as.numeric(interact) %in% c(0, 1)))
+    stop("`network` edge attribute `interact` must contain only non-missing binary values (0 or 1).",
+         call. = FALSE)
+
+  invisible(TRUE)
+}
 
 
 # ==============================================================================

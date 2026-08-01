@@ -432,6 +432,5 @@ plot_network_diagnostics <- function(obj, title = NULL) {
   }
   fig <- fig + do.call(patchwork::plot_annotation, ann_args)
 
-  print(fig)
-  invisible(fig)
+  fig
 }

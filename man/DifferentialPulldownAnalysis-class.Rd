@@ -58,14 +58,13 @@ found in the network; \code{NA} when \code{n_input == 0}),
 \code{jaccard} (Jaccard index of node-set overlap between up and down
 subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 subgraph is absent),
-\code{n_edges_gained} (edges present in the up subgraph but absent from
-the down subgraph — interactions gained when switching to the up
-isoform),
-\code{n_edges_lost} (edges present in the down subgraph but absent from
-the up subgraph — interactions lost when switching to the up isoform),
+\code{n_edges_gained} (legacy field name for edges unique to the
+up-seed neighbourhood),
+\code{n_edges_lost} (legacy field name for edges unique to the
+down-seed neighbourhood),
 \code{n_edges_shared} (edges present in both subgraphs; together with
-\code{n_edges_gained} and \code{n_edges_lost} this gives a complete
-edge-level accounting of rewiring).  All three edge columns are
+\code{n_edges_gained} and \code{n_edges_lost} this partitions the edges
+in the two seed-derived neighbourhoods). All three edge columns are
 \code{NA} when either subgraph is absent,
 \code{up_seed_mean_pi} (mean of per-seed mean-pi values across all up
 seeds; summarises average interaction confidence of the up seed set),

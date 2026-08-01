@@ -12,10 +12,9 @@
 #' Filters the network to edges where \code{interact == 1} and returns the
 #' induced subgraph.  Isolated vertices — those present in the full network
 #' but carrying no \code{interact == 1} edges — are \strong{retained}.  This
-#' is intentional: an isoform that exists in the network but forms no
-#' predicted physical interactions is a meaningful biological result (complete
-#' loss of interaction) and must remain reachable by the seed-matching and
-#' cutoff logic downstream.
+#' is intentional: an isoform that exists in the network but has no predicted
+#' edge is a valid single-node result and must remain reachable by the
+#' seed-matching and cutoff logic downstream.
 #'
 #' @param g   An igraph object with an \code{interact} edge attribute.
 #' @return    An igraph object containing only predicted-interaction edges,
@@ -30,7 +29,7 @@
   pred_edges <- which(interact_vec == 1L)
 
   if (length(pred_edges) == 0L)
-    stop("No edges with `interact == 1` found in the graph.", call. = FALSE)
+    return(igraph::delete_edges(g, igraph::E(g)))
 
   # delete.vertices = FALSE: vertices with no interact==1 edges are kept so
   # that seed isoforms with zero interactions are still found and produce a
@@ -119,8 +118,8 @@
 #'   their interaction edges that remain internal to the subnetwork).
 #'   Seed vertices with zero \code{interact == 1} edges are retained as
 #'   isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
-#'   representing isoforms present in the network but forming no predicted
-#'   physical interactions.
+#'   representing isoforms present in the pinned network but incident to no
+#'   predicted edge in that network.
 #' @export
 virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
 
@@ -129,28 +128,24 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
   if (!is.character(seed_vertices) || length(seed_vertices) == 0L ||
-      any(nchar(trimws(seed_vertices)) == 0L))
+      anyNA(seed_vertices) || any(!nzchar(trimws(seed_vertices))))
     stop("`seed_vertices` must be a non-empty character vector with no blank strings.",
          call. = FALSE)
 
-  if (!is.numeric(order) || length(order) != 1L || order < 1L)
-    stop("`order` must be a positive integer scalar.", call. = FALSE)
-
-  order <- as.integer(order)
+  order <- .validate_positive_integer(order, "order")
 
   # ── Cutoff resolution ───────────────────────────────────────────────────────
   if (is.null(cutoff)) {
     cutoff <- obj@metadata[["network_cutoff"]]
-    if (is.null(cutoff) || is.na(cutoff))
+    if (is.null(cutoff))
       stop(
         "`cutoff` not supplied and `obj@metadata$network_cutoff` is not set. ",
         "Please provide a numeric cutoff explicitly.",
         call. = FALSE
       )
+    cutoff <- .validate_cutoff(cutoff, "obj@metadata$network_cutoff")
   } else {
-    if (!is.numeric(cutoff) || length(cutoff) != 1L ||
-        cutoff < 0 || cutoff > 1)
-      stop("`cutoff` must be a single numeric value in [0, 1].", call. = FALSE)
+    cutoff <- .validate_cutoff(cutoff)
   }
 
   # ── Step 1: restrict to interaction edges upfront ──────────────────────────
@@ -189,8 +184,8 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
   # Seeds (order == 0) are always kept regardless of frac_internal.  The
   # cutoff is designed to remove non-specific *neighbours*, not the seeds
   # themselves.  An isolated seed (frac_internal = NA, degree = 0) represents
-  # a real biological result — the isoform is in the network but forms no
-  # predicted interactions — and must not be silently discarded.
+  # a valid result — the isoform is in the network but is incident to no
+  # predicted edge in this network — and must not be silently discarded.
   is_seed   <- igraph::V(g_interact)$order[sub_idx] == 0L
   keep_mask <- is_seed | (!is.na(frac_internal) & frac_internal >= cutoff)
   keep_names <- sub_names[keep_mask]

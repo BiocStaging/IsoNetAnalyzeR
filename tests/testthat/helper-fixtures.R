@@ -1,7 +1,8 @@
 make_isolated_seed_fixture <- function() {
   vertices <- data.frame(
-    name = c("tx_up", "tx_down", "tx_neighbour", "tx_isolated", "tx_other"),
-    gene = c("G1", "G1", "G2", "G3", "G4"),
+    name = c("tx_up", "tx_down", "tx_neighbour", "tx_isolated_up",
+             "tx_isolated_down", "tx_other"),
+    gene = c("G1", "G1", "G2", "G3", "G3", "G4"),
     stringsAsFactors = FALSE
   )
   edges <- data.frame(
@@ -23,7 +24,7 @@ make_isolated_seed_fixture <- function() {
   input <- data.frame(
     gene_id = c("G1", "G1", "G3", "G3", "G_missing", "G_missing"),
     isoform_id = c(
-      "tx_up", "tx_down", "tx_isolated", "tx_isolated",
+      "tx_up", "tx_down", "tx_isolated_up", "tx_isolated_down",
       "tx_absent_up", "tx_absent_down"
     ),
     direction = c("up", "down", "up", "down", "up", "down"),

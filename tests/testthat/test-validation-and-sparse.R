@@ -50,7 +50,7 @@ test_that("lookup and component entry points reject invalid state", {
       fixture$obj, "missing", "tx_not_in_network",
       order = 1, cutoff = 0
     ),
-    "None of the seed vertices"
+    "not found in the network"
   )
   expect_error(
     lookup_virtual_pulldown(

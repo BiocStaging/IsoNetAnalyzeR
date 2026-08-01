@@ -80,26 +80,25 @@ NULL
 #' }
 #'
 #' @section Direction mode — isoform level:
-#' Seed nodes are coloured by their regulation direction: up-regulated (orange),
-#' down-regulated (sky blue), or present in both directions (purple).
+#' Seed nodes are coloured by their caller-supplied direction: up (orange),
+#' down (sky blue), or present in both directions (purple).
 #' Neighbour behaviour is controlled by \code{colour_neighbours}:
 #' \describe{
 #'   \item{\code{FALSE} (default)}{Neighbours are light grey.}
 #'   \item{\code{TRUE} — territory map}{Each neighbour is coloured by the
 #'     direction of its nearest seed group, computed as unweighted shortest-path
 #'     distance within the component.  Neighbours equidistant from both seed
-#'     groups are shown in purple (contested zone) — these are the interaction
-#'     partners being actively rewired.}
+#'     groups are shown in purple (equidistant territory).}
 #' }
 #'
 #' @section Direction mode — gene level:
 #' At gene level each node represents a collapsed gene rather than a single
 #' isoform, so a binary up/down label is not meaningful (most genes contribute
-#' both up- and down-regulated isoforms).  Instead a continuous
+#' both up- and down-labelled isoforms). Instead a continuous
 #' \strong{dominance score} is computed per gene:
 #' \deqn{score = \frac{n_{up} - n_{down}}{n_{up} + n_{down}} \in [-1, +1]}
 #' where \eqn{n_{up}} and \eqn{n_{down}} are the numbers of seed isoforms from
-#' the input table that are up- and down-regulated for that gene.  The score is
+#' the input table that are up- and down-labelled for that gene. The score is
 #' mapped to a diverging orange–white–sky-blue colour scale:
 #' \itemize{
 #'   \item \strong{+1} (pure up) → orange
@@ -208,10 +207,7 @@ plot_component <- function(obj,
 
   ca <- diff_result@component_analyses[[component_analysis]]
 
-  if (!is.numeric(component_id) || length(component_id) != 1L ||
-      is.na(component_id) || component_id < 1L)
-    stop("`component_id` must be a single positive integer.", call. = FALSE)
-  component_id <- as.integer(component_id)
+  component_id <- .validate_positive_integer(component_id, "component_id")
 
   n_comps <- nrow(ca@component_table)
   if (component_id > n_comps)
@@ -416,8 +412,8 @@ plot_component <- function(obj,
 
 #' Compute per-gene dominance scores for the direction mode at gene level
 #'
-#' For each gene node in the component, counts the number of up-regulated and
-#' down-regulated seed isoforms from the original input table that map to that
+#' For each gene node in the component, counts the number of up- and
+#' down-labelled seed isoforms from the original input table that map to that
 #' gene, then computes:
 #'
 #'   score = (n_up - n_down) / (n_up + n_down)   in \[-1, +1\]
@@ -538,8 +534,7 @@ plot_component <- function(obj,
       size   = "none"
     )
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -628,6 +623,5 @@ plot_component <- function(obj,
       legend.position = "right"
     )
 
-  print(p)
-  invisible(p)
+  p
 }

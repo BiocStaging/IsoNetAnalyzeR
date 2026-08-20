@@ -99,6 +99,11 @@ NULL
 #'   \code{FALSE} to skip the prompt in scripts or non-interactive contexts.
 #'   The coverage report is always printed regardless of this flag; only the
 #'   interactive pause is suppressed.
+#' @param resolve_duplicates Logical. Resolve versioned and protein-identical
+#'   redundant transcript identifiers before analysis. Same-direction
+#'   representative collisions are collapsed and genes with opposite-direction
+#'   collisions are excluded. Default \code{TRUE}; use \code{FALSE} for exact
+#'   0.4.0-compatible identifier handling.
 #' @param verbose  Logical. Print per-gene progress messages. Default
 #'   \code{TRUE}.
 #'
@@ -140,7 +145,8 @@ run_differential_pulldown <- function(obj,
                                       cutoff   = NULL,
                                       parallel = FALSE,
                                       confirm  = interactive(),
-                                      verbose  = TRUE) {
+                                      verbose  = TRUE,
+                                      resolve_duplicates = TRUE) {
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -162,6 +168,11 @@ run_differential_pulldown <- function(obj,
 
   if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose))
     stop("`verbose` must be a single non-NA logical value.", call. = FALSE)
+
+  if (!is.logical(resolve_duplicates) || length(resolve_duplicates) != 1L ||
+      is.na(resolve_duplicates))
+    stop("`resolve_duplicates` must be a single non-NA logical value.",
+         call. = FALSE)
 
   # -- Check for future packages when parallel = TRUE -------------------------
   if (parallel) {
@@ -208,7 +219,13 @@ run_differential_pulldown <- function(obj,
 
   # -- Load and validate input table -------------------------------------------
   tbl      <- .load_diff_input(input)
-  tbl      <- .validate_diff_table(tbl, obj@network)
+  tbl      <- .validate_diff_table(
+    tbl, obj@network, resolve_duplicates = resolve_duplicates
+  )
+  duplicate_resolution <- attr(tbl, "dedup_resolution")
+  submitted_tbl <- if (is.null(duplicate_resolution)) tbl else
+    duplicate_resolution$submitted_table
+  attr(tbl, "dedup_resolution") <- NULL
   gene_ids <- unique(tbl$gene_id)
 
   # -- Network coverage report -------------------------------------------------
@@ -226,7 +243,10 @@ run_differential_pulldown <- function(obj,
     character(0)
   }
   coverage <- .report_network_coverage(
-    tbl, network_vertices, gene_ids, confirm, interacting_vertices
+    tbl, network_vertices, gene_ids, confirm, interacting_vertices,
+    submitted_tbl = submitted_tbl,
+    resolution_audit = if (is.null(duplicate_resolution)) NULL else
+      duplicate_resolution$audit
   )
 
   if (verbose)
@@ -260,8 +280,11 @@ run_differential_pulldown <- function(obj,
           round(100 * which(gene_ids == gid) / length(gene_ids)),
           gid
         ))
-        .process_one_gene(gid, tbl, obj, order, cutoff, verbose,
-                          network_vertices = network_vertices)
+        .process_one_gene(
+          gid, tbl, obj, order, cutoff, verbose,
+          network_vertices = network_vertices,
+          submitted_tbl = submitted_tbl
+        )
       }
     )
   })
@@ -316,6 +339,12 @@ run_differential_pulldown <- function(obj,
   if (is.null(obj@metadata[["analysis_network_coverage"]]))
     obj@metadata[["analysis_network_coverage"]] <- list()
   obj@metadata[["analysis_network_coverage"]][[label]] <- coverage
+  if (!is.null(duplicate_resolution)) {
+    if (is.null(obj@metadata[["analysis_duplicate_resolution"]]))
+      obj@metadata[["analysis_duplicate_resolution"]] <- list()
+    obj@metadata[["analysis_duplicate_resolution"]][[label]] <-
+      duplicate_resolution
+  }
   message(sprintf("Done. Access the analysis with:\n  get_analysis(obj, \"%s\")", label))
   invisible(obj)
 }
@@ -343,11 +372,15 @@ run_differential_pulldown <- function(obj,
 #'   \code{list(error = <character>)} sentinel on failure.
 #' @noRd
 .process_one_gene <- function(gid, tbl, obj, order, cutoff, verbose,
-                              network_vertices = character(0)) {
+                              network_vertices = character(0),
+                              submitted_tbl = tbl) {
   tryCatch({
     if (verbose) message(sprintf("  Processing gene: %s", gid))
 
     gene_tbl      <- tbl[tbl$gene_id == gid, , drop = FALSE]
+    submitted_gene_tbl <- submitted_tbl[
+      submitted_tbl$gene_id == gid, , drop = FALSE
+    ]
     up_isoforms   <- gene_tbl$isoform_id[gene_tbl$direction == "up"]
     down_isoforms <- gene_tbl$isoform_id[gene_tbl$direction == "down"]
 
@@ -365,7 +398,15 @@ run_differential_pulldown <- function(obj,
       down_graph       = down_graph,
       up_stats         = up_stats,
       down_stats       = down_stats,
-      network_vertices = network_vertices
+      network_vertices = network_vertices,
+      submitted_counts = c(
+        up = length(unique(submitted_gene_tbl$isoform_id[
+          submitted_gene_tbl$direction == "up"
+        ])),
+        down = length(unique(submitted_gene_tbl$isoform_id[
+          submitted_gene_tbl$direction == "down"
+        ]))
+      )
     )
   },
   error = function(e) list(error = conditionMessage(e)))
@@ -398,17 +439,45 @@ run_differential_pulldown <- function(obj,
 #' @noRd
 .report_network_coverage <- function(tbl, network_vertices, gene_ids, confirm,
                                      interacting_vertices = character(0),
-                                     min_coverage_warn = 0.10) {
+                                     min_coverage_warn = 0.10,
+                                     submitted_tbl = tbl,
+                                     resolution_audit = NULL) {
 
-  classify <- function(ids, direction) {
-    ids <- unique(ids)
+  if (is.null(resolution_audit)) {
+    resolution_rows <- data.frame(
+      submitted_id = submitted_tbl$isoform_id,
+      resolved_id = submitted_tbl$isoform_id,
+      gene_id = submitted_tbl$gene_id,
+      direction = submitted_tbl$direction,
+      resolution = "direct",
+      action = "retained",
+      stringsAsFactors = FALSE
+    )
+  } else {
+    resolution_rows <- resolution_audit
+  }
+
+  classify <- function(rows, direction) {
+    rows <- rows[!duplicated(rows$submitted_id), , drop = FALSE]
+    ids <- rows$resolved_id
     mapped <- ids %in% network_vertices
     with_edge <- mapped & ids %in% interacting_vertices
-    n_input <- length(ids)
+    n_input <- nrow(rows)
     n_mapped <- sum(mapped)
     data.frame(
       direction = as.character(direction),
       n_input = as.integer(n_input),
+      n_direct = as.integer(sum(rows$resolution == "direct")),
+      n_version_normalized = as.integer(sum(
+        rows$resolution == "version_normalized"
+      )),
+      n_remapped_from_duplicate = as.integer(sum(
+        rows$resolution == "duplicate_remapped"
+      )),
+      n_resolution_incompatible = as.integer(sum(rows$resolution %in% c(
+        "map_target_unavailable", "map_network_incompatible"
+      ))),
+      n_resolved_representatives = as.integer(length(unique(ids))),
       n_unmapped = as.integer(sum(!mapped)),
       n_mapped_no_predicted_edge = as.integer(sum(mapped & !with_edge)),
       n_mapped_with_predicted_edge = as.integer(sum(with_edge)),
@@ -419,22 +488,25 @@ run_differential_pulldown <- function(obj,
   }
 
   # ---- isoform-level coverage ------------------------------------------------
-  all_isoforms     <- unique(tbl$isoform_id)
-  overall <- classify(all_isoforms, "overall")
-  directions <- unique(tbl$direction)
+  overall <- classify(resolution_rows, "overall")
+  directions <- unique(resolution_rows$direction)
   by_direction <- do.call(rbind, lapply(directions, function(direction) {
-    classify(tbl$isoform_id[tbl$direction == direction], direction)
+    classify(
+      resolution_rows[resolution_rows$direction == direction, , drop = FALSE],
+      direction
+    )
   }))
   rownames(by_direction) <- NULL
 
   # ---- gene-level coverage ---------------------------------------------------
   # A gene is "covered" if at least one of its isoforms is in the network
-  gene_covered <- vapply(gene_ids, function(g) {
-    isos <- tbl$isoform_id[tbl$gene_id == g]
+  submitted_gene_ids <- unique(submitted_tbl$gene_id)
+  gene_covered <- vapply(submitted_gene_ids, function(g) {
+    isos <- resolution_rows$resolved_id[resolution_rows$gene_id == g]
     any(isos %in% network_vertices)
   }, logical(1L))
 
-  n_genes_total   <- length(gene_ids)
+  n_genes_total   <- length(submitted_gene_ids)
   n_genes_covered <- sum(gene_covered)
   pct_genes       <- if (n_genes_total > 0L)
     100 * n_genes_covered / n_genes_total else 0
@@ -445,6 +517,9 @@ run_differential_pulldown <- function(obj,
 
   cli::cli_text("{.strong Isoforms}")
   cli::cli_text("  Unique submitted IDs       : {overall$n_input}")
+  cli::cli_text("  Unique resolved representatives: {overall$n_resolved_representatives}")
+  cli::cli_text("  Duplicate-remapped IDs     : {overall$n_remapped_from_duplicate}")
+  cli::cli_text("  Version-normalized IDs     : {overall$n_version_normalized}")
   cli::cli_text("  Mapped, predicted edge     : {overall$n_mapped_with_predicted_edge}")
   cli::cli_text("  Mapped, no predicted edge  : {overall$n_mapped_no_predicted_edge}")
   cli::cli_text("  Unmapped                   : {overall$n_unmapped}")
@@ -480,9 +555,9 @@ run_differential_pulldown <- function(obj,
                          , drop = FALSE]
   for (i in seq_len(nrow(warn_rows))) {
     row <- warn_rows[i, , drop = FALSE]
-    input_examples <- unique(tbl$isoform_id[
-      if (row$direction == "overall") rep(TRUE, nrow(tbl)) else
-        tbl$direction == row$direction
+    input_examples <- unique(resolution_rows$submitted_id[
+      if (row$direction == "overall") rep(TRUE, nrow(resolution_rows)) else
+        resolution_rows$direction == row$direction
     ])
     cli::cli_warn(c(
       "!" = "Only {round(row$pct_mapped, 1)}% of {row$direction} input isoforms were found in the network.",
@@ -501,6 +576,10 @@ run_differential_pulldown <- function(obj,
 
   gene_summary <- data.frame(
     n_genes_input = as.integer(n_genes_total),
+    n_genes_analyzed = as.integer(length(gene_ids)),
+    n_genes_dropped_opposite_collision = as.integer(
+      length(setdiff(submitted_gene_ids, gene_ids))
+    ),
     n_genes_with_mapped_isoform = as.integer(n_genes_covered),
     n_genes_without_mapped_isoform = as.integer(n_genes_total - n_genes_covered),
     pct_genes_with_mapped_isoform = as.numeric(pct_genes),
@@ -570,9 +649,14 @@ run_differential_pulldown <- function(obj,
 #' direction values.
 #'
 #' @param tbl data.frame.
+#' @param network Optional igraph used for identifier and gene checks.
+#' @param resolve_duplicates Logical; apply packaged duplicate resolution.
+#' @param duplicate_map Optional validated map used by tests/custom workflows.
 #' @return Cleaned data.frame.
 #' @noRd
-.validate_diff_table <- function(tbl, network = NULL) {
+.validate_diff_table <- function(tbl, network = NULL,
+                                 resolve_duplicates = FALSE,
+                                 duplicate_map = NULL) {
 
   required <- c("gene_id", "isoform_id", "direction")
   missing  <- setdiff(required, names(tbl))
@@ -582,6 +666,11 @@ run_differential_pulldown <- function(obj,
       "Input table is missing required column(s): %s",
       paste(missing, collapse = ", ")
     ), call. = FALSE)
+
+  if (!is.logical(resolve_duplicates) || length(resolve_duplicates) != 1L ||
+      is.na(resolve_duplicates))
+    stop("`resolve_duplicates` must be a single non-NA logical value.",
+         call. = FALSE)
 
   tbl$gene_id    <- trimws(as.character(tbl$gene_id))
   tbl$isoform_id <- trimws(as.character(tbl$isoform_id))
@@ -635,6 +724,101 @@ run_differential_pulldown <- function(obj,
       paste(gene_conflicts, collapse = ", ")
     ), call. = FALSE)
 
+  if (resolve_duplicates) {
+    submitted_tbl <- tbl
+    resolved_tbl <- resolve_duplicate_isoforms(
+      tbl, network = network, duplicate_map = duplicate_map
+    )
+    audit <- attr(resolved_tbl, "dedup_audit")
+    attr(resolved_tbl, "dedup_audit") <- NULL
+    audit$gene_id <- submitted_tbl$gene_id
+    audit$direction <- submitted_tbl$direction
+    audit$action <- "retained"
+    tbl <- resolved_tbl
+
+    collision_key <- paste(tbl$gene_id, tbl$isoform_id, sep = "\r")
+    submitted_per_key <- tapply(
+      audit$submitted_id, collision_key,
+      function(x) length(unique(x))
+    )
+    collision_keys <- names(submitted_per_key)[submitted_per_key > 1L]
+    drop_genes <- character(0)
+    collapse_rows <- integer(0)
+
+    for (key in collision_keys) {
+      rows <- which(collision_key == key)
+      directions <- unique(tbl$direction[rows])
+      representative <- unique(tbl$isoform_id[rows])[[1L]]
+      gene <- unique(tbl$gene_id[rows])[[1L]]
+      submitted_description <- paste(
+        paste0(audit$submitted_id[rows], " (", tbl$direction[rows], ")"),
+        collapse = ", "
+      )
+      if (length(directions) > 1L) {
+        drop_genes <- c(drop_genes, gene)
+        warning(
+          sprintf(
+            paste0(
+              "Dropping gene '%s': protein-identical submitted transcripts ",
+              "%s resolve to representative '%s' with opposite directions."
+            ),
+            gene, submitted_description, representative
+          ),
+          call. = FALSE
+        )
+      } else {
+        collapse_rows <- c(collapse_rows, rows[-1L])
+        audit$action[rows[-1L]] <- "collapsed_same_direction"
+        message(sprintf(
+          paste0(
+            "Collapsed %d submitted isoform IDs into one protein-identical ",
+            "network representative '%s' for gene '%s'."
+          ),
+          length(unique(audit$submitted_id[rows])), representative, gene
+        ))
+      }
+    }
+
+    if (length(drop_genes)) {
+      drop_genes <- unique(drop_genes)
+      audit$action[audit$gene_id %in% drop_genes] <-
+        "dropped_opposite_direction"
+    }
+    keep <- !(tbl$gene_id %in% drop_genes)
+    if (length(collapse_rows)) keep[collapse_rows] <- FALSE
+    tbl <- tbl[keep, , drop = FALSE]
+
+    if (nrow(tbl) == 0L) {
+      stop(
+        paste0(
+          "No analyzable rows remain after protein-identical collision ",
+          "handling. All submitted genes contained opposite-direction ",
+          "collisions."
+        ),
+        call. = FALSE
+      )
+    }
+
+    resolution_summary <- data.frame(
+      n_submitted_rows = nrow(submitted_tbl),
+      n_resolved_rows = nrow(tbl),
+      n_duplicate_remapped = sum(audit$resolution == "duplicate_remapped"),
+      n_version_normalized = sum(audit$resolution == "version_normalized"),
+      n_same_direction_collapsed = sum(
+        audit$action == "collapsed_same_direction"
+      ),
+      n_opposite_direction_genes_dropped = length(unique(
+        audit$gene_id[audit$action == "dropped_opposite_direction"]
+      )),
+      stringsAsFactors = FALSE
+    )
+    attr(tbl, "dedup_resolution") <- list(
+      submitted_table = submitted_tbl,
+      audit = audit,
+      summary = resolution_summary
+    )
+  }
+
   if (!is.null(network)) {
     network_gene <- stats::setNames(
       as.character(igraph::V(network)$gene), igraph::V(network)$name
@@ -686,7 +870,8 @@ run_differential_pulldown <- function(obj,
       obj           = obj,
       seed_vertices = isoforms,
       order         = order,
-      cutoff        = cutoff
+      cutoff        = cutoff,
+      resolve_duplicates = FALSE
     ),
     error = function(e) {
       warning(sprintf(

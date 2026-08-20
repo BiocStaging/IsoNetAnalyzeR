@@ -7,3 +7,7 @@
 
 *.csv
 *.log
+!review/release_v050/*.log
+!data-raw/duplicates_long_kept_redundant_enst_ensp_ensg.csv
+!inst/extdata/protein_identical_isoform_map.csv
+!inst/extdata/protein_identical_isoform_map_provenance.csv

@@ -4,10 +4,10 @@ IsoNetAnalyzeR builds and compares predicted interaction neighbourhoods around c
 
 ## Installation
 
-Release 0.4.0 can be installed from its pinned tag:
+Release 0.5.0 can be installed from its pinned tag:
 
 ```r
-remotes::install_github("dskanakoglou/IsoNetAnalyzeR@v0.4.0",
+remotes::install_github("dskanakoglou/IsoNetAnalyzeR@v0.5.0",
                         build_vignettes = TRUE)
 ```
 
@@ -20,7 +20,7 @@ The bundled static network contains 58,164 transcript vertices and 2,853,266 tot
 | Column | Meaning |
 |---|---|
 | `gene_id` | Gene assigned to the submitted transcript |
-| `isoform_id` | Transcript ID matching a network vertex name |
+| `isoform_id` | Submitted transcript ID; version suffixes and packaged protein-identical duplicates are resolved when graph-compatible |
 | `direction` | Caller-defined seed set: `"up"` or `"down"` |
 
 The names `up` and `down` are labels for two directional seed sets. They do not turn the static network into measured condition-specific interaction networks.
@@ -47,13 +47,49 @@ gene_result <- get_gene_result(
 p <- plot_network(gene_result)
 ```
 
-The pre-run coverage report separates submitted IDs into:
+By default, the package normalizes versioned ENST identifiers and remaps a
+protein-identical redundant transcript only when the representative is a valid
+vertex in the active graph, the redundant transcript is absent, and the gene
+annotation agrees. Exact vertices always win. Incompatible mappings remain
+untouched and are included in the audit. Pass `resolve_duplicates = FALSE` to
+retain the exact-ID behaviour of 0.4.0.
+
+The pre-run coverage report separates submitted IDs by resolution path
+(direct, version-normalized, duplicate-remapped, or unresolved) and network
+outcome:
 
 - unmapped;
 - mapped with no predicted edge in the pinned network;
 - mapped with at least one predicted edge.
 
-Counts are reported overall and per supplied direction, retained under `obj@metadata$analysis_network_coverage[[label]]`, and low mapping produces a warning with example identifier formats. A mapped isolated transcript is a valid single-node result; it is not evidence that the transcript has no biological interaction.
+Submitted-ID and unique-representative totals are reported separately. Coverage
+is retained under `obj@metadata$analysis_network_coverage[[label]]`, while the
+cleaned submitted table and row-level resolution audit are retained under
+`obj@metadata$analysis_duplicate_resolution[[label]]`. A mapped isolated
+transcript is a valid single-node result; it is not evidence that the transcript
+has no biological interaction.
+
+If same-direction submitted isoforms resolve to one representative, they are
+collapsed before analysis. If opposite directions collide, the complete gene
+is excluded with a warning to prevent a protein-identical pseudo-switch.
+
+## Aggregating counts before statistical fitting
+
+`aggregate_duplicate_counts()` applies the full transcriptome-wide map before
+differential modelling. It accepts a count matrix or data frame plus optional
+feature metadata, or an optional single-assay `SummarizedExperiment`:
+
+```r
+aggregated <- aggregate_duplicate_counts(counts, feature_data)
+counts_deduplicated <- aggregated$object
+feature_data_deduplicated <- aggregated$feature_data
+aggregated$audit
+aggregated$summary
+```
+
+Per-gene and global count totals are preserved, but representative numerators
+and the fitted feature set change. A complete statistical refit is therefore
+required; adjusted values from the unaggregated fit must not be reused.
 
 ## Choosing seed isoforms
 

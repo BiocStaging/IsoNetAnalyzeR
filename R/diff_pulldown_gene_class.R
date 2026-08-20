@@ -37,7 +37,9 @@
 #'   density, avg_degree, clustering, starness, genes.  Rows are \code{NA}
 #'   when the corresponding graph is absent.
 #' @slot gene_summary  Named list of gene-level overview scalars:
-#'   \code{n_up_input}, \code{n_down_input} (isoforms supplied in the table),
+#'   \code{n_up_input}, \code{n_down_input} (cleaned distinct submitted
+#'   isoforms), \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
+#'   representatives analyzed),
 #'   \code{n_up_network}, \code{n_down_network} (isoforms found in the network),
 #'   \code{has_up}, \code{has_down} (logical flags for subgraph availability).
 #'
@@ -103,18 +105,22 @@ setValidity("GeneDiffPulldown", function(object) {
 #' @param down_stats       Data frame from \code{analyze_subgraph}, or zero-row.
 #' @param network_vertices Character vector of all vertex names in the session
 #'   network.  Forwarded to \code{.gene_overview()} to compute coverage counts.
+#' @param submitted_counts Named up/down counts from the cleaned submitted
+#'   table.
 #'
 #' @return A \linkS4class{GeneDiffPulldown} object.
 #' @noRd
 .new_gene_diff_pulldown <- function(gene_id, up_isoforms, down_isoforms,
                                     up_graph, down_graph,
                                     up_stats, down_stats,
-                                    network_vertices = character(0)) {
+                                    network_vertices = character(0),
+                                    submitted_counts = NULL) {
 
   graph_summary <- .summarise_direction_pair(up_graph, down_graph)
   gene_summary  <- .gene_overview(up_isoforms, down_isoforms,
                                   up_graph, down_graph,
-                                  network_vertices = network_vertices)
+                                  network_vertices = network_vertices,
+                                  submitted_counts = submitted_counts)
 
   obj <- new(
     "GeneDiffPulldown",
@@ -195,13 +201,22 @@ setValidity("GeneDiffPulldown", function(object) {
 #' @param network_vertices Character vector of all vertex names in the session
 #'   network.  Used to count how many input isoforms are actually present in
 #'   the network before BFS expansion.
+#' @param submitted_counts Optional named up/down submitted-ID counts.
 #' @return Named list.
 #' @noRd
 .gene_overview <- function(up_isoforms, down_isoforms, up_graph, down_graph,
-                           network_vertices = character(0)) {
+                           network_vertices = character(0),
+                           submitted_counts = NULL) {
+  if (is.null(submitted_counts)) {
+    submitted_counts <- c(
+      up = length(up_isoforms), down = length(down_isoforms)
+    )
+  }
   list(
-    n_up_input      = length(up_isoforms),
-    n_down_input    = length(down_isoforms),
+    n_up_input      = as.integer(submitted_counts[["up"]]),
+    n_down_input    = as.integer(submitted_counts[["down"]]),
+    n_up_resolved   = length(up_isoforms),
+    n_down_resolved = length(down_isoforms),
     n_up_found      = sum(up_isoforms   %in% network_vertices),
     n_down_found    = sum(down_isoforms %in% network_vertices),
     n_up_network    = if (!is.null(up_graph))   igraph::vcount(up_graph)   else 0L,

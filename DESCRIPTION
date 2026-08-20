@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.4.0
+Version: 0.5.0
 Authors@R: c(
     person("Dimitrios S.", "Kanakoglou",
            email = "dimkan@dtu.dk", role = c("aut", "cre")),
@@ -44,6 +44,8 @@ Suggests:
     rmarkdown,
     colorspace,
     readxl,
+    SummarizedExperiment,
+    S4Vectors,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
@@ -53,6 +55,7 @@ Collate:
     'diff_pulldown_analysis_class.R'
     'graph_utils.R'
     'component_analysis.R'
+    'duplicate_isoforms.R'
     'run_component_ora.R'
     'run_fgsea.R'
     'gsea_accessors.R'

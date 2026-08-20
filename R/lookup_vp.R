@@ -28,6 +28,9 @@ NULL
 #'   Supply an explicit value to explore alternative thresholds without
 #'   modifying the session object.
 #' @param level  Character scalar. \code{"isoform"} (default) or \code{"gene"}.
+#' @param resolve_duplicates Logical. For isoform-level lookups, resolve
+#'   versioned and protein-identical redundant transcript IDs against the
+#'   active network. Default \code{TRUE}.
 #'
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly);
 #' access the look-up via \code{get_lookup(obj, label)}.
@@ -76,7 +79,8 @@ lookup_virtual_pulldown <- function(obj,
                                     seed,
                                     order,
                                     cutoff = NULL,
-                                    level  = c("isoform", "gene")) {
+                                    level  = c("isoform", "gene"),
+                                    resolve_duplicates = TRUE) {
 
   level <- match.arg(level)
 
@@ -96,6 +100,11 @@ lookup_virtual_pulldown <- function(obj,
   if (!is.character(seed) || length(seed) == 0L || anyNA(seed) ||
       any(!nzchar(trimws(seed))))
     stop("`seed` must be a non-empty character vector with no blank strings.",
+         call. = FALSE)
+
+  if (!is.logical(resolve_duplicates) || length(resolve_duplicates) != 1L ||
+      is.na(resolve_duplicates))
+    stop("`resolve_duplicates` must be a single non-NA logical value.",
          call. = FALSE)
 
   order <- .validate_positive_integer(order, "order")
@@ -120,6 +129,13 @@ lookup_virtual_pulldown <- function(obj,
   }
 
   # -- Seed resolution ---------------------------------------------------------
+  resolution_audit <- NULL
+  if (identical(level, "isoform") && resolve_duplicates) {
+    seed <- resolve_duplicate_isoforms(seed, network = obj@network)
+    resolution_audit <- attr(seed, "dedup_audit")
+    .warn_duplicate_resolution(resolution_audit)
+    seed <- unique(as.character(seed))
+  }
   resolved <- .resolve_seeds(obj@network, seed, level)
 
   missing_seeds <- names(resolved)[vapply(resolved, length, integer(1L)) == 0L]
@@ -140,7 +156,7 @@ lookup_virtual_pulldown <- function(obj,
   ))
 
   subgraph   <- virtual_pulldown(obj = obj, seed_vertices = sv, order = order,
-                                 cutoff = cutoff)
+                                 cutoff = cutoff, resolve_duplicates = FALSE)
   node_stats <- analyze_subgraph(subgraph)
 
   lookup_obj <- .new_vp_lookup(
@@ -149,7 +165,10 @@ lookup_virtual_pulldown <- function(obj,
     subgraph   = subgraph,
     node_stats = node_stats,
     cutoff     = cutoff,
-    params     = list(order = order, level = level)
+    params     = list(
+      order = order, level = level,
+      duplicate_resolution = resolution_audit
+    )
   )
 
   obj@lookups[[label]] <- lookup_obj
@@ -167,7 +186,8 @@ lookup_virtual_pulldown <- function(obj,
 
 #' Resolve seeds to vertex names in the network
 #'
-#' At isoform level each seed is returned as-is (wrapped in a list).
+#' At isoform level each seed is checked against network membership and returned
+#' as a one-element character vector, or \code{character(0)} when absent.
 #' At gene level the network's \code{gene} vertex attribute is used to
 #' collect all isoforms belonging to each gene.
 #'

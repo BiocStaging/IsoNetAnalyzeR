@@ -4,7 +4,7 @@
 
 `inst/extdata/protein_identical_isoform_map.csv` is built from
 `data-raw/duplicates_long_kept_redundant_enst_ensp_ensg.csv`, supplied by the
-network authors. The source SHA-256 is
+Isabella Østerlund. The source SHA-256 is
 `cfe6fb57ed06c7231b9c77d7246b148be3cfdb1ac6aad4f9895cc422efaa36f5`.
 
 The source contains 16,630 unique redundant ENSTs mapping unambiguously to

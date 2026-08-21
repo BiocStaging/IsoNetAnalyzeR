@@ -23,13 +23,17 @@ NULL
 #'   \code{get_analysis(obj, label)}.
 #' @slot input_table  Data frame. The validated long-format input table with
 #'   columns \code{gene_id}, \code{isoform_id}, \code{direction}
-#'   (\code{"up"} / \code{"down"}).
+#'   (\code{"up"} / \code{"down"}). Protein-identical collisions have been
+#'   collapsed to resolved representatives.
 #' @slot gene_results Named list of \linkS4class{GeneDiffPulldown} objects,
 #'   one per gene in \code{input_table}.  Names are gene IDs.
 #' @slot cross_gene_summary Data frame with one row per gene summarising
 #'   up/down subgraph properties side by side.  Columns:
 #'   \code{gene_id},
-#'   \code{n_up_input}, \code{n_down_input} (isoforms in the input table),
+#'   \code{n_up_input}, \code{n_down_input} (cleaned distinct submitted
+#'     isoforms),
+#'   \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
+#'     representatives analyzed),
 #'   \code{n_up_found}, \code{n_down_found} (input isoforms present in the
 #'     network before BFS expansion),
 #'   \code{pct_up_found}, \code{pct_down_found} (percentage of input isoforms
@@ -305,6 +309,8 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
       # ---- input coverage --------------------------------------------------
       n_up_input       = gs$n_up_input,
       n_down_input     = gs$n_down_input,
+      n_up_resolved    = gs$n_up_resolved,
+      n_down_resolved  = gs$n_down_resolved,
       n_up_found       = gs$n_up_found,
       n_down_found     = gs$n_down_found,
       pct_up_found     = pct_up_found,

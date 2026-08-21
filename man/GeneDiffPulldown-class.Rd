@@ -54,7 +54,9 @@ density, avg_degree, clustering, starness, genes.  Rows are \code{NA}
 when the corresponding graph is absent.}
 
 \item{\code{gene_summary}}{Named list of gene-level overview scalars:
-\code{n_up_input}, \code{n_down_input} (isoforms supplied in the table),
+\code{n_up_input}, \code{n_down_input} (cleaned distinct submitted
+isoforms), \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
+representatives analyzed),
 \code{n_up_network}, \code{n_down_network} (isoforms found in the network),
 \code{has_up}, \code{has_down} (logical flags for subgraph availability).}
 }}

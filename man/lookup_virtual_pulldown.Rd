@@ -10,7 +10,8 @@ lookup_virtual_pulldown(
   seed,
   order,
   cutoff = NULL,
-  level = c("isoform", "gene")
+  level = c("isoform", "gene"),
+  resolve_duplicates = TRUE
 )
 }
 \arguments{
@@ -30,6 +31,10 @@ Supply an explicit value to explore alternative thresholds without
 modifying the session object.}
 
 \item{level}{Character scalar. \code{"isoform"} (default) or \code{"gene"}.}
+
+\item{resolve_duplicates}{Logical. For isoform-level lookups, resolve
+versioned and protein-identical redundant transcript IDs against the
+active network. Default \code{TRUE}.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly);

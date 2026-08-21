@@ -435,6 +435,9 @@ plot_component <- function(obj,
 
   gene_ids <- igraph::V(g)$name
 
+  # The analysis input table contains resolved protein representatives.
+  # Dominance must not double-count protein-identical submitted transcripts.
+
   scores <- vapply(gene_ids, function(gid) {
     rows  <- input_table[input_table$gene_id == gid, , drop = FALSE]
     n_up   <- sum(rows$direction == "up")

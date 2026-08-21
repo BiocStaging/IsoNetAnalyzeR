@@ -111,6 +111,8 @@
 #'   that must be internal to the subnetwork for a node to be retained. When
 #'   \code{NULL} (default) the value stored in
 #'   \code{obj@@metadata[["network_cutoff"]]} is used.
+#' @param resolve_duplicates Logical. Resolve versioned and protein-identical
+#'   redundant transcript IDs against the active network. Default \code{TRUE}.
 #'
 #' @return An igraph object representing the filtered virtual pulldown
 #'   subnetwork. Vertices carry an \code{order} attribute (hop distance from
@@ -121,7 +123,8 @@
 #'   representing isoforms present in the pinned network but incident to no
 #'   predicted edge in that network.
 #' @export
-virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
+virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL,
+                             resolve_duplicates = TRUE) {
 
   # ── Input validation ────────────────────────────────────────────────────────
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -131,6 +134,21 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
       anyNA(seed_vertices) || any(!nzchar(trimws(seed_vertices))))
     stop("`seed_vertices` must be a non-empty character vector with no blank strings.",
          call. = FALSE)
+
+  if (!is.logical(resolve_duplicates) || length(resolve_duplicates) != 1L ||
+      is.na(resolve_duplicates))
+    stop("`resolve_duplicates` must be a single non-NA logical value.",
+         call. = FALSE)
+
+  resolution_audit <- NULL
+  if (resolve_duplicates) {
+    seed_vertices <- resolve_duplicate_isoforms(
+      seed_vertices, network = obj@network
+    )
+    resolution_audit <- attr(seed_vertices, "dedup_audit")
+    .warn_duplicate_resolution(resolution_audit)
+    seed_vertices <- unique(as.character(seed_vertices))
+  }
 
   order <- .validate_positive_integer(order, "order")
 
@@ -204,6 +222,12 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL) {
   igraph::V(filtered_graph)$frac_internal <- frac_internal[
     match(igraph::V(filtered_graph)$name, sub_names)
   ]
+
+  if (!is.null(resolution_audit)) {
+    filtered_graph <- igraph::set_graph_attr(
+      filtered_graph, "duplicate_resolution_audit", resolution_audit
+    )
+  }
 
   filtered_graph
 }

@@ -26,7 +26,9 @@ obj <- IsoNetAnalyzeR(
   metadata = list(network_cutoff = 0)
 )
 
-# The caller supplies this validated three-column contract.
+# The caller supplies this validated three-column contract. Versioned ENSTs and
+# graph-compatible protein-identical duplicates resolve automatically; use
+# resolve_duplicates = FALSE only to reproduce the exact-ID v0.4.0 behaviour.
 seed_table <- data.frame(
   gene_id = c("gene_A", "gene_A", "gene_C"),
   isoform_id = c("tx_A_up", "tx_A_down", "tx_C_isolated"),
@@ -41,6 +43,7 @@ obj <- run_differential_pulldown(
 coverage <- obj@metadata$analysis_network_coverage$synthetic
 coverage$overall
 coverage$by_direction
+obj@metadata$analysis_duplicate_resolution$synthetic$summary
 
 summary <- get_cross_gene_summary(obj, "synthetic")
 summary
@@ -60,6 +63,12 @@ obj <- lookup_virtual_pulldown(
   obj, "isolated_lookup", "tx_C_isolated", order = 1, cutoff = 0
 )
 get_lookup_stats(obj, "isolated_lookup")
+
+# Count aggregation belongs before differential fitting. The packaged map is
+# transcriptome-wide, including mappings outside the embedded network.
+# aggregated <- aggregate_duplicate_counts(count_matrix, feature_metadata)
+# count_matrix <- aggregated$object
+# feature_metadata <- aggregated$feature_data
 
 # Reproducible enrichment requires a frozen, versioned pathway collection.
 # pathways <- readRDS("frozen_pathways.rds")

@@ -1,3 +1,36 @@
+# IsoNetAnalyzeR 0.5.0
+
+## Protein-identical isoform support
+
+- Ship a provenance-checked, transcriptome-wide map from 16,630 redundant
+  transcript identifiers to 9,760 protein representatives. The complete map is
+  available through `isonet_duplicate_map()`; 10,592 mappings are applicable
+  to the embedded network and 6,038 additional mappings remain available for
+  upstream count aggregation.
+- Add `resolve_duplicate_isoforms()` for version normalization and
+  graph-compatible duplicate resolution. Differential pulldown, direct
+  pulldown, and isoform lookup resolve identifiers by default and retain
+  row-level audits. Set `resolve_duplicates = FALSE` for the exact identifier
+  behaviour used by 0.4.0.
+- Detect pseudo-switches created when oppositely directed submitted isoforms
+  resolve to the same protein representative. Differential analysis drops the
+  affected gene before graph expansion; same-direction collisions collapse to
+  one representative.
+- Distinguish cleaned submitted counts from resolved-representative counts.
+  Dominance scores now explicitly use the resolved analysis table.
+
+## Count aggregation and validation
+
+- Add `aggregate_duplicate_counts()` for matrices, data frames, and optional
+  single-assay `SummarizedExperiment` inputs. It preserves nonmapped features,
+  feature order, gene and library totals, and emits a complete arithmetic and
+  mapping audit.
+- Expand coverage reports to show both resolution paths and network outcomes,
+  with submitted and unique-representative totals reported separately.
+- Add installed-resource, custom-graph, collision, audit-persistence, count
+  arithmetic, overflow, and optional-container regression tests. The embedded
+  `R/sysdata.rda` network is unchanged.
+
 # IsoNetAnalyzeR 0.4.0
 
 ## Usability and validation

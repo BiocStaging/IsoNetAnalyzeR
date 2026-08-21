@@ -16,7 +16,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 IsoNetAnalyzeR takes caller-prepared isoform seeds and compares their predicted interaction neighbourhoods in a static network. It does not perform differential transcript-usage testing, select biologically important isoforms, or infer condition-specific protein interactions. Those decisions and their provenance belong to the upstream study.
 
-The required table has `gene_id`, `isoform_id`, and `direction`. `direction` must be `"up"` or `"down"`; these are labels for two seed sets, not measurements made by the package.
+The required table has `gene_id`, `isoform_id`, and `direction`. `direction` must be `"up"` or `"down"`; these are labels for two seed sets, not measurements made by the package. By default, versioned ENSTs and packaged protein-identical duplicates are resolved only when compatible with the active graph. Set `resolve_duplicates = FALSE` for the exact-ID behaviour used by version 0.4.0.
 
 ## A small executable workflow
 
@@ -79,6 +79,7 @@ Coverage is also retained in session metadata for provenance and tests:
 ```{r coverage}
 obj@metadata$analysis_network_coverage$synthetic$overall
 obj@metadata$analysis_network_coverage$synthetic$by_direction
+obj@metadata$analysis_duplicate_resolution$synthetic$summary
 ```
 
 A mapped isolated seed produces a valid one-node, zero-edge graph. An unmapped seed produces no graph. These outcomes must not be conflated, and neither establishes complete biological interaction loss.
@@ -91,6 +92,35 @@ c(nodes = igraph::vcount(isolated@up_graph),
 missing <- get_gene_result(obj, "synthetic", "gene_missing")
 is.null(missing@down_graph)
 ```
+
+## Protein-identical transcripts
+
+`isonet_duplicate_map()` returns the complete packaged map and its provenance.
+For seed analysis, exact graph vertices take precedence. Otherwise a versioned
+identifier is normalized, or a redundant transcript is mapped to its kept
+protein representative, only when the graph and gene annotation agree. The
+row-level audit distinguishes direct, version-normalized,
+duplicate-remapped, and unresolved paths.
+
+Same-direction rows resolving to one representative are collapsed. If both
+directions resolve to the same representative, the complete gene is excluded:
+the apparent switch is between protein-identical transcripts and cannot support
+two different seed neighbourhoods. Dominance scores use the resolved
+representatives; cleaned submitted counts remain available for provenance.
+
+For count-level analysis, aggregate before model fitting:
+
+```{r aggregation-example, eval=FALSE}
+result <- aggregate_duplicate_counts(counts, feature_data)
+counts_deduplicated <- result$object
+feature_data_deduplicated <- result$feature_data
+result$audit
+result$summary
+```
+
+The operation preserves per-gene and library totals. It changes representative
+numerators and the fitted feature set, so downstream differential models and
+all multiple-testing adjustments must be refitted rather than copied.
 
 Plots are returned as objects. Bare calls render interactively; assignment and `ggsave()` do not require an implicit graphics device.
 

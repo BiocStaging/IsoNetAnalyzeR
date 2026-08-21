@@ -3,7 +3,7 @@
 ## Protein-identical isoform map
 
 `inst/extdata/protein_identical_isoform_map.csv` is built from
-`data-raw/duplicates_long_kept_redundant_enst_ensp_ensg.csv`, supplied by the
+`data-raw/duplicates_long_kept_redundant_enst_ensp_ensg.csv`, supplied by
 Isabella Østerlund. The source SHA-256 is
 `cfe6fb57ed06c7231b9c77d7246b148be3cfdb1ac6aad4f9895cc422efaa36f5`.
 

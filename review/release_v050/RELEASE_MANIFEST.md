@@ -1,7 +1,9 @@
 # IsoNetAnalyzeR 0.5.0 release verification
 
-- Canonical tarball: `IsoNetAnalyzeR_0.5.0.tar.gz`
-- Tarball SHA-256: `eae36fc5ef4a44e7765e95b845a1290bba55c686538b8720be91dd16bcf7439b`
+- Release tag: `v0.5.0`
+- Canonical tarball: `IsoNetAnalyzeR_0.5.0.tar.gz`, attached to the GitHub
+  Release together with its external `SHA256SUMS` file. The archive checksum is
+  intentionally not embedded inside the archive whose bytes it describes.
 - Source map SHA-256: `cfe6fb57ed06c7231b9c77d7246b148be3cfdb1ac6aad4f9895cc422efaa36f5`
 - Enriched packaged map SHA-256: `95ff0ac877397f8c0e99d2789f2b833dec8a01009b6d2686170950da3f56c85a`
 - Embedded `R/sysdata.rda` SHA-256: `3130209f090b9b83bbf2ebf328f29a0ad9a8fcd89922a277d0966325bc163ebb`
@@ -17,4 +19,6 @@ Verification results:
   not installed. Its other notes are the expected unavailable-network and
   unverifiable-clock checks in the restricted environment.
 
-The full check logs are archived beside this manifest.
+The full check logs are archived beside this manifest. The GitHub Release and
+its `SHA256SUMS` asset are the authoritative checksum record for the final
+source archive.

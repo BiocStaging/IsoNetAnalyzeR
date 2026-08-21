@@ -71,10 +71,10 @@ against GO gene sets (or a user-supplied pathway list) using
 
 \describe{
 \item{Tier 1 - built-in preset (\code{rank_by})}{
-A named delta computed as the up-condition metric minus the
-down-condition metric from \code{cross_gene_summary}.  Positive values
-indicate a gene whose up-regulated isoform produced a larger network
-effect; negative values indicate the opposite.
+A named delta computed as the up-seed metric minus the down-seed metric
+from \code{cross_gene_summary}. Positive values indicate a larger
+static predicted neighbourhood metric for the up-labelled seeds;
+negative values indicate the opposite.
 
 \if{html}{\out{<div class="sourceCode">}}\preformatted{Available presets:
 \\itemize\{
@@ -120,6 +120,9 @@ via \code{msigdbr} using category \code{"C5"} (GO gene sets).  The
 \code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
 \code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
 Gene sets are keyed by Ensembl gene ID (\code{ensembl_gene}).
+For reproducible analyses, prefer a saved, versioned \code{pathways} list,
+set the random seed before this call, and record the list checksum and run
+parameters. Live pathway collections can change over time.
 }
 
 \examples{

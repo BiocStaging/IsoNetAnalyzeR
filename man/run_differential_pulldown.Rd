@@ -12,7 +12,8 @@ run_differential_pulldown(
   cutoff = NULL,
   parallel = FALSE,
   confirm = interactive(),
-  verbose = TRUE
+  verbose = TRUE,
+  resolve_duplicates = TRUE
 )
 }
 \arguments{
@@ -46,15 +47,21 @@ interactive pause is suppressed.}
 
 \item{verbose}{Logical. Print per-gene progress messages. Default
 \code{TRUE}.}
+
+\item{resolve_duplicates}{Logical. Resolve versioned and protein-identical
+redundant transcript identifiers before analysis. Same-direction
+representative collisions are collapsed and genes with opposite-direction
+collisions are excluded. Default \code{TRUE}; use \code{FALSE} for exact
+0.4.0-compatible identifier handling.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
 the result via \code{get_analysis(obj, label)}.
 }
 \description{
-Reads a long-format table of differentially expressed isoforms (one isoform
-per row), runs a virtual pulldown for the up- and down-regulated isoforms
-of each gene separately, computes per-direction and per-gene statistics, and
+Reads a long-format table of caller-selected isoform seeds (one isoform per
+row), runs a virtual pulldown for the up- and down-labelled seeds of each
+gene separately, computes per-direction and per-gene statistics, and
 adds a \linkS4class{DifferentialPulldownAnalysis} object to the
 \linkS4class{IsoNetAnalyzeR} session object.
 }

@@ -12,20 +12,20 @@
 #' GeneDiffPulldown - per-gene differential pulldown result
 #'
 #' Stores the virtual pulldown subgraphs and statistics for a single gene's
-#' up- and down-regulated isoforms.  One \linkS4class{GeneDiffPulldown} object
+#' up- and down-labelled isoform seeds. One \linkS4class{GeneDiffPulldown} object
 #' is created per gene in a \linkS4class{DifferentialPulldownAnalysis} run.
 #'
 #' @slot gene_id       Character scalar. The gene identifier from the input
 #'   table.
 #' @slot up_isoforms   Character vector. Isoform IDs from the input table that
-#'   were marked as up-regulated for this gene.
+#'   were labelled up for this gene.
 #' @slot down_isoforms Character vector. Isoform IDs from the input table that
-#'   were marked as down-regulated for this gene.
+#'   were labelled down for this gene.
 #' @slot up_graph      An \code{igraph} object. Virtual pulldown subgraph seeded
-#'   from \code{up_isoforms}, or \code{NULL} when no up-regulated isoforms were
+#'   from \code{up_isoforms}, or \code{NULL} when no up-labelled isoforms were
 #'   present in the network.
 #' @slot down_graph    An \code{igraph} object. Virtual pulldown subgraph seeded
-#'   from \code{down_isoforms}, or \code{NULL} when no down-regulated isoforms
+#'   from \code{down_isoforms}, or \code{NULL} when no down-labelled isoforms
 #'   were present in the network.
 #' @slot up_stats      Data frame. Per-node statistics for \code{up_graph}
 #'   (output of \code{\link{analyze_subgraph}}), or a zero-row data frame when
@@ -37,7 +37,9 @@
 #'   density, avg_degree, clustering, starness, genes.  Rows are \code{NA}
 #'   when the corresponding graph is absent.
 #' @slot gene_summary  Named list of gene-level overview scalars:
-#'   \code{n_up_input}, \code{n_down_input} (isoforms supplied in the table),
+#'   \code{n_up_input}, \code{n_down_input} (cleaned distinct submitted
+#'   isoforms), \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
+#'   representatives analyzed),
 #'   \code{n_up_network}, \code{n_down_network} (isoforms found in the network),
 #'   \code{has_up}, \code{has_down} (logical flags for subgraph availability).
 #'
@@ -95,26 +97,30 @@ setValidity("GeneDiffPulldown", function(object) {
 #' Assembles all slots from pre-computed components.
 #'
 #' @param gene_id          Character scalar.
-#' @param up_isoforms      Character vector of input up-regulated isoform IDs.
-#' @param down_isoforms    Character vector of input down-regulated isoform IDs.
+#' @param up_isoforms      Character vector of input up-labelled isoform IDs.
+#' @param down_isoforms    Character vector of input down-labelled isoform IDs.
 #' @param up_graph         igraph or NULL.
 #' @param down_graph       igraph or NULL.
 #' @param up_stats         Data frame from \code{analyze_subgraph}, or zero-row.
 #' @param down_stats       Data frame from \code{analyze_subgraph}, or zero-row.
 #' @param network_vertices Character vector of all vertex names in the session
 #'   network.  Forwarded to \code{.gene_overview()} to compute coverage counts.
+#' @param submitted_counts Named up/down counts from the cleaned submitted
+#'   table.
 #'
 #' @return A \linkS4class{GeneDiffPulldown} object.
 #' @noRd
 .new_gene_diff_pulldown <- function(gene_id, up_isoforms, down_isoforms,
                                     up_graph, down_graph,
                                     up_stats, down_stats,
-                                    network_vertices = character(0)) {
+                                    network_vertices = character(0),
+                                    submitted_counts = NULL) {
 
   graph_summary <- .summarise_direction_pair(up_graph, down_graph)
   gene_summary  <- .gene_overview(up_isoforms, down_isoforms,
                                   up_graph, down_graph,
-                                  network_vertices = network_vertices)
+                                  network_vertices = network_vertices,
+                                  submitted_counts = submitted_counts)
 
   obj <- new(
     "GeneDiffPulldown",
@@ -163,14 +169,17 @@ setValidity("GeneDiffPulldown", function(object) {
         stringsAsFactors = FALSE
       ))
     }
+    n_nodes <- igraph::vcount(g)
     data.frame(
       direction  = direction,
-      nodes      = igraph::vcount(g),
+      nodes      = n_nodes,
       edges      = igraph::ecount(g),
-      density    = igraph::edge_density(g),
+      density    = if (n_nodes < 2L) 0 else igraph::edge_density(g),
       avg_degree = mean(igraph::degree(g)),
-      clustering = igraph::transitivity(g, type = "average"),
-      starness   = igraph::centr_degree(g, normalized = TRUE)$centralization,
+      clustering = if (n_nodes < 2L) 0 else
+        igraph::transitivity(g, type = "average", isolates = "zero"),
+      starness   = if (n_nodes < 2L) NA_real_ else
+        igraph::centr_degree(g, normalized = TRUE)$centralization,
       genes      = length(unique(igraph::V(g)$gene)),
       stringsAsFactors = FALSE
     )
@@ -192,13 +201,22 @@ setValidity("GeneDiffPulldown", function(object) {
 #' @param network_vertices Character vector of all vertex names in the session
 #'   network.  Used to count how many input isoforms are actually present in
 #'   the network before BFS expansion.
+#' @param submitted_counts Optional named up/down submitted-ID counts.
 #' @return Named list.
 #' @noRd
 .gene_overview <- function(up_isoforms, down_isoforms, up_graph, down_graph,
-                           network_vertices = character(0)) {
+                           network_vertices = character(0),
+                           submitted_counts = NULL) {
+  if (is.null(submitted_counts)) {
+    submitted_counts <- c(
+      up = length(up_isoforms), down = length(down_isoforms)
+    )
+  }
   list(
-    n_up_input      = length(up_isoforms),
-    n_down_input    = length(down_isoforms),
+    n_up_input      = as.integer(submitted_counts[["up"]]),
+    n_down_input    = as.integer(submitted_counts[["down"]]),
+    n_up_resolved   = length(up_isoforms),
+    n_down_resolved = length(down_isoforms),
     n_up_found      = sum(up_isoforms   %in% network_vertices),
     n_down_found    = sum(down_isoforms %in% network_vertices),
     n_up_network    = if (!is.null(up_graph))   igraph::vcount(up_graph)   else 0L,

@@ -71,10 +71,7 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 
             # -- Validate padj_cutoff ------------------------------------------
             if (!is.null(padj_cutoff)) {
-              if (!is.numeric(padj_cutoff) || length(padj_cutoff) != 1L ||
-                  is.na(padj_cutoff) || padj_cutoff < 0 || padj_cutoff > 1)
-                stop("`padj_cutoff` must be a single numeric value in [0, 1] or NULL.",
-                     call. = FALSE)
+              padj_cutoff <- .validate_cutoff(padj_cutoff, "padj_cutoff")
             }
 
             # -- Retrieve result -----------------------------------------------
@@ -227,26 +224,17 @@ setMethod("get_ora_table", "IsoNetAnalyzeR",
 
             # -- Validate arguments --------------------------------------------
             if (!is.null(component_id)) {
-              if (!is.numeric(component_id) || length(component_id) != 1L ||
-                  is.na(component_id) || component_id < 1L)
-                stop("`component_id` must be a single positive integer or NULL.",
-                     call. = FALSE)
-              component_id <- as.integer(component_id)
+              component_id <- .validate_positive_integer(
+                component_id, "component_id"
+              )
             }
 
             if (!is.null(padj_cutoff)) {
-              if (!is.numeric(padj_cutoff) || length(padj_cutoff) != 1L ||
-                  is.na(padj_cutoff) || padj_cutoff < 0 || padj_cutoff > 1)
-                stop("`padj_cutoff` must be a single numeric value in [0, 1] or NULL.",
-                     call. = FALSE)
+              padj_cutoff <- .validate_cutoff(padj_cutoff, "padj_cutoff")
             }
 
             if (!is.null(top_n)) {
-              if (!is.numeric(top_n) || length(top_n) != 1L ||
-                  is.na(top_n) || top_n < 1L)
-                stop("`top_n` must be a single positive integer or NULL.",
-                     call. = FALSE)
-              top_n <- as.integer(top_n)
+              top_n <- .validate_positive_integer(top_n, "top_n")
             }
 
             # -- Retrieve result table -----------------------------------------

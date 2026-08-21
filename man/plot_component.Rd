@@ -53,7 +53,7 @@ of neutral grey.  Default \code{FALSE}.}
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 
 \item{...}{Additional arguments forwarded to
-\code{\link[ggraph]{ggraph}}.}
+\code{ggraph::ggraph()}.}
 }
 \value{
 A \code{ggplot} object, invisibly.
@@ -84,16 +84,15 @@ Behaviour differs by analysis level — see below.}
 
 \section{Direction mode — isoform level}{
 
-Seed nodes are coloured by their regulation direction: up-regulated (orange),
-down-regulated (sky blue), or present in both directions (purple).
+Seed nodes are coloured by their caller-supplied direction: up (orange),
+down (sky blue), or present in both directions (purple).
 Neighbour behaviour is controlled by \code{colour_neighbours}:
 \describe{
 \item{\code{FALSE} (default)}{Neighbours are light grey.}
 \item{\code{TRUE} — territory map}{Each neighbour is coloured by the
 direction of its nearest seed group, computed as unweighted shortest-path
 distance within the component.  Neighbours equidistant from both seed
-groups are shown in purple (contested zone) — these are the interaction
-partners being actively rewired.}
+groups are shown in purple (equidistant territory).}
 }
 }
 
@@ -101,11 +100,11 @@ partners being actively rewired.}
 
 At gene level each node represents a collapsed gene rather than a single
 isoform, so a binary up/down label is not meaningful (most genes contribute
-both up- and down-regulated isoforms).  Instead a continuous
+both up- and down-labelled isoforms). Instead a continuous
 \strong{dominance score} is computed per gene:
 \deqn{score = \frac{n_{up} - n_{down}}{n_{up} + n_{down}} \in [-1, +1]}
 where \eqn{n_{up}} and \eqn{n_{down}} are the numbers of seed isoforms from
-the input table that are up- and down-regulated for that gene.  The score is
+the input table that are up- and down-labelled for that gene. The score is
 mapped to a diverging orange–white–sky-blue colour scale:
 \itemize{
 \item \strong{+1} (pure up) → orange

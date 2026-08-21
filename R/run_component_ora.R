@@ -271,13 +271,16 @@ run_component_ora <- function(obj,
   diff_res <- .resolve_diff_analysis(obj, analysis)
   ca       <- .resolve_component_analysis(obj, analysis, component_analysis)
 
-  if (!is.character(label) || length(label) != 1L || nchar(trimws(label)) == 0L)
+  if (!is.character(label) || length(label) != 1L || is.na(label) ||
+      !nzchar(trimws(label)))
     stop("`label` must be a non-empty character scalar.", call. = FALSE)
 
   go_category <- match.arg(go_category)
   nodes       <- match.arg(nodes)
-  minSize     <- as.integer(minSize)
-  maxSize     <- as.integer(maxSize)
+  minSize <- .validate_positive_integer(minSize, "minSize")
+  maxSize <- .validate_positive_integer(maxSize, "maxSize")
+  if (maxSize < minSize)
+    stop("`maxSize` must be greater than or equal to `minSize`.", call. = FALSE)
 
   if (nrow(ca@node_table) == 0L)
     stop(sprintf(

@@ -24,7 +24,9 @@ utils::globalVariables(c(
   "n_nodes",
   "status",
   "n_genes",
-  "n_isoforms_total"
+  "n_isoforms_total",
+  "log10_x",
+  "n"
 ))
 
 # Semantic accent colours (Okabe-Ito palette)
@@ -430,6 +432,5 @@ plot_network_diagnostics <- function(obj, title = NULL) {
   }
   fig <- fig + do.call(patchwork::plot_annotation, ann_args)
 
-  print(fig)
-  invisible(fig)
+  fig
 }

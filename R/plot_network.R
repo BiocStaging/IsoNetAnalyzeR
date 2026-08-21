@@ -35,14 +35,14 @@ NULL
 #'   Colours nodes by their parent gene when \code{TRUE}.  Default
 #'   \code{FALSE}.
 #' @param layout Character scalar.  Any layout supported by
-#'   \code{\link[ggraph]{create_layout}}.  Defaults to \code{"stress"}, which
+#'   \code{ggraph::create_layout()}.  Defaults to \code{"stress"}, which
 #'   is faster and generally better than \code{"fr"} for biological networks.
 #' @param node_size Numeric scalar.  Base node size.  Default \code{3}.
 #' @param label_size Numeric scalar.  Node label text size.  Default \code{2.5}.
 #' @param edge_alpha Numeric in \[0, 1\].  Edge opacity.  Default \code{0.4}.
 #' @param title Character scalar.  Plot title.  Auto-generated when \code{NULL}
 #'   (default).
-#' @param ... Additional arguments forwarded to \code{\link[ggraph]{ggraph}}.
+#' @param ... Additional arguments forwarded to \code{ggraph::ggraph()}.
 #'
 #' @details
 #' **\code{all_edges}**: For \linkS4class{IsoNetAnalyzeR} the stored network
@@ -54,11 +54,11 @@ NULL
 #'
 #' **Gene-level plot**: Isoforms are contracted by the \code{gene} vertex
 #' attribute.  Isoforms with a missing \code{gene} attribute are grouped as
-#' \code{"NA_gene"}.  Isolated gene nodes (no edges after contraction) are
-#' removed.
+#' \code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid
+#' one-node/zero-edge results; isolated non-seed nodes are omitted.
 #'
 #' @return A \code{ggplot} object, invisibly.  Can be further modified with
-#'   \pkg{ggplot2} layers or saved with \code{\link[ggplot2]{ggsave}}.
+#'   \pkg{ggplot2} layers or saved with \code{ggplot2::ggsave()}.
 #'
 #' @examples
 #' \dontrun{
@@ -151,7 +151,8 @@ setMethod(
       graph     = object@network,
       level     = level,
       all_edges = all_edges,
-      threshold = object@metadata[["pi_threshold"]]
+      threshold = object@metadata[["pi_threshold"]],
+      seed_vertices = character(0)
     )
 
     if (is.null(title)) {
@@ -200,12 +201,20 @@ setMethod(
     .check_plot_args(all_edges, group_by_gene, level)
     .check_plot_pkgs()
 
+    # Resolve the actual order-0 seed vertices before filtering/contraction so
+    # isolated seeds can be protected by .build_plot_graph().
+    raw_seed_vertices <- igraph::V(object@subgraph)$name[
+      !is.na(igraph::V(object@subgraph)$order) &
+        igraph::V(object@subgraph)$order == 0
+    ]
+
     # For a lookup the threshold comes from params, not session metadata
     g <- .build_plot_graph(
       graph     = object@subgraph,
       level     = level,
       all_edges = all_edges,
-      threshold = object@params[["cutoff"]]
+      threshold = object@params[["cutoff"]],
+      seed_vertices = raw_seed_vertices
     )
 
     if (is.null(title)) {
@@ -218,13 +227,12 @@ setMethod(
 
     # Resolve seed vertex name(s) after possible gene contraction
     seed_vertices <- if (level == "gene") {
-      # After contraction the node name is the gene; look up the seed's gene
       seed_gene <- igraph::V(object@subgraph)$gene[
-        igraph::V(object@subgraph)$name == object@seed
+        igraph::V(object@subgraph)$name %in% raw_seed_vertices
       ]
-      if (length(seed_gene) && !is.na(seed_gene)) seed_gene else object@seed
+      unique(stats::na.omit(seed_gene))
     } else {
-      object@seed
+      raw_seed_vertices
     }
 
     .render_plot(
@@ -309,8 +317,7 @@ setMethod(
     )
   }
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -330,11 +337,17 @@ setMethod(
 #' @param threshold Numeric scalar or NULL; the pi_score cutoff to apply when
 #'   \code{all_edges = FALSE}.
 #'
-#' @return A prepared igraph object with isolated vertices removed.
+#' @param seed_vertices Character vector of seed vertex names in the input
+#'   graph. Isolated vertices in this set are protected from cleanup.
+#'
+#' @return A prepared igraph object. Isolated seed vertices are retained;
+#'   isolated non-seed vertices are removed.
 #' @noRd
-.build_plot_graph <- function(graph, level, all_edges, threshold = NULL) {
+.build_plot_graph <- function(graph, level, all_edges, threshold = NULL,
+                              seed_vertices = character(0)) {
 
   g <- graph
+  protected_seeds <- intersect(seed_vertices, igraph::V(g)$name)
 
   # -- Edge filtering ----------------------------------------------------------
   # Only acts when the pi_score attribute exists AND all_edges is FALSE AND a
@@ -344,12 +357,19 @@ setMethod(
       !is.null(igraph::edge_attr(g, "pi_score")) &&
       !is.null(threshold) && !is.na(threshold)) {
     keep <- igraph::E(g)$pi_score >= threshold
-    g    <- igraph::subgraph.edges(g, igraph::E(g)[keep],
-                                   delete.vertices = FALSE)
+    g    <- igraph::subgraph_from_edges(g, igraph::E(g)[keep],
+                                        delete.vertices = FALSE)
   }
 
   # -- Gene-level contraction --------------------------------------------------
   if (level == "gene") {
+    gene_attr <- igraph::V(g)$gene
+    if (!is.null(gene_attr)) {
+      gene_attr[is.na(gene_attr)] <- "NA_gene"
+      protected_seeds <- unique(stats::na.omit(
+        gene_attr[igraph::V(g)$name %in% protected_seeds]
+      ))
+    }
     g <- .contract_to_gene(g)
   }
 
@@ -362,8 +382,11 @@ setMethod(
       g <- igraph::delete_vertex_attr(g, attr)
   }
 
-  # Remove isolated vertices for a cleaner plot
-  igraph::delete.vertices(g, igraph::degree(g) == 0L)
+  # Keep biologically meaningful isolated seeds, while retaining the original
+  # cleanup for isolated non-seed vertices (especially in full-network plots).
+  drop <- igraph::degree(g) == 0L &
+    !(igraph::V(g)$name %in% protected_seeds)
+  igraph::delete_vertices(g, drop)
 }
 
 
@@ -592,7 +615,7 @@ setMethod(
 #'     highlighting the seed isoforms.
 #'   \item \code{"side_by_side"} (default) - renders the two subgraphs
 #'     side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
-#'   \item \code{"overlay"} - merges the up- and down-regulated subgraphs
+#'   \item \code{"overlay"} - merges the up- and down-labelled subgraphs
 #'     into a single network.  Nodes and edges are coloured by membership:
 #'     \emph{up-only} (orange), \emph{down-only} (sky blue), or
 #'     \emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
@@ -620,7 +643,7 @@ setMethod(
 #' @param edge_alpha Numeric in \[0, 1\].  Default \code{0.4}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #' @param ...       Additional arguments forwarded to
-#'   \code{\link[ggraph]{ggraph}}.
+#'   \code{ggraph::ggraph()}.
 #' @param direction Character scalar: \code{"up"}, \code{"down"},
 #'   \code{"side_by_side"} (default), or \code{"overlay"}.  Must be passed
 #'   as a named argument.
@@ -641,7 +664,7 @@ setMethod(
 #' # Overlay with gene colouring (membership shown via border + edge colour)
 #' plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
 #'
-#' # Plot only the up-regulated subgraph
+#' # Plot only the up-labelled seed neighbourhood
 #' plot_network(gene_result, direction = "up")
 #' }
 #'
@@ -692,7 +715,8 @@ setMethod(
       graph     = g_slot,
       level     = level,
       all_edges = FALSE,
-      threshold = NULL        # graph is already interaction-filtered
+      threshold = NULL,       # graph is already interaction-filtered
+      seed_vertices = iso_seed
     )
 
     if (is.null(title))
@@ -720,7 +744,7 @@ setMethod(
       ...
     )
 
-    invisible(p)
+    p
   }
 )
 
@@ -763,7 +787,8 @@ setMethod(
       graph     = g_slot,
       level     = level,
       all_edges = FALSE,
-      threshold = NULL
+      threshold = NULL,
+      seed_vertices = iso_seed
     )
 
     seed_vertices <- if (level == "gene") {
@@ -788,8 +813,8 @@ setMethod(
     )
   }
 
-  p_up   <- make_panel(object@up_graph,   object@up_isoforms,   "up-regulated")
-  p_down <- make_panel(object@down_graph, object@down_isoforms, "down-regulated")
+  p_up   <- make_panel(object@up_graph,   object@up_isoforms,   "up seeds")
+  p_down <- make_panel(object@down_graph, object@down_isoforms, "down seeds")
 
   combined <- p_up + p_down +
     patchwork::plot_annotation(
@@ -797,8 +822,7 @@ setMethod(
       caption = sprintf("level: %s", level)
     )
 
-  print(combined)
-  invisible(combined)
+  combined
 }
 
 
@@ -808,14 +832,14 @@ setMethod(
 
 #' Merge up and down subgraphs into a single overlay graph
 #'
-#' Performs a graph union of the up- and down-regulated subgraphs and annotates
+#' Performs a graph union of the up- and down-labelled subgraphs and annotates
 #' every vertex and edge with a \code{membership} attribute:
 #' \code{"up_only"}, \code{"down_only"}, or \code{"shared"}.
 #'
 #' @param up_graph   igraph or NULL.
 #' @param down_graph igraph or NULL.
-#' @param up_isoforms   Character vector of up-regulated seed isoform IDs.
-#' @param down_isoforms Character vector of down-regulated seed isoform IDs.
+#' @param up_isoforms   Character vector of up-labelled seed isoform IDs.
+#' @param down_isoforms Character vector of down-labelled seed isoform IDs.
 #' @param level      "isoform" or "gene".
 #'
 #' @return A list with components:
@@ -951,7 +975,7 @@ setMethod(
 
 #' Render the overlay plot for a GeneDiffPulldown
 #'
-#' Merges up- and down-regulated subgraphs and renders them as a single
+#' Merges up- and down-labelled subgraphs and renders them as a single
 #' network with colour-coded membership.  When \code{group_by_gene = TRUE}
 #' and \code{level = "isoform"}, node fill encodes gene identity while
 #' the node border (stroke) and edge colour encode membership.
@@ -1056,11 +1080,14 @@ setMethod(
     }
   }
 
-  # Remove isolated vertices
-  g <- igraph::delete.vertices(g, igraph::degree(g) == 0L)
+  # Preserve isolated seed nodes. Isolated non-seeds add no information to the
+  # overlay and can still be removed for readability.
+  drop <- igraph::degree(g) == 0L &
+    igraph::V(g)$seed_direction == "non_seed"
+  g <- igraph::delete_vertices(g, drop)
 
   if (igraph::vcount(g) == 0L)
-    stop("Overlay graph has no vertices after cleanup.", call. = FALSE)
+    stop("Overlay graph has no vertices to plot.", call. = FALSE)
 
   # -- Colour palettes (CVD-safe, Okabe-Ito) ----------------------------------
   membership_colours <- .membership_palette
@@ -1129,12 +1156,14 @@ setMethod(
         ggplot2::aes(colour = .data[["membership"]]),
         alpha = edge_alpha
       ) +
-      ggraph::scale_edge_colour_manual(
-        name   = "Edge membership",
-        values = edge_colours,
-        labels = membership_labels,
-        drop   = FALSE
-      ) +
+      (if (igraph::ecount(g) > 0L) {
+        ggraph::scale_edge_colour_manual(
+          name   = "Edge membership",
+          values = edge_colours,
+          labels = membership_labels,
+          drop   = FALSE
+        )
+      } else NULL) +
       ggraph::geom_node_point(
         ggplot2::aes(
           fill   = .data[["gene"]],
@@ -1203,12 +1232,14 @@ setMethod(
         ggplot2::aes(colour = .data[["membership"]]),
         alpha = edge_alpha
       ) +
-      ggraph::scale_edge_colour_manual(
-        name   = "Edge membership",
-        values = edge_colours,
-        labels = membership_labels,
-        drop   = TRUE
-      ) +
+      (if (igraph::ecount(g) > 0L) {
+        ggraph::scale_edge_colour_manual(
+          name   = "Edge membership",
+          values = edge_colours,
+          labels = membership_labels,
+          drop   = TRUE
+        )
+      } else NULL) +
       ggraph::geom_node_point(
         ggplot2::aes(
           colour = .data[["membership"]],
@@ -1262,8 +1293,7 @@ setMethod(
       )
   }
 
-  print(p)
-  invisible(p)
+  p
 }
 
 
@@ -1292,9 +1322,9 @@ setMethod(
 #' @param edge_alpha Numeric in \[0, 1\].  Default \code{0.4}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #' @param ...       Additional arguments forwarded to
-#'   \code{\link[ggraph]{ggraph}}.
-#' @param direction Character scalar: \code{"up"} (merge all up-regulated
-#'   subgraphs), \code{"down"} (merge all down-regulated subgraphs), or
+#'   \code{ggraph::ggraph()}.
+#' @param direction Character scalar: \code{"up"} (merge all up-labelled
+#'   subgraphs), \code{"down"} (merge all down-labelled subgraphs), or
 #'   \code{"both"} (default; union of up and down per gene).  Must be
 #'   passed as a named argument.
 #' @param genes     Character vector of gene IDs to include.  Defaults to
@@ -1345,7 +1375,7 @@ setMethod(
 #' obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
 #' result <- obj@@analyses$my_run
 #'
-#' # Cross-gene view of up-regulated subgraphs
+#' # Cross-gene view of up-labelled seed neighbourhoods
 #' plot_network(result, direction = "up")
 #'
 #' # Both directions, subset to specific genes
@@ -1397,9 +1427,7 @@ setMethod(
 
     # -- Validate filter arguments ---------------------------------------------
     .check_filter_arg <- function(x, name) {
-      if (!is.null(x) && (!is.numeric(x) || length(x) != 1L || x < 1L))
-        stop(sprintf("`%s` must be a single positive integer or NULL.", name),
-             call. = FALSE)
+      if (!is.null(x)) .validate_positive_integer(x, name)
     }
     .check_filter_arg(min_nodes,           "min_nodes")
     .check_filter_arg(min_shared_nodes,    "min_shared_nodes")
@@ -1496,8 +1524,8 @@ setMethod(
 
     # -- Render ---------------------------------------------------------------
     dir_label <- switch(direction,
-                        up   = "up-regulated",
-                        down = "down-regulated",
+                        up   = "up seeds",
+                        down = "down seeds",
                         both = "up + down")
 
     if (is.null(title))
@@ -1543,8 +1571,8 @@ setMethod(
 #' @param min_edges           Integer or NULL.  Minimum edge count per
 #'   component.
 #'
-#' @return The filtered igraph (isolated vertices already removed upstream, so
-#'   every retained vertex has degree >= 1).
+#' @return The filtered igraph. Explicit filters may remove singleton
+#'   components, but unfiltered isolated seed components are retained.
 #' @noRd
 .filter_cross_gene_components <- function(g,
                                           min_shared_nodes    = NULL,
@@ -1706,8 +1734,7 @@ setMethod(
         size   = ggplot2::guide_legend(title = "Role", order = 1)
       )
 
-    print(p)
-    return(invisible(p))
+    return(p)
   }
 
   # ============================================================================
@@ -1777,6 +1804,5 @@ setMethod(
       size  = ggplot2::guide_legend(title = "Role", order = 1)
     )
 
-  print(p)
-  invisible(p)
+  p
 }

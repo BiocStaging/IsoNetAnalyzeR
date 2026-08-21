@@ -21,17 +21,15 @@ cross-gene network of a \linkS4class{DifferentialPulldownAnalysis} run.
 Each component is heuristically classified based on its degree
 centralization score:
 \describe{
-\item{\code{"hub-spoke"}}{Centralization > 0.6: one or a few highly
-connected nodes dominate, suggesting a master regulator or scaffold
-protein.}
+\item{\code{"hub-spoke"}}{Centralization > 0.6: degree is concentrated
+in one or a few nodes.}
 \item{\code{"clique-like"}}{Centralization < 0.2: connectivity is
-uniformly distributed, consistent with a protein complex where all
-members interact with each other.}
+relatively uniformly distributed.}
 \item{\code{"chain-like"}}{Centralization between 0.2 and 0.6: a
-more linear or pathway-like topology.}
+intermediate degree concentration.}
 }
-These thresholds are heuristic and intended as a starting point for
-biological interpretation.
+These thresholds are descriptive heuristics and do not establish a
+regulator, complex, pathway, or mechanism.
 }
 \section{Methods (by generic)}{
 \itemize{

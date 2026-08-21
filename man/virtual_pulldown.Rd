@@ -4,7 +4,13 @@
 \alias{virtual_pulldown}
 \title{Virtual pulldown}
 \usage{
-virtual_pulldown(obj, seed_vertices, order, cutoff = NULL)
+virtual_pulldown(
+  obj,
+  seed_vertices,
+  order,
+  cutoff = NULL,
+  resolve_duplicates = TRUE
+)
 }
 \arguments{
 \item{obj}{An \linkS4class{IsoNetAnalyzeR} session object.}
@@ -19,6 +25,9 @@ the seeds.}
 that must be internal to the subnetwork for a node to be retained. When
 \code{NULL} (default) the value stored in
 \code{obj@metadata[["network_cutoff"]]} is used.}
+
+\item{resolve_duplicates}{Logical. Resolve versioned and protein-identical
+redundant transcript IDs against the active network. Default \code{TRUE}.}
 }
 \value{
 An igraph object representing the filtered virtual pulldown
@@ -27,8 +36,8 @@ the nearest seed) and a \code{frac_internal} attribute (fraction of
 their interaction edges that remain internal to the subnetwork).
 Seed vertices with zero \code{interact == 1} edges are retained as
 isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
-representing isoforms present in the network but forming no predicted
-physical interactions.
+representing isoforms present in the pinned network but incident to no
+predicted edge in that network.
 }
 \description{
 Performs a virtual pulldown by first restricting the network to predicted

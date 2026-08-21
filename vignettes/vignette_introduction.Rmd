@@ -1,810 +1,162 @@
 ---
-title: "Introduction to IsoNetAnalyzeR"
-output:
-  rmarkdown::html_vignette:
-    toc: true
-    toc_depth: 3
+title: "IsoNetAnalyzeR: seed-derived interaction neighbourhoods"
+author: "Dimitrios S. Kanakoglou and Nikolas Mumm"
+output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Introduction to IsoNetAnalyzeR}
-  %\VignetteEncoding{UTF-8}
+  %\VignetteIndexEntry{IsoNetAnalyzeR: seed-derived interaction neighbourhoods}
   %\VignetteEngine{knitr::rmarkdown}
-editor_options: 
-  markdown: 
-    wrap: 72
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
-  eval      = FALSE
-)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-## Motivation
+## Scope
 
-Alternative splicing generates distinct protein isoforms from the same
-gene. These isoforms can differ in their binding domains and therefore
-in which partners they interact with, meaning a switch from one isoform
-to another can rewire a cell's protein interaction network even when
-total gene expression does not change.
+IsoNetAnalyzeR takes caller-prepared isoform seeds and compares their predicted interaction neighbourhoods in a static network. It does not perform differential transcript-usage testing, select biologically important isoforms, or infer condition-specific protein interactions. Those decisions and their provenance belong to the upstream study.
 
-IsoNetAnalyzeR makes this rewiring quantifiable. Given a list of
-differentially expressed isoforms (up- and down-regulated relative to a
-reference condition), it maps each isoform onto a predicted human
-protein interaction network, expands a neighbourhood around it via a
-virtual pulldown, and then compares the topology of the up- and
-down-condition subnetworks across all genes simultaneously.
+The required table has `gene_id`, `isoform_id`, and `direction`. `direction` must be `"up"` or `"down"`; these are labels for two seed sets, not measurements made by the package. By default, versioned ENSTs and packaged protein-identical duplicates are resolved only when compatible with the active graph. Set `resolve_duplicates = FALSE` for the exact-ID behaviour used by version 0.4.0.
 
-------------------------------------------------------------------------
+## A small executable workflow
 
-## Installation
+This vignette uses a synthetic network so it runs quickly during package checking. The graph has one mapped transcript with predicted neighbours, one mapped transcript with no predicted edge, and one transcript absent from the network.
 
-Install CRAN packages:
-
-```{r install-cran}
-install.packages(c("igraph", "cli", "ggplot2", "ggraph", "ggrepel", "patchwork"))
-```
-
-Install Bioconductor packages:
-
-```{r install-bioc}
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install(c("fgsea", "org.Hs.eg.db", "AnnotationDbi"))
-```
-
-**Optional** — parallel execution:
-
-```{r install-parallel}
-install.packages(c("future", "future.apply"))
-```
-
-**Optional** — Excel input:
-
-```{r install-excel}
-install.packages("readxl")
-```
-
-Install IsoNetAnalyzeR from GitHub:
-
-```{r install-pkg}
-devtools::install_github("IsoformAnalysisGroup/IsoNetAnalyzeR", build_vignettes = TRUE)
-```
-
-------------------------------------------------------------------------
-
-## The session object
-
-Everything in IsoNetAnalyzeR flows through a single S4 session object of
-class `IsoNetAnalyzeR`. It holds the interaction network, all analyses,
-quick lookups, and network diagnostics. You create one at the start of
-every session:
-
-```{r create-session}
+```{r synthetic-network}
 library(IsoNetAnalyzeR)
 
-obj <- IsoNetAnalyzeR("my_experiment")
-#> Loaded package-internal network: 45231 vertices, 312847 edges.
-```
-
-By default the package's built-in predicted human protein interaction
-network is loaded automatically. You can supply your own `igraph` object
-instead:
-
-```{r custom-network}
-obj <- IsoNetAnalyzeR("custom", network = my_igraph)
-```
-
-Printing the object gives a compact session summary:
-
-```{r show-session}
-obj
-#> ── IsoNetAnalyzeR session ─────────────────────────────────────
-#> Name       : my_experiment
-#> Created    : 2025-03-01 09:14:22
-#> Network    : 45231 vertices / 312847 edges  [source: package_internal]
-#> Analyses   : 0 stored  [none]
-#> Lookups    : 0 stored  [none]
-#> Diagnostics: not run
-#> ───────────────────────────────────────────────────────────────
-```
-
-### Metadata
-
-Arbitrary key–value metadata can be attached to the session at any time:
-
-```{r metadata}
-obj <- set_metadata(obj, "author",    "Jane Doe")
-obj <- set_metadata(obj, "condition", "tumour_vs_normal")
-obj <- set_metadata(obj, "notes",     "First pilot run")
-print_metadata(obj)
-```
-
-------------------------------------------------------------------------
-
-## Network diagnostics
-
-Before running any analysis it is useful to understand the structure of
-the underlying network (degree distribution, connected components,
-sticky (non-specific) nodes) so you know what to expect and whether any
-nodes should be treated with caution.
-
-Two methods are available for defining the sticky-node threshold:
-
--   `sticky_method = "quantile"` (default): nodes above the
-    `sticky_cutoff` quantile of the degree distribution are flagged.
-    `sticky_cutoff = 0.95` flags the top 5% most connected nodes.
--   `sticky_method = "sd"`: nodes whose degree exceeds the mean plus
-    `sticky_cutoff` standard deviations are flagged. `sticky_cutoff = 2`
-    (the default for this method) flags nodes more than 2 SDs above the
-    mean, which is more aggressive on heavy-tailed distributions.
-
-```{r diagnostics}
-# Quantile method — top 5% of nodes by degree
-obj <- run_network_diagnostics(obj, sticky_method = "quantile", sticky_cutoff = 0.95)
-
-# SD method — nodes more than 2 SDs above mean degree
-obj <- run_network_diagnostics(obj, sticky_method = "sd", sticky_cutoff = 2)
-
-diag <- get_network_diagnostics(obj)
-diag
-```
-
-The six-panel diagnostic figure covers degree distributions at isoform
-and gene level, component size structure, isoforms per gene, clustering
-vs degree, and gene connectivity status:
-
-```{r plot-diagnostics}
-plot_network_diagnostics(obj)
-```
-
-Key slots available on the `NetworkDiagnostics` object:
-
-| Slot | Contents |
-|---------------------------|---------------------------------------------|
-| `@network_stats` | One-row data frame: 19 global statistics |
-| `@isoform_degree_table` | Per-isoform: `isoform_id`, `gene_id`, `degree` |
-| `@gene_degree_table` | Per-gene: `gene_id`, `degree` |
-| `@component_table` | Per-component: `component_id`, `n_nodes`, `n_edges` |
-| `@clustering_table` | Per-isoform: `degree`, `clustering_coefficient` |
-| `@isoform_per_gene_table` | Per-gene: isoform counts by connectivity status |
-| `@sticky_isoform_table` | High-degree isoforms above threshold |
-| `@sticky_gene_table` | High-degree genes above threshold |
-
-Sticky nodes are those in the upper tail of the degree distribution.
-Their presence in a pulldown result does not necessarily indicate
-biological relevance — they may be common binders. Check
-`diag@sticky_isoform_table` before interpreting seed neighbourhoods.
-
-------------------------------------------------------------------------
-
-## Input format
-
-The differential pulldown expects a long-format table with three
-required columns:
-
-| Column       | Description                                        |
-|--------------|----------------------------------------------------|
-| `gene_id`    | Gene identifier (e.g. Ensembl gene ID)             |
-| `isoform_id` | Transcript ID matching vertex names in the network |
-| `direction`  | `"up"` or `"down"` (case-insensitive, trimmed)     |
-
-Extra columns are retained but ignored. You can supply a CSV path, an
-Excel path, or a data frame directly:
-
-```{r input-example}
-# From a CSV
-obj <- run_differential_pulldown(obj, "tumour_vs_normal", "de_isoforms.csv", order = 1)
-
-# From a data frame already in R
-de_table <- data.frame(
-  gene_id    = c("ENSG00000012048", "ENSG00000012048", "ENSG00000139618"),
-  isoform_id = c("ENST00000357654", "ENST00000471181", "ENST00000380152"),
-  direction  = c("up",             "down",            "up")
+vertices <- data.frame(
+  name = c("tx_A_up", "tx_A_down", "tx_B", "tx_C_isolated"),
+  gene = c("gene_A", "gene_A", "gene_B", "gene_C")
 )
-obj <- run_differential_pulldown(obj, "tumour_vs_normal", de_table, order = 1)
+
+edges <- data.frame(
+  from = c("tx_A_up", "tx_A_down"),
+  to = c("tx_B", "tx_B"),
+  interact = c(1L, 1L),
+  pi = c(0.90, 0.75),
+  pi_score = c(0.90, 0.75)
+)
+
+network <- igraph::graph_from_data_frame(
+  edges, directed = FALSE, vertices = vertices
+)
+
+obj <- IsoNetAnalyzeR(
+  "synthetic-vignette",
+  network = network,
+  metadata = list(network_cutoff = 0)
+)
 ```
 
-------------------------------------------------------------------------
+The seed table is already prepared. It is deliberately not derived from a particular statistical package or publication dataset.
 
-## Differential pulldown
+```{r synthetic-analysis}
+seed_table <- data.frame(
+  gene_id = c("gene_A", "gene_A", "gene_C", "gene_missing"),
+  isoform_id = c("tx_A_up", "tx_A_down", "tx_C_isolated", "tx_absent"),
+  direction = c("up", "down", "up", "down")
+)
 
-`run_differential_pulldown()` is the main analysis function. For each
-gene it:
-
-1.  Splits isoforms into up-regulated and down-regulated sets.
-2.  Runs a virtual pulldown separately for each set: restricts the full
-    network to predicted interaction edges (`interact == 1`), expands
-    via BFS up to `order` hops, then filters out nodes whose edges are
-    predominantly external to the subnetwork (the `cutoff` parameter).
-3.  Computes per-node statistics (degree, clustering, distance from
-    seed, interaction confidence) for each direction subgraph.
-4.  Assembles a cross-gene summary with 35 columns comparing the two
-    subgraphs.
-
-```{r run-pulldown}
-obj <- run_differential_pulldown(
+obj <- suppressWarnings(run_differential_pulldown(
   obj,
-  label   = "tumour_vs_normal",
-  input   = "de_isoforms.csv",
-  order   = 1,
-  confirm = FALSE   # suppress interactive coverage prompt in scripts
-)
-```
-
-Before the analysis runs, a **network coverage report** is printed
-showing how many of your input isoforms and genes were found in the
-network. Isoforms not present in the network are silently skipped — they
-do not produce a subgraph, and their gene will be absent from the
-cross-gene summary if no other isoform of that gene is found. Genes
-where at least one isoform is found but all its interactions have been
-filtered will produce a single-node subgraph, which is a valid result.
-In interactive sessions `confirm = TRUE` (the default) pauses and asks
-you to confirm before proceeding; set `confirm = FALSE` in scripts.
-
-### Parallel execution
-
-For analyses with many genes, parallelism is opt-in via the `future`
-package:
-
-```{r parallel}
-library(future)
-plan(multisession, workers = 4)
-
-obj <- run_differential_pulldown(
-  obj, "tumour_vs_normal", "de_isoforms.csv",
-  order    = 1,
-  parallel = TRUE
-)
-
-plan(sequential)
-```
-
-### Virtual pulldown parameters
-
-| Parameter | Default | Effect |
-|----------------------------|-----------------------|---------------------|
-| `order` | 1 | BFS hops from the seed isoforms. `order = 1` includes direct interactors only. |
-| `cutoff` | `obj@metadata$network_cutoff` | Minimum fraction of a candidate node's edges that must be internal to the subnetwork. Nodes below this threshold are discarded as non-specific. |
-
-------------------------------------------------------------------------
-
-## Accessing results
-
-### Cross-gene summary
-
-The 35-column cross-gene summary has one row per gene and is the primary
-starting point for most downstream questions:
-
-```{r cgs}
-cgs <- get_cross_gene_summary(obj, "tumour_vs_normal")
-```
-
-Selected column groups:
-
-**Topology (per condition):** `up_nodes`, `up_edges`, `up_density`,
-`up_avg_degree`, `up_clustering`, `up_starness` (degree centralization;
-0 = uniform, 1 = pure hub-and-spoke), `up_genes` and the equivalent
-`down_*` columns.
-
-**Node-set overlap:** `n_shared_nodes`, `n_up_unique`, `n_down_unique`,
-`jaccard` (Jaccard index of node-set overlap between conditions).
-
-**Edge rewiring:** `n_edges_gained` (in up but not down), `n_edges_lost`
-(in down but not up), `n_edges_shared`.
-
-**Interaction confidence (seeds only):** `up_seed_mean_pi` (mean edge
-confidence across up seeds), `up_seed_pi_entropy` (Shannon entropy of
-confidence distribution — high entropy means many edges of similar
-moderate confidence; low entropy means a few high-confidence
-interactions).
-
-```{r cgs-explore}
-# Most rewired genes
-cgs$delta_edges <- cgs$up_edges - cgs$down_edges
-head(cgs[order(-abs(cgs$delta_edges)), c("gene_id", "up_edges", "down_edges",
-                                          "n_edges_gained", "n_edges_lost", "jaccard")])
-
-# Genes with very different network partners (low Jaccard)
-low_overlap <- cgs[!is.na(cgs$jaccard) & cgs$jaccard < 0.1, ]
-
-# Genes where the up condition recruits many more cross-gene partners
-cgs[!is.na(cgs$up_genes) & cgs$up_genes > cgs$down_genes + 5, "gene_id"]
-```
-
-### Cross-gene plots
-
-Two families of plots read directly from the cross-gene summary table.
-The overview functions produce multi-panel patchwork figures; the single
-functions let you customise any column pair:
-
-```{r cgs-plots-scatter}
-# Six-panel scatter overview (up vs down for nodes, edges, degree, density,
-# clustering, and edges gained vs lost)
-plot_cross_gene_overview(obj, "tumour_vs_normal")
-
-# Single scatter — any two numeric columns
-plot_cross_gene_scatter(obj, "tumour_vs_normal",
-                        x_col   = "up_nodes",
-                        y_col   = "down_nodes",
-                        label_n = 8,
-                        label   = "delta")
-```
-
-```{r cgs-plots-boxplot}
-# Multi-panel boxplot overview of topology deltas
-plot_cross_gene_boxplot_overview(obj, "tumour_vs_normal")
-
-# Single boxplot — any two numeric columns as the delta metric
-plot_cross_gene_boxplot(obj, "tumour_vs_normal",
-                        x_col = "up_edges",
-                        y_col = "down_edges")
-```
-
-### Per-gene results
-
-For any individual gene you can retrieve per-isoform statistics for both
-conditions as a single long-format data frame:
-
-```{r isoform-stats}
-iso <- get_isoform_stats(obj, "tumour_vs_normal", "ENSG00000012048")
-# Returns columns: direction, isoform, is_seed, degree, clustering,
-#                  distance_from_seed, mean_pi, pi_entropy
-
-# Seed isoforms only
-iso[iso$is_seed, ]
-
-# Up-condition isoforms sorted by degree
-up <- iso[iso$direction == "up", ]
-up[order(-up$degree), ]
-```
-
-The full `GeneDiffPulldown` object (containing the igraph subgraphs) is
-retrieved with `get_gene_result()`:
-
-```{r gene-result}
-gr <- get_gene_result(obj, "tumour_vs_normal", "ENSG00000012048")
-gr   # show() summary
-```
-
-`plot_network()` dispatches on the object type and exposes several
-display modes via the `direction` argument:
-
--   `"side_by_side"` (default): two-panel patchwork figure showing the
-    up and down subgraphs next to each other. Note this produces **two
-    panels**, so your plot viewer will show two images.
--   `"overlay"`: merges both subgraphs into one plot. Nodes and edges
-    are coloured by membership — up-only (orange), down-only (sky blue),
-    or shared (grey). Seed isoforms are shown with a distinct shape.
--   `"up"` / `"down"`: renders a single condition subgraph with seeds
-    highlighted.
-
-The `group_by_gene` argument (isoform level only) colours nodes by their
-parent gene, useful when several genes share interaction partners:
-
-```{r gene-result-plots}
-# Side-by-side (default) — produces two panels
-plot_network(gr)
-
-# Side-by-side with nodes coloured by parent gene
-plot_network(gr, group_by_gene = TRUE)
-
-# Overlay: up/down/shared membership in one plot
-plot_network(gr, direction = "overlay")
-
-# Overlay with gene colouring: fill = gene, border = membership
-plot_network(gr, direction = "overlay", group_by_gene = TRUE)
-
-# Single condition
-plot_network(gr, direction = "up")
-
-# Gene-level view (isoforms contracted to their parent gene)
-plot_network(gr, level = "gene")
-```
-
-When called on the full `DifferentialPulldownAnalysis` object,
-`plot_network()` builds a merged cross-gene network. The `colour_by`
-argument controls how shared nodes are highlighted:
-
--   `"gene"` (default): nodes coloured by source gene; multi-gene shared
-    nodes shown in dark grey with size scaled by degree.
--   `"hub_degree"`: non-shared nodes collapsed to grey; shared nodes
-    coloured on a sequential scale by degree, making high-connectivity
-    hubs the visual focus.
-
-```{r cross-gene-plot}
-result <- get_analysis(obj, "tumour_vs_normal")
-
-# Default: all genes, both directions, coloured by source gene
-plot_network(result)
-
-# Focus on shared interaction hubs
-plot_network(result, colour_by = "hub_degree", min_shared_nodes = 2)
-
-# Up-regulated subgraphs only, subset to two genes of interest
-plot_network(result, direction = "up", genes = c("ENSG00000012048", "ENSG00000139618"))
-
-# Gene-level view, keep only larger components
-plot_network(result, level = "gene", min_component_nodes = 5)
-```
-
-------------------------------------------------------------------------
-
-## Ad hoc virtual pulldown
-
-For single-gene or single-isoform exploration without preparing a full
-differential input table, use `lookup_virtual_pulldown()`. One or more
-seeds can be supplied; all are treated as order-0 anchors in a single
-pulldown.
-
-```{r lookup}
-# Single isoform seed
-obj <- lookup_virtual_pulldown(
-  obj,
-  label = "BRCA1_isoform_1",
-  seed  = "ENST00000357654",
+  label = "synthetic",
+  input = seed_table,
   order = 1,
-  level = "isoform"
-)
+  cutoff = 0,
+  confirm = FALSE,
+  verbose = FALSE
+))
 
-# Multiple seeds — all anchored at order 0 in one pulldown
-obj <- lookup_virtual_pulldown(
-  obj,
-  label = "BRCA1_combined",
-  seed  = c("ENST00000357654", "ENST00000471181"),
-  order = 1
-)
-
-# Node statistics
-stats <- get_lookup_stats(obj, "BRCA1_isoform_1")
-stats[stats$is_seed, ]
-
-# The subgraph itself
-g <- get_lookup_subgraph(obj, "BRCA1_isoform_1")
-igraph::vcount(g)
-igraph::ecount(g)
-
-plot_network(get_lookup(obj, "BRCA1_isoform_1"))
+get_cross_gene_summary(obj, "synthetic")[
+  , c("gene_id", "n_up_input", "n_down_input", "pct_up_found",
+      "pct_down_found", "up_nodes", "down_nodes")
+]
 ```
 
-Gene-level lookup: supply a gene ID and set `level = "gene"` to seed
-from all isoforms of that gene simultaneously:
+Coverage is also retained in session metadata for provenance and tests:
 
-```{r lookup-gene}
-obj <- lookup_virtual_pulldown(
-  obj,
-  label = "BRCA1_gene",
-  seed  = "ENSG00000012048",
-  order = 1,
-  level = "gene"
-)
+```{r coverage}
+obj@metadata$analysis_network_coverage$synthetic$overall
+obj@metadata$analysis_network_coverage$synthetic$by_direction
+obj@metadata$analysis_duplicate_resolution$synthetic$summary
 ```
 
-------------------------------------------------------------------------
+A mapped isolated seed produces a valid one-node, zero-edge graph. An unmapped seed produces no graph. These outcomes must not be conflated, and neither establishes complete biological interaction loss.
 
-## Component analysis
+```{r inspect-results}
+isolated <- get_gene_result(obj, "synthetic", "gene_C")
+c(nodes = igraph::vcount(isolated@up_graph),
+  edges = igraph::ecount(isolated@up_graph))
 
-The component analysis merges all per-gene subgraphs into a single
-cross-gene network and decomposes it into connected components.
-Components containing seeds from both the up and down condition are
-flagged as **mixed** — these represent potential rewiring events where
-the same interaction neighbourhood is recruited in both conditions but
-by different isoforms.
-
-`run_component_analysis()` accepts three filter arguments that are
-applied after the merged graph is built. They compose — all three can be
-used together:
-
-| Argument | Effect |
-|------------------------------------|------------------------------------|
-| `min_component_nodes` | Drop components with fewer total nodes. Use to remove singletons and pairs. |
-| `min_shared_nodes` | Drop components with fewer multi-gene shared nodes. The strongest lever for keeping only biologically interesting cross-gene hubs. |
-| `min_edges` | Drop components with fewer edges. Removes loosely connected components that pass a node-count threshold but have sparse connectivity. |
-
-The `genes` argument restricts the analysis to a subset of genes, and
-`direction` controls whether up-only, down-only, or the union of both
-subgraphs is merged. `level = "gene"` contracts isoform nodes to their
-parent gene before decomposition:
-
-```{r component-run}
-# Default: isoform level, both directions, all genes, no filters
-obj <- run_component_analysis(
-  obj,
-  analysis = "tumour_vs_normal",
-  label    = "comp_both"
-)
-
-# Keep only components with >= 3 nodes and at least 1 shared hub
-obj <- run_component_analysis(
-  obj,
-  analysis            = "tumour_vs_normal",
-  label               = "comp_filtered",
-  min_component_nodes = 3,
-  min_shared_nodes    = 1,
-  min_edges           = 2
-)
-
-# Up-regulated subgraphs only, gene-level contraction
-obj <- run_component_analysis(
-  obj,
-  analysis  = "tumour_vs_normal",
-  label     = "comp_up_gene",
-  direction = "up",
-  level     = "gene"
-)
+missing <- get_gene_result(obj, "synthetic", "gene_missing")
+is.null(missing@down_graph)
 ```
 
-### Component overview
+## Protein-identical transcripts
 
-`get_component_overview()` returns Tier-1 (structural) and Tier-2
-(topological) statistics joined into one wide table — one row per
-component:
+`isonet_duplicate_map()` returns the complete packaged map and its provenance.
+For seed analysis, exact graph vertices take precedence. Otherwise a versioned
+identifier is normalized, or a redundant transcript is mapped to its kept
+protein representative, only when the graph and gene annotation agree. The
+row-level audit distinguishes direct, version-normalized,
+duplicate-remapped, and unresolved paths.
 
-```{r comp-overview}
-overview <- get_component_overview(obj, "tumour_vs_normal", "comp_both")
+Same-direction rows resolving to one representative are collapsed. If both
+directions resolve to the same representative, the complete gene is excluded:
+the apparent switch is between protein-identical transcripts and cannot support
+two different seed neighbourhoods. Dominance scores use the resolved
+representatives; cleaned submitted counts remain available for provenance.
+
+For count-level analysis, aggregate before model fitting:
+
+```{r aggregation-example, eval=FALSE}
+result <- aggregate_duplicate_counts(counts, feature_data)
+counts_deduplicated <- result$object
+feature_data_deduplicated <- result$feature_data
+result$audit
+result$summary
 ```
 
-**Tier-1 structural columns:** `n_nodes`, `n_edges`, `density`,
-`avg_degree`, `clustering`, `n_seeds`, `n_neighbours`, `seed_fraction`,
-`n_seeds_up`, `n_seeds_down`, `n_genes_up`, `n_genes_down`, `mixed`,
-`n_shared_nodes`, `shared_fraction`.
+The operation preserves per-gene and library totals. It changes representative
+numerators and the fitted feature set, so downstream differential models and
+all multiple-testing adjustments must be refitted rather than copied.
 
-**Tier-2 topological columns:** `diameter` (longest shortest path),
-`radius` (minimum eccentricity), `degree_centralization` (0 = uniform
-degree distribution, 1 = pure star), `topology_class` (`"hub-spoke"`,
-`"chain-like"`, or `"clique-like"`).
+Plots are returned as objects. Bare calls render interactively; assignment and `ggsave()` do not require an implicit graphics device.
 
-```{r comp-filter}
-# Rewiring candidates: components with both up and down seeds
-overview[overview$mixed, c("component_id", "n_nodes", "n_seeds_up",
-                            "n_seeds_down", "topology_class")]
-
-# Potential master regulators: hub-spoke topology with shared nodes
-hub_spoke <- overview[!is.na(overview$topology_class) &
-                        overview$topology_class == "hub-spoke" &
-                        overview$n_shared_nodes > 0, ]
-hub_spoke[order(-hub_spoke$degree_centralization), ]
+```{r plot-example, eval=FALSE}
+p <- plot_network(get_gene_result(obj, "synthetic", "gene_A"))
+ggplot2::ggsave("gene_A.pdf", plot = p, width = 7, height = 5)
 ```
 
-### Per-component node table
+## Upstream seed selection
 
-For any component, `get_component()` returns a per-node table with hub
-betweenness scores for shared nodes:
+Isoform fractions are compositional. If all isoforms of a gene are measured with a common denominator in the same samples, their fraction changes sum approximately to zero. Opposing dIF signs are therefore coupled; observing one positive and one negative sign is not two independent discoveries.
 
-```{r comp-node}
-nodes <- get_component(obj, "tumour_vs_normal", "comp_both", component_id = 1)
-# columns: component_id, node, source_gene, seed_direction, is_seed, degree,
-#          betweenness, betweenness_norm, betweenness_rank
+A defensible upstream workflow may first control error at the gene level, then identify driving transcripts with a pre-specified within-gene or stagewise rule. A minimum absolute dIF floor may prevent negligible changes from becoming seeds, but its value is study-specific and must be justified outside this package. Requiring a second study-wide transcript rejection, or inserting a non-significant opposite-direction proxy, can change the scientific question and should not be done merely to satisfy the input shape. One-direction genes are accepted.
 
-# Nodes bridging across gene communities (high normalised betweenness)
-nodes[!is.na(nodes$betweenness_norm) & nodes$betweenness_norm > 0.5, ]
-```
+## Reading comparisons correctly
 
-`plot_component()` supports three `colour_by` modes:
+Both directional pulldowns use the same static predicted network. Accordingly:
 
--   `"direction"` (shown below): seeds coloured orange (up) or blue
-    (down). With `colour_neighbours = TRUE`, neighbour nodes are
-    coloured by the direction of their nearest seed — revealing which
-    territory each isoform condition dominates.
--   `"gene"`: nodes coloured by source gene; shared multi-gene nodes in
-    dark grey.
--   `"hub_degree"`: shared nodes coloured by degree on a sequential
-    scale, making cross-gene hubs the visual focus.
+- node and edge deltas compare seed-derived neighbourhoods;
+- the legacy fields `n_edges_gained` and `n_edges_lost` mean edges unique to the up-seed and down-seed neighbourhoods, respectively;
+- a `mixed` component only records the presence of both seed labels;
+- `hub-spoke`, `chain-like`, and `clique-like` are heuristic shape descriptions, not mechanistic classifications;
+- a high-degree or high-betweenness node is a structural observation that requires external biological validation.
 
-```{r comp-plot}
-# Territory map: up/down seed zones + neighbour colouring
-plot_component(obj, "tumour_vs_normal", "comp_both", component_id = 1,
-               colour_by = "direction", colour_neighbours = TRUE)
+## Reproducible enrichment
 
-# Source gene colouring
-plot_component(obj, "tumour_vs_normal", "comp_both", component_id = 1,
-               colour_by = "gene")
+For publication work, freeze the exact pathway collection rather than relying on a future live download. Save the named list, its source/version/checksum, identifier namespace, and filtering rules. Set and record the random seed and all fgsea parameters.
 
-# Hub focus: shared nodes coloured by degree
-plot_component(obj, "tumour_vs_normal", "comp_both", component_id = 1,
-               colour_by = "hub_degree")
-```
-
-------------------------------------------------------------------------
-
-## Gene set enrichment
-
-### ORA per component
-
-Over-representation analysis tests whether GO terms are enriched in the
-gene set of each component, using the full network gene universe as
-background. The `go_category` argument selects the GO sub-ontology:
-
-| Value | Ontology |
-|------------------------------------|------------------------------------|
-| `"GO:BP"` (default) | Biological process — *what* the proteins do |
-| `"GO:MF"` | Molecular function — *how* they act at the molecular level |
-| `"GO:CC"` | Cellular component — *where* they are located |
-| `"ALL"` | All three ontologies combined |
-
-The `nodes` argument controls whether all component members or seeds
-only form the foreground gene set:
-
-```{r ora}
-obj <- run_component_ora(
-  obj,
-  analysis           = "tumour_vs_normal",
-  component_analysis = "comp_both",
-  label              = "ora_bp",
-  go_category        = "GO:BP",
-  nodes              = "all"     # or "seeds" to restrict to seed genes only
-)
-
-# Also test molecular function
-obj <- run_component_ora(
-  obj,
-  analysis           = "tumour_vs_normal",
-  component_analysis = "comp_both",
-  label              = "ora_mf",
-  go_category        = "GO:MF"
-)
-
-# All significant terms across all components
-get_ora_table(obj, "tumour_vs_normal", "comp_both", "ora_bp", padj_cutoff = 0.05)
-
-# Top 3 terms per component — quick biological overview
-get_ora_table(obj, "tumour_vs_normal", "comp_both", "ora_bp", top_n = 3)
-
-# Detailed results for one component
-get_ora_table(obj, "tumour_vs_normal", "comp_both", "ora_bp",
-              component_id = 1, padj_cutoff = 0.05)
-
-# Top 5 significant terms for one component — filters compose in order:
-# component_id → padj_cutoff → top_n
-get_ora_table(obj, "tumour_vs_normal", "comp_both", "ora_bp",
-              component_id = 1, padj_cutoff = 0.05, top_n = 5)
-```
-
-For direct access to the full S4 result object (e.g. to inspect run
-parameters, the background universe, or slot directly into custom code),
-use `get_component_ora_result()`:
-
-```{r ora-result-object}
-ora_obj <- get_component_ora_result(obj, "tumour_vs_normal", "comp_both", "ora_bp")
-ora_obj                 # show() summary: components tested, significant terms
-ora_obj@params          # minSize, maxSize, universe_size, n_components_tested
-ora_obj@universe        # background gene set used
-```
-
-### GSEA on topology deltas
-
-`run_fgsea()` ranks all genes by a topology delta score (e.g. the
-difference in node count between up and down subgraphs) and runs fgsea
-against GO gene sets. This identifies pathways whose member genes are
-systematically gaining or losing network connectivity in one condition.
-The `go_category` argument accepts the same options as
-`run_component_ora()` (`"GO:BP"`, `"GO:MF"`, `"GO:CC"`, `"ALL"`),
-defaulting to `"GO:BP"`.
-
-```{r gsea}
+```{r enrichment, eval=FALSE}
+pathways <- readRDS("frozen_pathways.rds")
+set.seed(2026)
 obj <- run_fgsea(
-  obj,
-  analysis  = "tumour_vs_normal",
-  label     = "gsea_nodes",
-  rank_by   = "delta_nodes"   # up_nodes - down_nodes
+  obj, analysis = "synthetic", label = "frozen_pathways",
+  rank_by = "delta_nodes", pathways = pathways,
+  minSize = 10, maxSize = 500, nperm = 10000
 )
-
-# Significant pathways
-sig <- get_gsea_table(obj, "tumour_vs_normal", "gsea_nodes", padj_cutoff = 0.05)
-sig[order(sig$NES), c("pathway", "NES", "padj", "size")]
-
-# The gene ranking used as GSEA input
-ranks <- get_gsea_stats(obj, "tumour_vs_normal", "gsea_nodes")
-head(ranks, 10)   # genes with the largest up-condition network expansion
 ```
 
-Available `rank_by` presets — all computed as the up-condition metric
-minus the down-condition metric, so positive values indicate greater
-network expansion in the up condition and negative values indicate the
-reverse:
-
-| Preset | Delta computed | Biological interpretation |
-|------------------------|------------------------|------------------------|
-| `"delta_nodes"` *(default)* | `up_nodes − down_nodes` | Up isoforms recruit more interaction partners |
-| `"delta_edges"` | `up_edges − down_edges` | Up subgraph is more densely connected |
-| `"delta_avg_degree"` | `up_avg_degree − down_avg_degree` | Up seeds have higher mean connectivity |
-| `"delta_density"` | `up_density − down_density` | Up subgraph is more tightly interlinked |
-| `"delta_clustering"` | `up_clustering − down_clustering` | Up isoforms form more tightly clustered modules |
-| `"delta_starness"` | `up_starness − down_starness` | Up subgraph is more hub-and-spoke shaped |
-| `"delta_genes"` | `up_genes − down_genes` | Up isoforms span more distinct gene communities |
-| `"delta_seed_mean_pi"` | `up_seed_mean_pi − down_seed_mean_pi` | Up seeds have higher-confidence interactions |
-| `"delta_seed_pi_entropy"` | `up_seed_pi_entropy − down_seed_pi_entropy` | Up seeds have more evenly distributed interaction confidence |
-| `"edges_gained_vs_lost"` | `n_edges_gained − n_edges_lost` | Net edge rewiring balance |
-
-### Custom gene ranking
-
-If none of the presets fit your question, pass a named numeric vector
-directly via the `stats` argument. This completely bypasses `rank_by` —
-names must be gene IDs and the vector is used as-is as the fgsea rank
-statistic. Genes with `NA` values are silently dropped before running.
-
-```{r gsea-custom}
-cgs <- get_cross_gene_summary(obj, "tumour_vs_normal")
-
-# Example: weighted combination of node and edge delta
-my_stats <- setNames(
-  (cgs$up_nodes - cgs$down_nodes) * 0.7 +
-  (cgs$up_edges - cgs$down_edges) * 0.3,
-  cgs$gene_id
-)
-
-obj <- run_fgsea(
-  obj,
-  analysis = "tumour_vs_normal",
-  label    = "gsea_weighted",
-  stats    = my_stats          # rank_by is ignored when stats is supplied
-)
-
-get_gsea_table(obj, "tumour_vs_normal", "gsea_weighted", padj_cutoff = 0.05)
-```
-
-For direct access to the full S4 result object (e.g. to inspect
-`@ranked_genes` directly, check `@params`, or extract `@go_category`),
-use `get_gsea_result()`:
-
-```{r gsea-result-object}
-gsea_obj <- get_gsea_result(obj, "tumour_vs_normal", "gsea_nodes")
-gsea_obj                  # show() summary: pathways tested, significant hits
-gsea_obj@params           # minSize, maxSize, nperm, n_genes_ranked
-gsea_obj@rank_by          # which preset was used (e.g. "delta_nodes")
-gsea_obj@ranked_genes     # named numeric vector: gene_id -> delta statistic
-```
-
-------------------------------------------------------------------------
-
-## Session management
-
-All analyses and lookups are stored inside the session object under
-user-supplied labels. Use the list functions to inspect what has been
-run:
-
-```{r list}
-list_analyses(obj)   # character vector of analysis labels
-list_lookups(obj)    # character vector of lookup labels
-
-# Retrieve a stored analysis object directly
-analysis_obj <- get_analysis(obj, "tumour_vs_normal")
-```
-
-Sessions can be saved and reloaded with standard R serialisation:
-
-```{r save}
-saveRDS(obj, "isonetanalyzer_session.rds")
-obj <- readRDS("isonetanalyzer_session.rds")
-```
-
-------------------------------------------------------------------------
-
-## Typical analysis checklist
-
-1.  `IsoNetAnalyzeR()` — create session
-2.  `run_network_diagnostics()` — understand the network; note sticky
-    nodes
-3.  `run_differential_pulldown()` — core analysis (sequential or
-    parallel)
-4.  `get_cross_gene_summary()` — identify high-rewiring genes
-5.  `plot_cross_gene_overview()` / `plot_cross_gene_boxplot_overview()`
-    — visual overview of all topology metrics
-6.  `get_isoform_stats()` + `plot_network()` — drill into genes of
-    interest
-7.  `run_component_analysis()` — decompose the cross-gene network
-8.  `get_component_overview()` — filter for mixed / hub-spoke components
-9.  `plot_component()` — visualise rewiring within each component
-10. `run_component_ora()` + `get_ora_table()` — biological
-    interpretation per component
-11. `run_fgsea()` + `get_gsea_table()` — pathway-level topology shifts
-12. `saveRDS()` — save the session
-
-------------------------------------------------------------------------
-
-## Session info
-
-```{r session-info}
-sessionInfo()
-```
+The publication companion—not the package—should record exact seed rules, statistical thresholds, sample exclusions, sensitivity analyses, candidate lists, and golden outputs.

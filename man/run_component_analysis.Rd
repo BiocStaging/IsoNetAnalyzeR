@@ -62,7 +62,7 @@ coefficient.
 \item \strong{Seed enrichment}: count and fraction of seed vs. neighbour
 nodes.
 \item \strong{Direction mixing}: up/down seed counts and contributing
-genes; the \code{mixed} flag marks rewiring candidates.
+genes; the \code{mixed} flag records components containing both labels.
 \item \strong{Multi-gene hubs}: count and fraction of shared nodes.
 }
 }
@@ -74,16 +74,15 @@ genes; the \code{mixed} flag marks rewiring candidates.
 diameter suggests a signalling cascade rather than a tight complex.
 \item \strong{Radius}: minimum eccentricity across all nodes.
 \item \strong{Degree centralization}: how unequally degree is distributed
-(0 = perfectly uniform, 1 = pure star graph).  High values flag
-potential master regulators.
+(0 = perfectly uniform, 1 = pure star graph).
 \item \strong{Topology class}: heuristic classification into
 \code{"hub-spoke"}, \code{"chain-like"}, or \code{"clique-like"} based
 on degree centralization (see \linkS4class{ComponentAnalysis} Details).
 \item \strong{Hub betweenness}: for every shared (multi-gene) node,
 betweenness centrality computed within its component, normalised to
 [0, 1], and ranked.  Nodes with high normalised betweenness are
-critical bridges across the sub-communities pulled in by different
-genes - the most disease-relevant positions in the network.
+structural bridges across the sub-communities pulled in by different
+genes. Biological relevance requires external evidence.
 }
 }
 
@@ -101,10 +100,10 @@ obj   # the updated session object; the component analysis is listed
 # Combined Tier-1 + Tier-2 overview (one row per component)
 overview <- get_component_overview(obj, "cond_A", "comp_both")
 
-# Rewiring candidates: components with both up and down seeds
+# Components containing both up and down seed labels
 overview[overview$mixed, ]
 
-# Hub-spoke components (potential master regulators)
+# Components with a descriptive hub-spoke topology
 overview[!is.na(overview$topology_class) &
            overview$topology_class == "hub-spoke", ]
 

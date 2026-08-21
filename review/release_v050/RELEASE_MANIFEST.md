@@ -1,7 +1,7 @@
 # IsoNetAnalyzeR 0.5.0 release verification
 
 - Canonical tarball: `IsoNetAnalyzeR_0.5.0.tar.gz`
-- Tarball SHA-256: `52be4416788ae621730ba043484a11a26b9cf3bd8ed37ae1e3c253d016a828d8`
+- Tarball SHA-256: `eae36fc5ef4a44e7765e95b845a1290bba55c686538b8720be91dd16bcf7439b`
 - Source map SHA-256: `cfe6fb57ed06c7231b9c77d7246b148be3cfdb1ac6aad4f9895cc422efaa36f5`
 - Enriched packaged map SHA-256: `95ff0ac877397f8c0e99d2789f2b833dec8a01009b6d2686170950da3f56c85a`
 - Embedded `R/sysdata.rda` SHA-256: `3130209f090b9b83bbf2ebf328f29a0ad9a8fcd89922a277d0966325bc163ebb`

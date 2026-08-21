@@ -7,8 +7,15 @@ IsoNetAnalyzeR builds and compares predicted interaction neighbourhoods around c
 Release 0.5.0 can be installed from its pinned tag:
 
 ```r
-remotes::install_github("dskanakoglou/IsoNetAnalyzeR@v0.5.0",
-                        build_vignettes = TRUE)
+if (!requireNamespace("remotes", quietly = TRUE)) {
+  install.packages("remotes")
+}
+
+remotes::install_github(
+  "IsoformAnalysisGroup/IsoNetAnalyzeR@v0.5.0",
+  build_vignettes = TRUE,
+  upgrade = "never"
+)
 ```
 
 The bundled static network contains 58,164 transcript vertices and 2,853,266 total edges, of which 158,458 have `interact == 1`. A custom undirected `igraph` can be supplied instead; vertices require unique `name` values and a non-missing `gene` attribute, and edges require a binary `interact` attribute.

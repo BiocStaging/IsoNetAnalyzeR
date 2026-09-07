@@ -133,6 +133,8 @@ Reload a saved session with `obj <- readRDS("isonet_session.rds")`. Save the inp
 
 ## Network eligibility and custom networks
 
+The [network eligibility explanation](NETWORK_ELIGIBILITY.md) gives the biological rationale, annotation details and references for these defaults.
+
 New sessions exclude transcripts annotated as nonsense-mediated decay (NMD) or non-stop decay (NSD) from both seeds and neighbours by default. To include either class, set its constructor flag explicitly:
 
 ```r

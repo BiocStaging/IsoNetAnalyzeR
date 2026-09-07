@@ -12,7 +12,7 @@ IsoNetAnalyzeR builds and compares predicted protein-interaction neighbourhoods 
 
 ## Installation
 
-Install the tagged **0.6.5** release from the official repository:
+Install the tagged **0.6.5** release from the official repository. The [release page](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/releases/tag/v0.6.5) provides the source package and its SHA-256 checksum:
 
 ```r
 install.packages(c("remotes", "BiocManager", "knitr", "rmarkdown"))

@@ -1,3 +1,10 @@
+# IsoNetAnalyzeR 0.5.5
+
+- New sessions exclude annotated NMD and NSD transcripts from protein networks by default. Independent `include_nmd`/`include_nsd` flags restore either class explicitly.
+- Pinned transcript-biotype annotations and exclusion audits distinguish biological eligibility from statistical seed selection and network coverage.
+- Custom networks require known transcript biotypes when exclusions are enabled. Existing saved sessions are unchanged; rebuild them to apply the new policy.
+- No maximum seed count is imposed by the package; upstream studies should declare effect/significance rules and whether both directions are required.
+
 # IsoNetAnalyzeR 0.5.0
 
 ## Protein-identical isoform support

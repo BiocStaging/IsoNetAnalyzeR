@@ -38,6 +38,7 @@ edges <- data.frame(
   pi_score = c(0.90, 0.75)
 )
 
+vertices$transcript_biotype <- "protein_coding"
 network <- igraph::graph_from_data_frame(
   edges, directed = FALSE, vertices = vertices
 )

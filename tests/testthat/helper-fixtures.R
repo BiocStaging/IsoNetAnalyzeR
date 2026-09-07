@@ -13,6 +13,7 @@ make_isolated_seed_fixture <- function() {
     pi_score = c(0.9, 0.8),
     stringsAsFactors = FALSE
   )
+  vertices$transcript_biotype <- "protein_coding"
   network <- igraph::graph_from_data_frame(
     edges, directed = FALSE, vertices = vertices
   )

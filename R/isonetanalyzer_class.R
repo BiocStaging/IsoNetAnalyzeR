@@ -124,7 +124,17 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   (\code{pi_threshold}, \code{network_cutoff}) - user-supplied values take
 #'   precedence on name collision.
 #'
-#' @return An \linkS4class{IsoNetAnalyzeR} object.
+#' @param include_nmd Include nonsense-mediated decay transcripts. Default FALSE.
+#' @param include_nsd Include non-stop decay transcripts. Default FALSE.
+#'   Exclusions apply to seeds and neighbours. Set both flags TRUE for an
+#'   unfiltered network.
+#' @param transcript_biotypes Optional data frame with isoform_id and
+#'   transcript_biotype columns, overriding vertex annotations and the pinned
+#'   GENCODE v41 table. Unknown vertex biotypes are an error when either decay
+#'   exclusion is enabled. Gene-level biotypes are not used.
+#' @return An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
+#'   in metadata$network_biotype_filter. Construct a new session to change policy;
+#'   existing saved sessions are not retroactively changed.
 #'
 #' @examples
 #' \dontrun{
@@ -138,7 +148,10 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #' @export
 IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
                            network  = NULL,
-                           metadata = list()) {
+                           metadata = list(),
+                           include_nmd = FALSE,
+                           include_nsd = FALSE,
+                           transcript_biotypes = NULL) {
 
   user_supplied_network <- !is.null(network)
 
@@ -199,6 +212,17 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
         length(merged_meta[["network_cutoff"]]) == 1L &&
         is.na(merged_meta[["network_cutoff"]])))
     .validate_cutoff(merged_meta[["network_cutoff"]], "metadata$network_cutoff")
+
+  filtered <- .filter_network_biotypes(
+    network, include_nmd, include_nsd, transcript_biotypes
+  )
+  network <- filtered$network
+  merged_meta$network_biotype_filter <- filtered$audit
+  message(sprintf(
+    "Transcript eligibility: excluded %d NMD and %d NSD vertices; %d remain.",
+    filtered$audit$excluded_nmd, filtered$audit$excluded_nsd,
+    filtered$audit$vertices_after
+  ))
 
   #-- Construct & validate -----------------------------------------------------
   obj <- new(

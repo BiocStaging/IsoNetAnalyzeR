@@ -42,6 +42,71 @@ test_that("differential pulldown rejects malformed public inputs", {
   )
 })
 
+test_that("decay defaults filter seeds and neighbours with independent opt-ins", {
+  fixture <- make_isolated_seed_fixture()
+  graph <- fixture$obj@network
+  igraph::V(graph)$transcript_biotype <- c(
+    "protein_coding", "protein_coding", "non_stop_decay",
+    "nonsense_mediated_decay", "protein_coding", "protein_coding"
+  )
+  make <- function(nmd = FALSE, nsd = FALSE) IsoNetAnalyzeR(
+    "decay", graph, metadata = list(network_cutoff = 0),
+    include_nmd = nmd, include_nsd = nsd
+  )
+  obj <- make()
+  expect_false(any(c("tx_neighbour", "tx_isolated_up") %in% igraph::V(obj@network)$name))
+  expect_equal(igraph::ecount(obj@network), 0L)
+  expect_true("tx_isolated_up" %in% igraph::V(make(TRUE, FALSE)@network)$name)
+  expect_false("tx_neighbour" %in% igraph::V(make(TRUE, FALSE)@network)$name)
+  expect_true("tx_neighbour" %in% igraph::V(make(FALSE, TRUE)@network)$name)
+  expect_setequal(igraph::V(make(TRUE, TRUE)@network)$name, igraph::V(graph)$name)
+  input <- fixture$input[fixture$input$gene_id %in% c("G1", "G3"), ]
+  result <- run_differential_pulldown(obj, "filtered", input, order = 1,
+                                    confirm = FALSE, verbose = FALSE)
+  expect_false("tx_isolated_up" %in% get_analysis(result, "filtered")@input_table$isoform_id)
+  expect_equal(result@metadata$analysis_biotype_exclusions$filtered$isoform_id,
+               "tx_isolated_up")
+  expect_error(run_differential_pulldown(
+    obj, "all_excluded", input[input$isoform_id == "tx_isolated_up", ],
+    order = 1, confirm = FALSE, verbose = FALSE
+  ), "No seeds remain")
+  expect_error(make(NA, FALSE), "include_nmd")
+  expect_error(make(FALSE, "yes"), "include_nsd")
+})
+
+test_that("custom networks require transcript annotation unless explicitly unfiltered", {
+  graph <- make_isolated_seed_fixture()$obj@network
+  graph <- igraph::delete_vertex_attr(graph, "transcript_biotype")
+  expect_error(IsoNetAnalyzeR("unknown", graph), "unknown transcript biotypes")
+  expect_s4_class(IsoNetAnalyzeR("unfiltered", graph,
+                                include_nmd = TRUE, include_nsd = TRUE), "IsoNetAnalyzeR")
+  ann <- data.frame(isoform_id = igraph::V(graph)$name,
+                    transcript_biotype = "protein_coding")
+  expect_s4_class(IsoNetAnalyzeR("annotated", graph, transcript_biotypes = ann),
+                  "IsoNetAnalyzeR")
+  conflict <- rbind(ann, transform(ann[1, ], transcript_biotype = "non_stop_decay"))
+  expect_error(IsoNetAnalyzeR("conflicting", graph, transcript_biotypes = conflict),
+               "Conflicting transcript biotypes")
+})
+
+test_that("decay-excluded aliases cannot bypass eligibility by duplicate remapping", {
+  fixture <- make_isolated_seed_fixture()
+  ann <- data.frame(isoform_id = "excluded_alias",
+                    transcript_biotype = "nonsense_mediated_decay")
+  obj <- IsoNetAnalyzeR("alias", fixture$obj@network, transcript_biotypes = ann)
+  map <- data.frame(kept_ENST = "tx_up", redundant_ENST = "excluded_alias",
+                    kept_ENSG = "G1", redundant_ENSG = "G1",
+                    kept_ENSP = "p_up", redundant_ENSP = "p_alias",
+                    network_applicable = TRUE)
+  resolved <- resolve_duplicate_isoforms("excluded_alias.7", obj@network,
+                                         duplicate_map = map)
+  expect_equal(as.character(resolved), "excluded_alias.7")
+  expect_equal(attr(resolved, "dedup_audit")$resolution,
+               "excluded_transcript_biotype")
+  expect_error(virtual_pulldown(obj, "excluded_alias.7", order = 1, cutoff = 0),
+               "None of the seed vertices")
+})
+
 test_that("lookup and component entry points reject invalid state", {
   fixture <- make_isolated_seed_fixture()
 

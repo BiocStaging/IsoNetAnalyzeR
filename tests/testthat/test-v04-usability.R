@@ -172,6 +172,7 @@ test_that("all-isolated custom networks work throughout", {
   g <- igraph::set_vertex_attr(g, "gene", value = c("GA", "GB"))
   g <- igraph::set_edge_attr(g, "interact", value = numeric(0))
 
+  igraph::V(g)$transcript_biotype <- "protein_coding"
   obj <- IsoNetAnalyzeR(
     "all-isolated", g, metadata = list(network_cutoff = 0)
   )

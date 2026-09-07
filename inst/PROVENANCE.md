@@ -27,3 +27,21 @@ The map was validated against `R/sysdata.rda` SHA-256
 The embedded network is not modified by this feature. Machine-readable build
 details and the generated map checksum are stored in
 `inst/extdata/protein_identical_isoform_map_provenance.csv`.
+
+
+## Transcript biotypes for decay exclusion
+
+`inst/extdata/transcript_biotypes_gencode_v41.csv.gz` contains 250,161 unique
+stable transcript IDs and transcript-level biotypes derived from the local
+GENCODE v41 `switchList_v41$isoformFeatures` annotation supplied for this project.
+Source object SHA-256:
+`b4c6225bd65a9100670e9b92ddf86ea2eeb57abe3bf020b01f939452c9686931`.
+The exported compressed table SHA-256 is
+`f56d86c8447410de0de802f6b58d462e483deca7191b47191711989168ad8a84`.
+
+All 58,164 raw bundled network vertices match this annotation: 46,433 are
+`protein_coding`, 11,662 `nonsense_mediated_decay`, and 69 `non_stop_decay`.
+This table is independent of Isabella's protein-identical deduplication map.
+Version suffixes are normalized for matching; the pinned annotation is not a
+claim that transcript structures remain identical across annotation releases.
+The raw bundled network is unchanged. Filtering is applied to each new session.

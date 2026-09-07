@@ -4,7 +4,14 @@
 \alias{IsoNetAnalyzeR}
 \title{Create a new IsoNetAnalyzeR session object}
 \usage{
-IsoNetAnalyzeR(name = "IsoNetAnalyzeR", network = NULL, metadata = list())
+IsoNetAnalyzeR(
+  name = "IsoNetAnalyzeR",
+  network = NULL,
+  metadata = list(),
+  include_nmd = FALSE,
+  include_nsd = FALSE,
+  transcript_biotypes = NULL
+)
 }
 \arguments{
 \item{name}{Character scalar. A human-readable label for the session
@@ -17,9 +24,22 @@ Pass \code{NULL} (the default) to load the package's built-in network.}
 This is merged with any automatically populated fields
 (\code{pi_threshold}, \code{network_cutoff}) - user-supplied values take
 precedence on name collision.}
+
+\item{include_nmd}{Include nonsense-mediated decay transcripts. Default FALSE.}
+
+\item{include_nsd}{Include non-stop decay transcripts. Default FALSE.
+Exclusions apply to seeds and neighbours. Set both flags TRUE for an
+unfiltered network.}
+
+\item{transcript_biotypes}{Optional data frame with isoform_id and
+transcript_biotype columns, overriding vertex annotations and the pinned
+GENCODE v41 table. Unknown vertex biotypes are an error when either decay
+exclusion is enabled. Gene-level biotypes are not used.}
 }
 \value{
-An \linkS4class{IsoNetAnalyzeR} object.
+An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
+in metadata$network_biotype_filter. Construct a new session to change policy;
+existing saved sessions are not retroactively changed.
 }
 \description{
 Initialises an \linkS4class{IsoNetAnalyzeR} object. When no \code{network}

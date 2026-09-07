@@ -223,6 +223,9 @@ run_differential_pulldown <- function(obj,
     tbl, obj@network, resolve_duplicates = resolve_duplicates
   )
   duplicate_resolution <- attr(tbl, "dedup_resolution")
+  biotype_exclusions <- attr(tbl, "biotype_exclusions")
+  attr(tbl, "biotype_exclusions") <- NULL
+  obj@metadata$analysis_biotype_exclusions[[label]] <- biotype_exclusions
   submitted_tbl <- if (is.null(duplicate_resolution)) tbl else
     duplicate_resolution$submitted_table
   attr(tbl, "dedup_resolution") <- NULL
@@ -724,6 +727,15 @@ run_differential_pulldown <- function(obj,
       paste(gene_conflicts, collapse = ", ")
     ), call. = FALSE)
 
+  excluded_ids <- .excluded_decay_ids(network)
+  excluded <- sub("\\.[0-9]+$", "", tbl$isoform_id) %in% excluded_ids
+  biotype_exclusions <- tbl[excluded, , drop = FALSE]
+  if (any(excluded)) {
+    message(sprintf("Excluded %d submitted seed row(s) by transcript-biotype policy.", sum(excluded)))
+    tbl <- tbl[!excluded, , drop = FALSE]
+    if (!nrow(tbl)) stop("No seeds remain after transcript-biotype exclusion.", call. = FALSE)
+  }
+
   if (resolve_duplicates) {
     submitted_tbl <- tbl
     resolved_tbl <- resolve_duplicate_isoforms(
@@ -835,6 +847,7 @@ run_differential_pulldown <- function(obj,
       ), call. = FALSE)
   }
 
+  if (nrow(biotype_exclusions)) attr(tbl, "biotype_exclusions") <- biotype_exclusions
   tbl
 }
 

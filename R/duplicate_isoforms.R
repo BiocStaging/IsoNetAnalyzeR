@@ -122,6 +122,7 @@ isonet_duplicate_map <- function(refresh = FALSE) {
   )
   context <- .network_resolution_context(network)
   normalized <- .normalize_transcript_ids(ids)
+  excluded <- .excluded_decay_ids(network)
   red_index <- match(normalized, map$redundant_ENST)
   kept_index <- match(normalized, map$kept_ENST)
   resolved <- ids
@@ -133,6 +134,11 @@ isonet_duplicate_map <- function(refresh = FALSE) {
     base <- normalized[[i]]
     red <- red_index[[i]]
     kept <- kept_index[[i]]
+
+    if (base %in% excluded) {
+      status[[i]] <- "excluded_transcript_biotype"
+      next
+    }
 
     if (!is.null(context) && original %in% context$vertices) {
       status[[i]] <- "direct"

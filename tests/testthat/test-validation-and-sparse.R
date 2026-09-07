@@ -107,6 +107,48 @@ test_that("decay-excluded aliases cannot bypass eligibility by duplicate remappi
                "None of the seed vertices")
 })
 
+test_that("retained support requires a significant mapped seed and both directions", {
+  fixture <- make_isolated_seed_fixture()
+  input <- fixture$input
+  input$q <- c(.01, NA, .2, .3, .001, .001)
+  # A significant but unmapped G3 transcript cannot support its mapped pair.
+  input <- rbind(input, data.frame(gene_id = "G3", isoform_id = "missing_driver",
+                                 direction = "up", q = .001))
+  obj <- run_differential_pulldown(fixture$obj, "supported", input,
+    order = 1, cutoff = 0, confirm = FALSE, verbose = FALSE, seed_padj_col = "q")
+  expect_named(get_analysis(obj, "supported")@gene_results, "G1")
+  expect_setequal(get_analysis(obj, "supported")@input_table$isoform_id,
+                  c("tx_up", "tx_down"))
+  audit <- obj@metadata$analysis_seed_support$supported$gene_audit
+  expect_equal(audit$reason[audit$gene_id == "G3"], "no_significant_retained_seed")
+  expect_equal(audit$reason[audit$gene_id == "G_missing"], "not_bidirectional_after_mapping")
+  expect_error(run_differential_pulldown(fixture$obj, "no_column", fixture$input,
+    order = 1, confirm = FALSE, seed_padj_col = "q"), "must name")
+  input$q <- .05
+  expect_error(run_differential_pulldown(fixture$obj, "boundary", input,
+    order = 1, confirm = FALSE, seed_padj_col = "q"), "No genes retain")
+  input$q <- -1
+  expect_error(run_differential_pulldown(fixture$obj, "bad_p", input,
+    order = 1, confirm = FALSE, seed_padj_col = "q"), "numeric in")
+  expect_error(run_differential_pulldown(fixture$obj, "bad_alpha", input,
+    order = 1, confirm = FALSE, seed_padj_col = "q", seed_fdr = 0), "seed_fdr")
+})
+
+test_that("a decay-excluded significant seed cannot support a coding pair", {
+  fixture <- make_isolated_seed_fixture()
+  graph <- igraph::add_vertices(fixture$obj@network, 1,
+    attr = list(name = "decay_driver", gene = "G3", transcript_biotype = "nonsense_mediated_decay"))
+  obj <- IsoNetAnalyzeR("decay_support", graph, metadata = list(network_cutoff = 0))
+  input <- fixture$input[1:4, ]
+  input$q <- c(.01, .2, .2, .2)
+  input <- rbind(input, data.frame(gene_id = "G3", isoform_id = "decay_driver",
+                                 direction = "up", q = .001))
+  obj <- run_differential_pulldown(obj, "checked", input, order = 1, cutoff = 0,
+    confirm = FALSE, verbose = FALSE, seed_padj_col = "q")
+  expect_named(get_analysis(obj, "checked")@gene_results, "G1")
+  expect_equal(obj@metadata$analysis_biotype_exclusions$checked$isoform_id, "decay_driver")
+})
+
 test_that("lookup and component entry points reject invalid state", {
   fixture <- make_isolated_seed_fixture()
 

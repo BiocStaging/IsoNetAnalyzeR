@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.5.5
+Version: 0.6.0
 Authors@R: c(
     person("Dimitrios S.", "Kanakoglou",
            email = "dimkan@dtu.dk", role = c("aut", "cre")),
@@ -15,7 +15,8 @@ Description: Builds and compares static predicted interaction neighbourhoods
     virtual pulldown simulations, directional seed-neighbourhood comparisons,
     connected component analysis, and gene set enrichment and
     over-representation analysis (GSEA/ORA) on network topology statistics.
-    Statistical seed derivation remains upstream of the package. Annotated
+    Statistical tests remain upstream; optional validation requires a
+    significant retained seed and both mapped seed directions. Annotated
     nonsense-mediated and non-stop decay transcripts are excluded by default
     from protein-network analysis, with explicit inclusion options.
     Developed as part of a master's thesis at the Technical University

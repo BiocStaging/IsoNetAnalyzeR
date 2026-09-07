@@ -44,6 +44,35 @@ Existing saved sessions and their cached results are not retroactively filtered.
 
 ## Input contract
 
+### Retained significant support (0.6.0)
+
+Version 0.5.5 introduced the NMD/NSD exclusions. Version 0.6.0 adds a
+post-filter support check for statistically selected seed sets:
+
+```r
+# seeds already passed the study's gene screen and transcript effect floor.
+obj <- run_differential_pulldown(
+  obj, "T2D_minus_Lean", seeds, order = 1,
+  seed_padj_col = "within_gene_padj", seed_fdr = 0.05,
+  confirm = FALSE
+)
+```
+
+This mode requires **at least one significant retained mapped seed, at least
+one up seed, and at least one down seed per gene**. It is checked after decay
+exclusions and identifier resolution. Unmapped rows are removed, and a
+significant transcript that was excluded or collapsed away cannot support
+the surviving pair. A non-significant opposite-direction partner is allowed;
+all qualifying seeds are used, with no maximum. Mapped isolated seeds are
+allowed: statistical support does not require an observed or predicted edge.
+Gene/row audits are recorded in `obj@metadata$analysis_seed_support[[label]]`.
+
+The package does not calculate or readjust these p-values. The caller must
+declare the statistical method and apply its gene/effect filters before this
+check. The GSE141432 0.6.0 pipeline enables both its retained-seed selector
+and this package guard. The generic three-column interface remains available
+with `seed_padj_col = NULL` and makes no statistical-support claim.
+
 `run_differential_pulldown()` accepts a CSV, Excel file, or data frame with three required columns:
 
 | Column | Meaning |

@@ -33,8 +33,20 @@ NULL
 #'   \item{direction}{Must be exactly \code{"up"} or \code{"down"} (case
 #'     insensitive; trimmed).}
 #' }
-#' Extra columns are silently retained in \code{@@input_table} but are not
-#' used by the analysis.
+#' Extra columns are retained in \code{@@input_table}. If \code{seed_padj_col}
+#' is supplied, that column is used for retained-seed validation.
+#'
+#' @section Retained-seed support:
+#' With \code{seed_padj_col} supplied, decay filtering and identifier resolution
+#' occur first, then unmapped rows are removed. Each retained gene must have
+#' both up and down seeds and at least one retained adjusted p-value below
+#' \code{seed_fdr}. Other retained seeds may be non-significant or have missing
+#' adjusted p-values. No maximum seed count is imposed. Supply only transcripts
+#' passing the study's gene and effect-size filters; this function does not
+#' perform RNA testing or choose an effect floor. Audits are stored in
+#' \code{obj@@metadata$analysis_seed_support[[label]]}.
+#' With \code{seed_padj_col = NULL}, the generic three-column exploratory
+#' contract is unchanged and does not assert statistical support.
 #'
 #' @section Parallel execution:
 #' Parallelism is opt-in and requires the \pkg{future} and \pkg{future.apply}
@@ -106,6 +118,12 @@ NULL
 #'   0.4.0-compatible identifier handling.
 #' @param verbose  Logical. Print per-gene progress messages. Default
 #'   \code{TRUE}.
+#' @param seed_padj_col Optional name of the caller-supplied adjusted p-value
+#'   column. When non-NULL, enforce significant retained support and both
+#'   mapped directions after biological eligibility and identifier resolution.
+#' @param seed_fdr Numeric scalar in (0, 1]. A retained seed is significant
+#'   when its supplied adjusted p-value is strictly below this threshold.
+#'   Default 0.05. No additional p-value adjustment is performed.
 #'
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
 #'   the result via \code{get_analysis(obj, label)}.
@@ -146,7 +164,9 @@ run_differential_pulldown <- function(obj,
                                       parallel = FALSE,
                                       confirm  = interactive(),
                                       verbose  = TRUE,
-                                      resolve_duplicates = TRUE) {
+                                      resolve_duplicates = TRUE,
+                                      seed_padj_col = NULL,
+                                      seed_fdr = 0.05) {
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -229,6 +249,15 @@ run_differential_pulldown <- function(obj,
   submitted_tbl <- if (is.null(duplicate_resolution)) tbl else
     duplicate_resolution$submitted_table
   attr(tbl, "dedup_resolution") <- NULL
+  if (!is.null(seed_padj_col)) {
+    support <- .filter_supported_seed_sets(tbl, obj@network, seed_padj_col, seed_fdr)
+    obj@metadata$analysis_seed_support[[label]] <- support[c("gene_audit", "row_audit", "padj_column", "alpha")]
+    tbl <- support$input
+    if (!nrow(tbl)) stop(
+      "No genes retain a significant mapped seed together with both up and down seeds.",
+      call. = FALSE
+    )
+  }
   gene_ids <- unique(tbl$gene_id)
 
   # -- Network coverage report -------------------------------------------------
@@ -597,11 +626,42 @@ run_differential_pulldown <- function(obj,
   ))
 }
 
+# Require evidence on mapped rows remaining after biotype and ID resolution.
+.filter_supported_seed_sets <- function(tbl, network, padj_column, alpha) {
+  if (!is.character(padj_column) || length(padj_column) != 1L ||
+      is.na(padj_column) || !nzchar(padj_column) || !padj_column %in% names(tbl))
+    stop("`seed_padj_col` must name an adjusted p-value column in the input.", call. = FALSE)
+  if (!is.numeric(alpha) || length(alpha) != 1L || !is.finite(alpha) || alpha <= 0 || alpha > 1)
+    stop("`seed_fdr` must be a finite number in (0, 1].", call. = FALSE)
+  p <- tbl[[padj_column]]
+  if (!is.numeric(p) || any(!is.na(p) & (!is.finite(p) | p < 0 | p > 1)))
+    stop("The seed adjusted p-value column must be numeric in [0, 1] or NA.", call. = FALSE)
+  mapped <- tbl$isoform_id %in% igraph::V(network)$name
+  significant <- !is.na(p) & p < alpha
+  genes <- unique(tbl$gene_id)
+  audit <- do.call(rbind, lapply(genes, function(g) {
+    rows <- tbl$gene_id == g & mapped
+    up <- any(rows & tbl$direction == "up")
+    down <- any(rows & tbl$direction == "down")
+    sig <- sum(rows & significant)
+    data.frame(gene_id = g, has_up = up, has_down = down,
+      n_significant_retained_candidates = sig,
+      retained = up && down && sig > 0L,
+      reason = if (!up || !down) "not_bidirectional_after_mapping"
+        else if (!sig) "no_significant_retained_seed" else "retained",
+      stringsAsFactors = FALSE)
+  }))
+  keep <- mapped & tbl$gene_id %in% audit$gene_id[audit$retained]
+  row_audit <- data.frame(gene_id = tbl$gene_id, isoform_id = tbl$isoform_id,
+    direction = tbl$direction, adjusted_pvalue = p, mapped = mapped,
+    significant = significant, retained = keep,
+    reason = ifelse(!mapped, "transcript_not_in_session_network",
+      audit$reason[match(tbl$gene_id, audit$gene_id)]), stringsAsFactors = FALSE)
+  list(input = tbl[keep, , drop = FALSE], gene_audit = audit,
+       row_audit = row_audit, padj_column = padj_column, alpha = alpha)
+}
+
 #' Load the differential input from a file path or data frame
-#'
-#' Supports CSV and Excel (\code{.xlsx} / \code{.xls}) files.  Returns a data
-#' frame; does not validate column names (that is done separately).
-#'
 #' @param input Character scalar (file path) or data frame.
 #' @return data.frame.
 #' @noRd

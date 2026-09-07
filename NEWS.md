@@ -1,3 +1,9 @@
+# IsoNetAnalyzeR 0.6.0
+
+- Add a retained-seed support gate to `run_differential_pulldown()` via `seed_padj_col` and `seed_fdr`. After decay filtering, ID resolution and mapping, every retained gene must contain at least one significant retained seed and at least one up and one down seed. Non-significant complementary seeds remain allowed; there is no seed maximum.
+- Store gene/row support audits in `metadata$analysis_seed_support`. An excluded, unmapped or collapsed-away transcript cannot supply significance for the final seed set.
+- RNA testing and effect-size selection remain upstream. The GSE141432 v0.6 analysis enables the gate explicitly; three-column exploratory inputs remain compatible when `seed_padj_col = NULL`.
+
 # IsoNetAnalyzeR 0.5.5
 
 - New sessions exclude annotated NMD and NSD transcripts from protein networks by default. Independent `include_nmd`/`include_nsd` flags restore either class explicitly.

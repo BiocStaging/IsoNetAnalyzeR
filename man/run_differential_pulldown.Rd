@@ -13,7 +13,9 @@ run_differential_pulldown(
   parallel = FALSE,
   confirm = interactive(),
   verbose = TRUE,
-  resolve_duplicates = TRUE
+  resolve_duplicates = TRUE,
+  seed_padj_col = NULL,
+  seed_fdr = 0.05
 )
 }
 \arguments{
@@ -53,6 +55,14 @@ redundant transcript identifiers before analysis. Same-direction
 representative collisions are collapsed and genes with opposite-direction
 collisions are excluded. Default \code{TRUE}; use \code{FALSE} for exact
 0.4.0-compatible identifier handling.}
+
+\item{seed_padj_col}{Optional name of the caller-supplied adjusted p-value
+column. When non-NULL, enforce significant retained support and both
+mapped directions after biological eligibility and identifier resolution.}
+
+\item{seed_fdr}{Numeric scalar in (0, 1]. A retained seed is significant
+when its supplied adjusted p-value is strictly below this threshold.
+Default 0.05. No additional p-value adjustment is performed.}
 }
 \value{
 An updated \linkS4class{IsoNetAnalyzeR} object (invisibly); access
@@ -76,8 +86,22 @@ in the session network.}
 \item{direction}{Must be exactly \code{"up"} or \code{"down"} (case
 insensitive; trimmed).}
 }
-Extra columns are silently retained in \code{@input_table} but are not
-used by the analysis.
+Extra columns are retained in \code{@input_table}. If \code{seed_padj_col}
+is supplied, that column is used for retained-seed validation.
+}
+
+\section{Retained-seed support}{
+
+With \code{seed_padj_col} supplied, decay filtering and identifier resolution
+occur first, then unmapped rows are removed. Each retained gene must have
+both up and down seeds and at least one retained adjusted p-value below
+\code{seed_fdr}. Other retained seeds may be non-significant or have missing
+adjusted p-values. No maximum seed count is imposed. Supply only transcripts
+passing the study's gene and effect-size filters; this function does not
+perform RNA testing or choose an effect floor. Audits are stored in
+\code{obj@metadata$analysis_seed_support[[label]]}.
+With \code{seed_padj_col = NULL}, the generic three-column exploratory
+contract is unchanged and does not assert statistical support.
 }
 
 \section{Parallel execution}{

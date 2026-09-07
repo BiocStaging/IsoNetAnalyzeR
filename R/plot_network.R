@@ -450,23 +450,24 @@ setMethod(
 #  Colour-blind-safe palettes - internal
 # ==============================================================================
 
-#' Okabe-Ito-inspired palette for membership categories
+#' Direction palette for neighbourhood membership
 #'
-#' Three colours chosen for deuteranopia/protanopia/tritanopia safety.
+#' Matches the analysis figures: green for up, orange for down, and blue for
+#' membership in both directional neighbourhoods.
 #' @noRd
 .membership_palette <- c(
-  up_only   = "#E69F00",   # orange
-  shared    = "#999999",   # grey
-  down_only = "#56B4E9"    # sky blue
+  up_only   = "#009E73",   # green
+  shared    = "#0072B2",   # blue
+  down_only = "#D55E00"    # orange
 )
 
 #' Edge colours matching the membership palette
 #' @noRd
 .edge_membership_palette <- .membership_palette
 
-#' Seed/neighbour two-colour palette (CVD-safe)
+#' Seed/neighbour two-colour palette
 #' @noRd
-.seed_colour   <- "#D55E00"   # vermillion (Okabe-Ito)
+.seed_colour   <- "#CC79A7"   # approved reddish purple (Okabe-Ito)
 .default_colour <- "#0072B2"  # blue (Okabe-Ito)
 
 #' Qualitative palette for gene colouring (CVD-safe, Okabe-Ito extended)
@@ -616,12 +617,14 @@ setMethod(
 #'   \item \code{"side_by_side"} (default) - renders the two subgraphs
 #'     side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
 #'   \item \code{"overlay"} - merges the up- and down-labelled subgraphs
-#'     into a single network.  Nodes and edges are coloured by membership:
-#'     \emph{up-only} (orange), \emph{down-only} (sky blue), or
-#'     \emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
+#'     into a single network. Non-seed nodes and edges use green for the
+#'     up-seed neighbourhood, orange for the down-seed neighbourhood, and blue
+#'     when present in both. Focal seeds use a reddish-purple fill and directional
+#'     seed shapes, separating node role from neighbourhood membership.
 #' }
 #'
-#' All colour palettes are colour-blind-safe (Okabe-Ito).
+#' Node shapes and black outlines provide redundant role encoding alongside
+#' colour.
 #'
 #' @section Gene colouring:
 #' When \code{group_by_gene = TRUE} and \code{level = "isoform"}, nodes are
@@ -1226,7 +1229,27 @@ setMethod(
 
   } else {
 
-    # ---- Default overlay: colour = membership -------------------------------
+    # ---- Default overlay: fill = role / neighbourhood -----------------------
+    # Direction colours describe non-seed neighbourhood membership. Seed fill
+    # is deliberately independent so a shared neighbour cannot be mistaken for
+    # the focal seed. Shape continues to retain up/down/both seed direction.
+    node_fill <- ifelse(
+      as.character(igraph::V(g)$seed_direction) == "non_seed",
+      as.character(igraph::V(g)$membership),
+      "focal_seed"
+    )
+    igraph::V(g)$node_fill <- factor(
+      node_fill,
+      levels = c("up_only", "shared", "down_only", "focal_seed")
+    )
+    node_fill_colours <- c(membership_colours, focal_seed = .seed_colour)
+    node_fill_labels <- c(
+      up_only = "Up-seed neighbourhood",
+      shared = "Both seed directions",
+      down_only = "Down-seed neighbourhood",
+      focal_seed = "Focal seed"
+    )
+
     p <- ggraph::ggraph(g, layout = layout, ...) +
       ggraph::geom_edge_link(
         ggplot2::aes(colour = .data[["membership"]]),
@@ -1242,24 +1265,18 @@ setMethod(
       } else NULL) +
       ggraph::geom_node_point(
         ggplot2::aes(
-          colour = .data[["membership"]],
-          fill   = .data[["membership"]],
+          fill   = .data[["node_fill"]],
           shape  = .data[["seed_direction"]],
           size   = .data[["seed_direction"]]
         ),
-        stroke = 0.5
-      ) +
-      ggplot2::scale_colour_manual(
-        name   = "Node membership",
-        values = membership_colours,
-        labels = membership_labels,
-        drop   = TRUE
+        colour = "black",
+        stroke = 0.65
       ) +
       ggplot2::scale_fill_manual(
-        name   = "Node membership",
-        values = membership_colours,
-        labels = membership_labels,
-        guide  = "none"
+        name   = "Node role / neighbourhood",
+        values = node_fill_colours,
+        labels = node_fill_labels,
+        drop   = TRUE
       ) +
       ggplot2::scale_shape_manual(
         name   = "Seed status",
@@ -1286,7 +1303,11 @@ setMethod(
         legend.position = "right"
       ) +
       ggplot2::guides(
-        colour      = ggplot2::guide_legend(title = "Membership", order = 1),
+        fill        = ggplot2::guide_legend(
+          title = "Node role / neighbourhood",
+          order = 1,
+          override.aes = list(shape = 21L, size = 3.5, colour = "black")
+        ),
         edge_colour = ggplot2::guide_legend(title = "Edge", order = 2),
         shape       = ggplot2::guide_legend(title = "Seed status", order = 3),
         size        = ggplot2::guide_legend(title = "Seed status", order = 3)

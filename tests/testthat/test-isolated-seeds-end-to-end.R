@@ -135,6 +135,30 @@ test_that("isolated seed plots and serialization remain valid", {
   expect_false(any(file.exists(default_plot_paths)))
 })
 
+test_that("overlay plots colour focal seeds independently from neighbourhood status", {
+  skip_if_not_installed("ggraph")
+
+  with_temp_plot_device({
+    fixture <- make_isolated_seed_fixture()
+    obj <- suppressWarnings(run_differential_pulldown(
+      fixture$obj, "seed-colour", fixture$input[1:2, ],
+      order = 1, cutoff = 0, confirm = FALSE, verbose = FALSE
+    ))
+    result <- get_gene_result(obj, "seed-colour", "G1")
+    p <- expect_no_warning(
+      suppressMessages(plot_network(result, direction = "overlay"))
+    )
+
+    seed_rows <- as.character(p$data$seed_direction) != "non_seed"
+    expect_true(any(seed_rows))
+    expect_true(all(as.character(p$data$node_fill[seed_rows]) == "focal_seed"))
+    expect_true(all(as.character(p$data$node_fill[!seed_rows]) == "shared"))
+    built_nodes <- ggplot2::ggplot_build(p)$data[[2L]]
+    expect_equal(built_nodes$fill[seed_rows], rep("#CC79A7", sum(seed_rows)))
+    expect_equal(built_nodes$fill[!seed_rows], "#0072B2")
+  })
+})
+
 test_that("plot graph filtering preserves isolated seeds without warnings", {
   fixture <- make_isolated_seed_fixture()
   filtered <- expect_no_warning(

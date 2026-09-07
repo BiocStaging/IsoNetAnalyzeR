@@ -65,6 +65,22 @@ obj <- lookup_virtual_pulldown(
 )
 get_lookup_stats(obj, "isolated_lookup")
 
+# Optional statistical support on the actual retained mapped seeds.
+# Apply the study's gene and transcript effect filters before calling this.
+supported_seeds <- seed_table[seed_table$gene_id == "gene_A", ]
+supported_seeds$adjusted_pvalue <- c(0.01, 0.20)
+obj <- run_differential_pulldown(
+  obj, "supported", supported_seeds,
+  order = 1, cutoff = 0, confirm = FALSE, verbose = FALSE,
+  seed_padj_col = "adjusted_pvalue", seed_fdr = 0.05
+)
+obj@metadata$analysis_seed_support$supported$gene_audit
+# One significant retained seed supports this pair; the complementary seed
+# need not be significant. Both directions are required in this mode.
+p_overlay <- plot_network(
+  get_gene_result(obj, "supported", "gene_A"), direction = "overlay"
+)
+
 # Count aggregation belongs before differential fitting. The packaged map is
 # transcriptome-wide, including mappings outside the embedded network.
 # aggregated <- aggregate_duplicate_counts(count_matrix, feature_metadata)

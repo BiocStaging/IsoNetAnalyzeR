@@ -1,6 +1,6 @@
 # IsoNetAnalyzeR issue register
 
-This register covers problems found during the 2026-07 audit. IDs are stable
+This register covers problems found during the 2026-07 to 2026-09 audits. IDs are stable
 and are referenced by the change log and validation report.
 
 | ID | Class | Severity | Status | Problem and impact |
@@ -20,6 +20,9 @@ and are referenced by the change log and validation report.
 | ISO-METH-003 | methodological limitation | medium | documented | Singletons and tiny components are valid static-network inventory results. They do not establish biological interaction loss, and mixed components do not establish rewiring. |
 | ISO-METH-004 | methodological limitation | high | managed | Count aggregation can recover redundant seeds but can also make oppositely directed protein-identical transcripts collide. Version 0.5.0 drops the complete affected gene before graph analysis and records every submitted identifier, direction, and representative. Historical 0.4.0 retained seed tables were collision-free; this guard is prospective. |
 | ISO-SPARSE-001 | expected sparse-data behavior | informational | documented | A direction with no mapped seed produces no subgraph. A mapped seed with no predicted interaction produces a one-node/zero-edge subgraph. These cases are now distinguished. |
+| ISO-BIO-001 | eligibility policy | high | managed | NMD and NSD transcripts are excluded from seeds and neighbours by default from 0.5.5 onward. Transcript-specific annotations, independent opt-ins and exclusion audits make the policy explicit; excluded aliases cannot bypass it through duplicate mapping. |
+| ISO-SEED-001 | statistical-support validation | high | fixed | A significant transcript removed by eligibility or mapping cannot support the surviving seed set. The optional gate introduced in 0.6.0 requires one significant actual retained mapped seed and both retained directions; nonsignificant complementary seeds remain allowed. |
+| ISO-PLOT-001 | presentation defect | medium | fixed | Earlier package overlays did not visually distinguish focal-seed fill from shared-neighbour membership and used a different direction palette. Version 0.6.5 uses purple focal seeds and green/up, orange/down and blue/shared neighbours with redundant shape encoding. |
 
 ## Reproduction summaries
 

@@ -4,7 +4,16 @@ IsoNetAnalyzeR builds and compares predicted interaction neighbourhoods around c
 
 ## Installation
 
-Release 0.5.0 can be installed from its pinned tag:
+Install the 0.6.5 source archive into an R environment with the package
+dependencies available:
+
+```r
+install.packages("IsoNetAnalyzeR_0.6.5.tar.gz", repos = NULL, type = "source")
+packageVersion("IsoNetAnalyzeR")
+```
+
+After the `v0.6.5` tag has been published to the official repository, the
+matching pinned GitHub installation is:
 
 ```r
 if (!requireNamespace("remotes", quietly = TRUE)) {
@@ -12,7 +21,7 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 }
 
 remotes::install_github(
-  "IsoformAnalysisGroup/IsoNetAnalyzeR@v0.5.0",
+  "IsoformAnalysisGroup/IsoNetAnalyzeR@v0.6.5",
   build_vignettes = TRUE,
   upgrade = "never"
 )
@@ -40,14 +49,14 @@ These options do not filter RNA count matrices, recompute isoform fractions, or 
 
 All remaining vertices are only eligible predictions, not experimentally validated proteins. Other biotypes require their own interpretation. Removing vertices also changes the denominator of the network's internal-edge fraction, so a previously excluded coding neighbour may cross the same cutoff. The inherited network cutoff was calibrated on the original network; reusing it in a filtered-network sensitivity run does not establish that it remains optimal.
 
-Existing saved sessions and their cached results are not retroactively filtered. Construct a new session from the original network and rerun analyses when changing policy. Do not try to restore excluded vertices merely by changing metadata on an already filtered graph. The pinned `v0.5.0` installation above retains its historical behaviour; these defaults are in the version `0.5.5`.
+Existing saved sessions and their cached results are not retroactively filtered. Construct a new session from the original network and rerun analyses when changing policy. Do not try to restore excluded vertices merely by changing metadata on an already filtered graph. Historical versions through 0.5.0 retain their unfiltered defaults; the 0.6.5 release includes the exclusions introduced in 0.5.5.
 
 ## Input contract
 
-### Retained significant support (0.6.0)
+### Retained significant support
 
-Version 0.5.5 introduced the NMD/NSD exclusions. Version 0.6.0 adds a
-post-filter support check for statistically selected seed sets:
+Version 0.5.5 introduced the NMD/NSD exclusions. The post-filter support check
+introduced in 0.6.0 is included in 0.6.5 for statistically selected seed sets:
 
 ```r
 # seeds already passed the study's gene screen and transcript effect floor.
@@ -104,6 +113,12 @@ gene_result <- get_gene_result(
 )
 p <- plot_network(gene_result)
 ```
+
+In differential overlay plots, focal seeds use a reddish-purple fill
+(`#CC79A7`) and directional seed shapes. Non-seed nodes and edges use green
+for the up-seed neighbourhood, orange for the down-seed neighbourhood, and
+blue when present in both. This keeps seed role visually distinct from shared
+neighbourhood membership.
 
 By default, the package normalizes versioned ENST identifiers and remaps a
 protein-identical redundant transcript only when the representative is a valid

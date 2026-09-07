@@ -183,9 +183,10 @@ highlighting the seed isoforms.
 \item \code{"side_by_side"} (default) - renders the two subgraphs
 side-by-side as a two-panel \pkg{ggplot2} / \pkg{patchwork} figure.
 \item \code{"overlay"} - merges the up- and down-labelled subgraphs
-into a single network.  Nodes and edges are coloured by membership:
-\emph{up-only} (orange), \emph{down-only} (sky blue), or
-\emph{shared} (grey).  Seed isoforms are shown with a distinct shape.
+into a single network. Non-seed nodes and edges use green for the
+up-seed neighbourhood, orange for the down-seed neighbourhood, and blue
+when present in both. Focal seeds use a reddish-purple fill and directional
+seed shapes, separating node role from neighbourhood membership.
 }
 
 Dispatches on \linkS4class{DifferentialPulldownAnalysis}.  Merges the
@@ -205,7 +206,8 @@ attribute.  Isoforms with a missing \code{gene} attribute are grouped as
 \code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid
 one-node/zero-edge results; isolated non-seed nodes are omitted.
 
-All colour palettes are colour-blind-safe (Okabe-Ito).
+Node shapes and black outlines provide redundant role encoding alongside
+colour.
 
 Nodes are coloured by the gene whose pulldown they originated from.
 Nodes that appear in the subgraphs of more than one gene receive a

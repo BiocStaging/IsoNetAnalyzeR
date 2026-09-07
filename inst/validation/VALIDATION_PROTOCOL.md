@@ -1,4 +1,4 @@
-# IsoNetAnalyzeR 0.5.0 validation protocol
+# IsoNetAnalyzeR 0.6.5 validation protocol
 
 ## Automated package checks
 
@@ -8,11 +8,20 @@
 4. Run `R CMD check --no-manual` and require `Status: OK`.
 5. Run `R CMD check --as-cran`; archive the full log and explain any external
    incoming-feasibility notes separately from package defects.
-6. Confirm version 0.5.0, the canonical tarball SHA-256, and the unchanged
+6. Confirm version 0.6.5, the canonical tarball SHA-256, and the unchanged
    `R/sysdata.rda` SHA-256.
 
 ## Required regression cases
 
+- Default exclusion of NMD and NSD vertices and incident edges, independent
+  inclusion flags, transcript-specific custom annotations and unknown-biotype
+  rejection. An excluded alias must not bypass the policy by remapping.
+- Retained-significant-seed validation after biotype filtering, identifier
+  resolution and mapping. Require both mapped directions and one significant
+  retained seed; allow nonsignificant complementary and mapped isolated seeds.
+  Invalid p-values and excluded significant drivers must be rejected.
+- Differential overlay plots distinguish purple focal seeds from directional
+  neighbour membership, including the shared blue-neighbour case.
 - Installed loading of the 16,630-row packaged map, its schema and provenance,
   9,760 representatives, and 10,592 network-applicable mappings.
 - Version normalization, direct-vertex precedence, compatible and incompatible
@@ -52,8 +61,13 @@
 - The complete duplicate map is used for count aggregation independently of
   network applicability. Count aggregation preserves per-gene and global totals
   but requires a complete downstream statistical refit.
-- Existing repaired graph inventories remain unchanged except where malformed
-  inputs are now rejected before analysis.
+- Under identical seed inputs and eligibility policy, 0.6.5 analysis graphs
+  retain the 0.6.0 semantics; the newer plotting palette changes presentation.
+  Rebuilding a historical unfiltered session with the newer default decay
+  policy can change vertices, edges and internal-edge fraction denominators.
+- The packaged biotype and protein-identical maps retain their pinned checksums.
+  Network eligibility does not change upstream RNA counts, isoform fractions,
+  statistical tests or multiple-testing adjustments.
 - The fields `n_edges_gained` and `n_edges_lost` retain their public names but
   are interpreted only as edges unique to the up-seed and down-seed static
   neighbourhoods.
@@ -74,4 +88,6 @@ PairedGSEA redevelopment remains out of scope.
 - one canonical source tarball and SHA-256;
 - unchanged embedded-network checksum;
 - test, build, clean-install, and check logs;
-- annotated `v0.5.0` tag pointing at the validated release commit.
+- annotated local `v0.6.5` tag pointing at the validated release commit;
+- release notes and manual publication instructions; remote publication is a
+  separate action by the release maintainer.

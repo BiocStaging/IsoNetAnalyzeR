@@ -1,3 +1,10 @@
+# IsoNetAnalyzeR 0.6.5
+
+- Consolidate the default NMD/NSD exclusions from 0.5.5 and the optional retained-significant-seed validation from 0.6.0 into the 0.6.5 release. These scientific rules and the pinned reference resources are unchanged from the checked 0.6.0 analysis archive.
+- Separate focal-seed role from neighbourhood membership in differential overlay plots (ISO-PLOT-001). Focal seeds now use a reddish-purple fill (`#CC79A7`) with directional seed shapes; non-seed nodes and edges use green/up, orange/down and blue/both-direction colours. This corrects the plotting behaviour that was not included in the earlier 0.6.0 archive.
+- Add an executable retained-support example to the vignette and full workflow, clarify nonsignificant complementary seeds and the exploratory three-column interface, and update installation and validation instructions for 0.6.5.
+- Preserve the raw embedded network, protein-identical transcript map and GENCODE v41 biotype table. Existing checksum-pinned study archives and RNA results remain separate from this release.
+
 # IsoNetAnalyzeR 0.6.0
 
 - Add a retained-seed support gate to `run_differential_pulldown()` via `seed_padj_col` and `seed_fdr`. After decay filtering, ID resolution and mapping, every retained gene must contain at least one significant retained seed and at least one up and one down seed. Non-significant complementary seeds remain allowed; there is no seed maximum.

@@ -21,7 +21,9 @@ Description: Builds and compares static predicted interaction neighbourhoods
     from protein-network analysis, with explicit inclusion options.
     Developed as part of a master's thesis at the Technical University
     of Denmark (DTU).
-License: MIT + file LICENSE
+License: file LICENSE
+License_is_FOSS: yes
+License_restricts_use: no
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends: 

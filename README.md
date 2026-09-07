@@ -46,4 +46,4 @@ The results compare seed-derived neighbourhoods in a static predicted network. S
 
 Use `help(package = "IsoNetAnalyzeR")` for function documentation and `vignette("vignette_introduction", package = "IsoNetAnalyzeR")` for the installed tutorial.
 
-[Reference-data provenance](inst/PROVENANCE.md) and the [maintainer validation protocol](inst/validation/VALIDATION_PROTOCOL.md) document the packaged resources and release checks. The package is distributed under the [MIT licence](LICENSE.md).
+[Reference-data provenance](inst/PROVENANCE.md) and the [maintainer validation protocol](inst/validation/VALIDATION_PROTOCOL.md) document the packaged resources and release checks. The package is distributed under the [MIT licence](LICENSE).

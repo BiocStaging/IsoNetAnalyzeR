@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{DifferentialPulldownAnalysis} object.}
 }
+\value{
+Objects of this class are created by \code{\link{run_differential_pulldown}} and returned by \code{\link{get_analysis}}.
+}
 \description{
 Top-level container produced by \code{\link{run_differential_pulldown}}.
 Stores one \linkS4class{GeneDiffPulldown} object per gene, the validated
@@ -94,3 +97,14 @@ objects, keyed by user-supplied label.  Populated by
 \item{\code{created_at}}{\code{POSIXct} scalar. Timestamp of the run.}
 }}
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+get_analysis(obj, "t2d")
+
+}

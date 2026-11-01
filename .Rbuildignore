@@ -3,3 +3,4 @@
 ^data-raw$
 ^review$
 ^\.github$
+^LICENSE\.md$

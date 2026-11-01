@@ -13,3 +13,9 @@ A data frame with \code{isoform_id} and \code{transcript_biotype} columns.
 Returns pinned GENCODE v41 transcript annotation. These transcript biotypes
 are not gene-level coding labels or evidence of stable protein production.
 }
+\examples{
+biotypes <- isonet_transcript_biotypes()
+head(biotypes)
+head(sort(table(biotypes$transcript_biotype), decreasing = TRUE))
+
+}

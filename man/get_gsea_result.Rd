@@ -30,13 +30,20 @@ Retrieve a stored GSEA result from a differential pulldown analysis
 
 }}
 \examples{
-\dontrun{
-# show() summary
-get_gsea_result(obj, "my_run", "nodes_gsea")
-
-# For data frames, use the dedicated table accessors:
-get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
-get_gsea_stats(obj, "my_run", "nodes_gsea")
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+# For speed, this example analyses only the seed genes found in Hallmark
+# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+# must be small.
+in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+                                 order = 1, confirm = FALSE, verbose = FALSE)
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
+get_gsea_result(obj, "t2d", "hallmark_gsea")
 
 }

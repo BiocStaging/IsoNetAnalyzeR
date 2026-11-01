@@ -39,10 +39,22 @@ barcode.
 
 }}
 \examples{
-\dontrun{
-stats_df <- get_gsea_stats(obj, "cond_A", "gsea_nodes")
-head(stats_df, 20)   # top 20 genes by rank statistic
-tail(stats_df, 20)   # bottom 20 (most down-shifted)
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+# For speed, this example analyses only the seed genes found in Hallmark
+# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+# must be small.
+in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+                                 order = 1, confirm = FALSE, verbose = FALSE)
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
+
+# The ranked statistic used by fgsea, highest first
+head(get_gsea_stats(obj, "t2d", "hallmark_gsea"))
 
 }

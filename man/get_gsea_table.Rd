@@ -38,15 +38,23 @@ significance filter.
 
 }}
 \examples{
-\dontrun{
-# All pathways tested
-get_gsea_table(obj, "cond_A", "gsea_nodes")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+# For speed, this example analyses only the seed genes found in Hallmark
+# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+# must be small.
+in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+                                 order = 1, confirm = FALSE, verbose = FALSE)
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
 
-# Significant pathways only
-get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.05)
-
-# Strongly significant pathways
-get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.01)
-}
+# All tested gene sets, and those passing an adjusted p-value cutoff
+get_gsea_table(obj, "t2d", "hallmark_gsea")
+get_gsea_table(obj, "t2d", "hallmark_gsea", padj_cutoff = 0.05)
 
 }

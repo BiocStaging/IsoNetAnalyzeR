@@ -51,3 +51,9 @@ object. The cutoff defaults to the value stored in
 \code{obj@metadata[["network_cutoff"]]} but can be overridden to explore
 alternative thresholds.
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+g <- virtual_pulldown(obj, "ENST00000621271", order = 1)
+c(nodes = igraph::vcount(g), edges = igraph::ecount(g))
+
+}

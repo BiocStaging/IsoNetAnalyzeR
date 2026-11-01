@@ -53,7 +53,7 @@ For each gene computes a per-gene delta (\code{x_col - y_col}, or the
 log10 fold-change \code{log10(x_col / y_col)} when \code{log_ratio = TRUE})
 and displays the distribution as a boxplot with individual gene points
 overlaid as a jitter strip.  A horizontal reference line at zero marks no
-difference between conditions.  Orange points have a positive delta
+difference between the two columns.  Orange points have a positive delta
 (x_col > y_col); blue have a negative delta.
 }
 \section{Log-ratio mode}{
@@ -62,6 +62,18 @@ When \code{log_ratio = TRUE} the plotted value is
 \code{log10((x_col + 1) / (y_col + 1))}.  Adding 1 before dividing means
 zero-value genes map to 0 (no change) rather than being dropped, so all
 genes are retained.  The zero reference line corresponds to a ratio of 1
-(no change between conditions).
+(no difference).
 }
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+p <- plot_cross_gene_boxplot(obj, "t2d", "up_nodes", "down_nodes")
+
+}

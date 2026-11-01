@@ -18,6 +18,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   ...
 )
 
@@ -31,6 +32,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   force = FALSE,
   ...
 )
@@ -45,6 +47,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   ...
 )
 
@@ -58,6 +61,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   ...,
   direction = c("side_by_side", "up", "down", "overlay")
 )
@@ -72,6 +76,7 @@ plot_network(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   ...,
   direction = c("both", "up", "down"),
   genes = NULL,
@@ -105,6 +110,13 @@ Colours nodes by their parent gene when \code{TRUE}.  Default
 \item{edge_alpha}{Numeric in [0, 1].  Default \code{0.4}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
+
+\item{node_labels}{Character scalar.  \code{"symbol"} (default) labels
+nodes with gene symbols, \code{"id"} with transcript (or, at gene level,
+gene) identifiers, and \code{"none"} draws no labels.  Symbols come from a
+\code{gene_name} vertex attribute when the network has one, otherwise
+from \code{\link{isonet_gene_names}()}; nodes without a known symbol keep
+their identifier.}
 
 \item{...}{Additional arguments forwarded to
 \code{ggraph::ggraph()}.}
@@ -187,6 +199,8 @@ into a single network. Non-seed nodes and edges use green for the
 up-seed neighbourhood, orange for the down-seed neighbourhood, and blue
 when present in both. Focal seeds use a reddish-purple fill and directional
 seed shapes, separating node role from neighbourhood membership.
+Down-only edges are dashed and shared edges thicker, and the legend
+sits below the plot.
 }
 
 Dispatches on \linkS4class{DifferentialPulldownAnalysis}.  Merges the
@@ -243,69 +257,49 @@ remain visible simultaneously.
 }
 
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
+obj <- IsoNetAnalyzeR("example")
 
-# Full network - isoform level, coloured by gene
-plot_network(obj, group_by_gene = TRUE)
+# Neighbourhood of one isoform
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+p <- plot_network(get_lookup(obj, "cltcl1_up"))
 
-# Full network - gene level
-plot_network(obj, level = "gene")
+# The same neighbourhood at gene level
+p <- plot_network(get_lookup(obj, "cltcl1_up"), level = "gene")
 
-# Lookup subgraph - default (isoform, interaction edges only)
-lkp <- lookup_virtual_pulldown(obj, seed = "ENST00000379236", order = 1)
-plot_network(lkp)
+# Transcript identifiers instead of gene symbols, or no labels
+p <- plot_network(get_lookup(obj, "cltcl1_up"), node_labels = "id")
+p <- plot_network(get_lookup(obj, "cltcl1_up"), node_labels = "none")
 
-# Lookup subgraph - show all edges including below-cutoff ones
-plot_network(lkp, all_edges = TRUE)
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+gr <- get_gene_result(obj, "t2d", "ENSG00000070371")
 
-# Lookup subgraph - gene level, save to file
-p <- plot_network(lkp, level = "gene")
-ggplot2::ggsave("lookup_gene.pdf", p, width = 8, height = 6)
-}
+# Up and down neighbourhoods side by side
+p <- plot_network(gr)
 
-\dontrun{
-# Plot both directions side-by-side (default)
-plot_network(gene_result)
+# Both neighbourhoods in one overlay
+p <- plot_network(gr, direction = "overlay")
 
-# Side-by-side with gene colouring
-plot_network(gene_result, group_by_gene = TRUE)
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+result <- get_analysis(obj, "t2d")
 
-# Overlay up and down subgraphs in a single plot
-plot_network(gene_result, direction = "overlay")
+# Cross-gene view of the up-labelled seed neighbourhoods
+p <- plot_network(result, direction = "up")
 
-# Overlay with gene colouring (membership shown via border + edge colour)
-plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
-
-# Plot only the up-labelled seed neighbourhood
-plot_network(gene_result, direction = "up")
-}
-
-\dontrun{
-# After running a differential pulldown:
-obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
-result <- obj@analyses$my_run
-
-# Cross-gene view of up-labelled seed neighbourhoods
-plot_network(result, direction = "up")
-
-# Both directions, subset to specific genes
-plot_network(result, genes = c("BRCA1", "TP53"))
-
-# Gene-level view
-plot_network(result, level = "gene")
-
-# Keep only components with >= 2 multi-gene nodes (shared hubs)
-plot_network(result, min_shared_nodes = 2)
-
-# Drop small components and loosely connected ones
-plot_network(result, min_component_nodes = 5, min_edges = 4)
-
-# Pre-filter genes with tiny neighborhoods, then keep shared-hub components
-plot_network(result, min_nodes = 10, min_shared_nodes = 2)
-
-# Hub-degree colour mode: shared nodes coloured by connectivity
-plot_network(result, colour_by = "hub_degree", min_shared_nodes = 2)
-}
+# Keep components that share at least one node between genes
+p <- plot_network(result, min_shared_nodes = 1)
 
 }

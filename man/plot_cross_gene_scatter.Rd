@@ -60,7 +60,19 @@ A \code{ggplot} object, invisibly.
 }
 \description{
 Plots any two numeric columns from \code{cross_gene_summary} as a scatter,
-one point per gene.  A diagonal identity line makes condition asymmetry
+one point per gene.  A diagonal identity line makes up/down asymmetry
 immediately visible.  For a quick five-panel overview across all standard
 metrics, see \code{\link{plot_cross_gene_overview}}.
+}
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+p <- plot_cross_gene_scatter(obj, "t2d", "up_nodes", "down_nodes")
+
 }

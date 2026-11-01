@@ -113,26 +113,22 @@ components are large and neighbours dominate.}
 }
 
 \examples{
-\dontrun{
-# Run component analysis first
-obj <- run_component_analysis(obj, "my_run", label = "comp_both")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+                         pathways = hallmark)
+get_component_ora_result(obj, "t2d", "comp", "hallmark")
 
-# Annotate components with GO:BP terms (default)
-obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_bp")
-
-# Also test molecular function
-obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_mf",
-                         go_category = "GO:MF")
-
-# show() summary of the result object
-get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-
-# All significant terms for component 1
-get_ora_table(obj, "my_run", "comp_both", "go_bp",
-              component_id = 1, padj_cutoff = 0.05)
-
-# Top term per component across all components
-get_ora_table(obj, "my_run", "comp_both", "go_bp", top_n = 1)
-}
+# Most significant gene set per component
+get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 1)
 
 }

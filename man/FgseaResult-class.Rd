@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{FgseaResult} object.}
 }
+\value{
+Objects of this class are created by \code{\link{run_fgsea}} and returned by \code{\link{get_gsea_result}}.
+}
 \description{
 Produced by \code{\link{run_fgsea}}.  Stores the ranked gene vector, the
 fgsea result table, and all run parameters.  One \linkS4class{FgseaResult}
@@ -58,3 +61,21 @@ msigdbr, or \code{NA} when a user-supplied pathway list was used.}
 \item{\code{created_at}}{\code{POSIXct} scalar.  Timestamp of the run.}
 }}
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+# For speed, this example analyses only the seed genes found in Hallmark
+# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+# must be small.
+in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+                                 order = 1, confirm = FALSE, verbose = FALSE)
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
+get_gsea_result(obj, "t2d", "hallmark_gsea")
+
+}

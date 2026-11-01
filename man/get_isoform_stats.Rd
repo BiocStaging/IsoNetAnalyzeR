@@ -42,12 +42,14 @@ for the missing direction.
 
 }}
 \examples{
-\dontrun{
-stats <- get_isoform_stats(obj, "my_run", "ENSG00000120333")
-# All isoforms in the up condition
-stats[stats$direction == "up", ]
-# Seed isoforms only
-stats[stats$is_seed, ]
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+stats <- get_isoform_stats(obj, "t2d", "ENSG00000070371")
+head(stats)
 
 }

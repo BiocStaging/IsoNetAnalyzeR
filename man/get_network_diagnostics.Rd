@@ -26,9 +26,17 @@ has not been called yet.
 
 }}
 \examples{
-\dontrun{
-obj <- run_network_diagnostics(obj)
-get_network_diagnostics(obj)
-}
+# A small deterministic network keeps this example fast; on the bundled
+# network the diagnostics take about half a minute.
+g <- igraph::make_graph("Zachary")
+n <- igraph::vcount(g)
+igraph::V(g)$name <- paste0("tx", seq_len(n))
+igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+igraph::V(g)$transcript_biotype <- "protein_coding"
+igraph::E(g)$interact <- 1L
+toy <- IsoNetAnalyzeR("toy", network = g,
+                      metadata = list(network_cutoff = 0.25))
+toy <- run_network_diagnostics(toy)
+get_network_diagnostics(toy)
 
 }

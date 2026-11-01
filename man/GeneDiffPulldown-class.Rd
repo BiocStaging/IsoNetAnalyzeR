@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{GeneDiffPulldown} object.}
 }
+\value{
+Objects of this class are returned by \code{\link{get_gene_result}}.
+}
 \description{
 Stores the virtual pulldown subgraphs and statistics for a single gene's
 up- and down-labelled isoform seeds. One \linkS4class{GeneDiffPulldown} object
@@ -61,3 +64,14 @@ representatives analyzed),
 \code{has_up}, \code{has_down} (logical flags for subgraph availability).}
 }}
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+get_gene_result(obj, "t2d", "ENSG00000070371")
+
+}

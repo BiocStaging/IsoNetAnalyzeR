@@ -83,6 +83,11 @@
 #' @return A data frame with kept/redundant ENSG, ENSP, and ENST identifiers
 #'   and a \code{network_applicable} flag. Build provenance is attached as the
 #'   \code{provenance} attribute.
+#' @examples
+#' map <- isonet_duplicate_map()
+#' head(map[, c("kept_ENST", "redundant_ENST", "network_applicable")])
+#' table(map$network_applicable)
+#'
 #' @export
 isonet_duplicate_map <- function(refresh = FALSE) {
   if (!is.logical(refresh) || length(refresh) != 1L || is.na(refresh)) {
@@ -230,6 +235,17 @@ isonet_duplicate_map <- function(refresh = FALSE) {
 #'
 #' @return The same broad type as \code{x}, with resolved identifiers and a
 #'   \code{dedup_audit} attribute.
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' map <- isonet_duplicate_map()
+#'
+#' # A versioned identifier and a redundant protein-identical transcript,
+#' # resolved against the session network
+#' ids <- c("ENST00000621271.4", map$redundant_ENST[map$network_applicable][1])
+#' resolved <- resolve_duplicate_isoforms(ids, network = get_network(obj))
+#' resolved
+#' attr(resolved, "dedup_audit")
+#'
 #' @export
 resolve_duplicate_isoforms <- function(
     x, network = NULL, isoform_col = "isoform_id", gene_col = "gene_id",
@@ -267,13 +283,9 @@ resolve_duplicate_isoforms <- function(
   )
   if (any(incompatible)) {
     warning(
-      sprintf(
-        paste0(
-          "%d duplicate-map candidate(s) were incompatible with the active ",
-          "network and were left unchanged; inspect the resolution audit."
-        ),
-        sum(incompatible)
-      ),
+      sprintf("%d duplicate-map candidate(s) were incompatible with the active ",
+              sum(incompatible)),
+      "network and were left unchanged; inspect the resolution audit.",
       call. = FALSE
     )
   }
@@ -443,6 +455,24 @@ resolve_duplicate_isoforms <- function(
 #'
 #' @return An object of class \code{DuplicateCountAggregation}: a list with
 #'   \code{object}, \code{feature_data}, \code{audit}, and \code{summary}.
+#' @examples
+#' map <- isonet_duplicate_map()
+#' counts <- matrix(
+#'   c(10L, 4L, 7L,
+#'     2L, 1L, 3L,
+#'     5L, 5L, 5L),
+#'   nrow = 3, byrow = TRUE,
+#'   dimnames = list(c(map$kept_ENST[1], map$redundant_ENST[1],
+#'                     map$kept_ENST[2]), paste0("sample", seq_len(3)))
+#' )
+#' features <- data.frame(
+#'   gene_id = c(map$kept_ENSG[1], map$redundant_ENSG[1], map$kept_ENSG[2]),
+#'   isoform_id = rownames(counts)
+#' )
+#' res <- aggregate_duplicate_counts(counts, features)
+#' res$object
+#' res$summary
+#'
 #' @export
 aggregate_duplicate_counts <- function(
     x, feature_data = NULL, assay = "counts", duplicate_map = NULL) {

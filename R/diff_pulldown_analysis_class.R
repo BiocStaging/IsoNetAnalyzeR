@@ -79,6 +79,18 @@ NULL
 #' @slot cutoff       Numeric scalar. Internal-edge fraction cutoff used.
 #' @slot created_at   \code{POSIXct} scalar. Timestamp of the run.
 #'
+#' @return Objects of this class are created by \code{\link{run_differential_pulldown}} and returned by \code{\link{get_analysis}}.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' get_analysis(obj, "t2d")
+#'
 #' @exportClass DifferentialPulldownAnalysis
 setClass(
   "DifferentialPulldownAnalysis",
@@ -366,13 +378,13 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
                            function(x) x@gene_summary$has_down, logical(1)))
 
   cli::cli_rule("DifferentialPulldownAnalysis")
-  cli::cli_text("Label      : {object@label}")
-  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("Order      : {object@order}    Cutoff : {round(object@cutoff, 4)}")
-  cli::cli_text("Genes      : {n_genes} total")
-  cli::cli_text("Up graphs  : {n_up_ok} / {n_genes} genes produced a subgraph")
-  cli::cli_text("Down graphs: {n_down_ok} / {n_genes} genes produced a subgraph")
-  cli::cli_text("Input rows : {nrow(object@input_table)} isoform entries")
+  .cli_aligned("Label      : {object@label}")
+  .cli_aligned("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("Order      : {object@order}    Cutoff : {round(object@cutoff, 4)}")
+  .cli_aligned("Genes      : {n_genes} total")
+  .cli_aligned("Up graphs  : {n_up_ok} / {n_genes} genes produced a subgraph")
+  .cli_aligned("Down graphs: {n_down_ok} / {n_genes} genes produced a subgraph")
+  .cli_aligned("Input rows : {nrow(object@input_table)} isoform entries")
   cli::cli_rule()
   invisible(object)
 })
@@ -443,10 +455,16 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #'   columns.
 #'
 #' @examples
-#' \dontrun{
-#' cgs <- get_cross_gene_summary(obj, "my_run")
-#' head(cgs)
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' cgs <- get_cross_gene_summary(obj, "t2d")
+#' cgs[, c("gene_id", "up_nodes", "down_nodes", "up_edges", "down_edges")]
 #'
 #' @export
 setGeneric("get_cross_gene_summary",
@@ -478,13 +496,15 @@ setMethod("get_cross_gene_summary", "IsoNetAnalyzeR",
 #' @return A \linkS4class{GeneDiffPulldown} object.
 #'
 #' @examples
-#' \dontrun{
-#' gr <- get_gene_result(obj, "my_run", "ENSG00000120333")
-#' gr   # show() summary
-#'
-#' # Per-isoform statistics for both directions (use the dedicated accessor)
-#' get_isoform_stats(obj, "my_run", "ENSG00000120333")
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' gr <- get_gene_result(obj, "t2d", "ENSG00000070371")
+#' gr
 #'
 #' @export
 setGeneric("get_gene_result",
@@ -535,13 +555,15 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #'   \code{pi_entropy}.
 #'
 #' @examples
-#' \dontrun{
-#' stats <- get_isoform_stats(obj, "my_run", "ENSG00000120333")
-#' # All isoforms in the up condition
-#' stats[stats$direction == "up", ]
-#' # Seed isoforms only
-#' stats[stats$is_seed, ]
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' stats <- get_isoform_stats(obj, "t2d", "ENSG00000070371")
+#' head(stats)
 #'
 #' @export
 setGeneric("get_isoform_stats",

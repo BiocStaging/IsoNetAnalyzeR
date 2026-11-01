@@ -16,6 +16,7 @@ plot_component(
   label_size = 2.5,
   edge_alpha = 0.4,
   title = NULL,
+  node_labels = c("symbol", "id", "none"),
   ...
 )
 }
@@ -51,6 +52,11 @@ of neutral grey.  Default \code{FALSE}.}
 \code{0.4}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
+
+\item{node_labels}{Character scalar.  \code{"symbol"} (default)
+labels nodes with gene symbols, \code{"id"} with transcript (or, at gene
+level, gene) identifiers, and \code{"none"} draws no labels.  See
+\code{\link{plot_network}}.}
 
 \item{...}{Additional arguments forwarded to
 \code{ggraph::ggraph()}.}
@@ -116,28 +122,26 @@ and appear white/neutral.  \code{colour_neighbours} is ignored at gene level.
 }
 
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
-obj <- run_differential_pulldown(obj, "cond_A", "de_isoforms.csv", order = 1)
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
 
-# Isoform-level component analysis
-obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+# Colour seeds by direction
+p <- plot_component(obj, "t2d", "comp", component_id = 1,
+                    colour_by = "direction")
 
-# Gene-level component analysis
-obj <- run_component_analysis(obj, "cond_A", label = "comp_gene",
-                              level = "gene")
+# Territory map: neighbours coloured by the seed directions reaching them
+p <- plot_component(obj, "t2d", "comp", component_id = 1,
+                    colour_by = "direction", colour_neighbours = TRUE)
 
-# Isoform level — direction mode, seeds only
-plot_component(obj, "cond_A", "comp_iso", component_id = 1,
-               colour_by = "direction")
-
-# Isoform level — territory map
-plot_component(obj, "cond_A", "comp_iso", component_id = 1,
-               colour_by = "direction", colour_neighbours = TRUE)
-
-# Gene level — dominance score (diverging scale)
-plot_component(obj, "cond_A", "comp_gene", component_id = 1,
-               colour_by = "direction")
-}
+# Without node labels
+p <- plot_component(obj, "t2d", "comp", component_id = 1,
+                    node_labels = "none")
 
 }

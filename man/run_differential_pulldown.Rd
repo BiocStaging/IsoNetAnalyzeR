@@ -151,30 +151,21 @@ the default handler locally for this call only.
 }
 
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+cltcl1 <- seeds[seeds$gene_name == "CLTCL1", ]
+obj <- IsoNetAnalyzeR("example")
 
-# --- Sequential (default, no extra packages needed) -----------------------
+# Exploratory run: gene_id, isoform_id and direction only
+obj <- run_differential_pulldown(obj, "explore", cltcl1, order = 1,
+                                 confirm = FALSE, verbose = FALSE)
+
+# Require at least one significant retained seed per gene
 obj <- run_differential_pulldown(
-  obj, "condition_A_vs_B", "de_isoforms.csv", order = 1
+  obj, "supported", cltcl1, order = 1, confirm = FALSE, verbose = FALSE,
+  seed_padj_col = "within_gene_padj", seed_fdr = 0.05
 )
-
-# --- Parallel (requires future + future.apply) ----------------------------
-library(future)
-plan(multisession, workers = 4)   # works on all platforms
-
-obj <- run_differential_pulldown(
-  obj, "condition_A_vs_B", "de_isoforms.csv",
-  order    = 1,
-  parallel = TRUE
-)
-
-plan(sequential)   # restore after the run
-
-# --- Inspect results ------------------------------------------------------
-get_analysis(obj, "condition_A_vs_B")
-get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048")
-plot_network(get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048"))
-}
+get_metadata(obj, "analysis_seed_support")$supported$gene_audit
+get_cross_gene_summary(obj, "supported")
 
 }

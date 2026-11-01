@@ -122,6 +122,11 @@
 #'   isolated nodes (\code{frac_internal = NA}, \code{degree = 0}),
 #'   representing isoforms present in the pinned network but incident to no
 #'   predicted edge in that network.
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' g <- virtual_pulldown(obj, "ENST00000621271", order = 1)
+#' c(nodes = igraph::vcount(g), edges = igraph::ecount(g))
+#'
 #' @export
 virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL,
                              resolve_duplicates = TRUE) {

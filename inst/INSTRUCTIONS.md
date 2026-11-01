@@ -1,44 +1,41 @@
 # IsoNetAnalyzeR user instructions
 
-These instructions describe the 0.6.5 interface. They cover a complete analysis using your own selected transcript isoforms. The [example script](examples/full_workflow.R) supplies synthetic data for trying the package first.
+These instructions describe the 0.99.0 interface. They cover a complete analysis using your own selected transcript isoforms. The [example script](examples/full_workflow.R) supplies synthetic data for trying the package first.
 
 ## Installation
 
-The package requires R and its CRAN/Bioconductor dependencies. Install the tagged release:
+Install from Bioconductor:
 
 ```r
-install.packages(c("remotes", "BiocManager", "knitr", "rmarkdown"))
-BiocManager::install("fgsea", ask = FALSE, update = FALSE)
-remotes::install_github(
-  "IsoformAnalysisGroup/IsoNetAnalyzeR@v0.6.5",
-  build_vignettes = TRUE,
-  upgrade = "never"
-)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("IsoNetAnalyzeR")
 library(IsoNetAnalyzeR)
-packageVersion("IsoNetAnalyzeR")
 ```
 
-Building the HTML vignette requires Pandoc. To install without building the vignette, use `build_vignettes = FALSE`; the package functions and example script remain available. The tutorial source is also available in the repository under `vignettes/vignette_introduction.Rmd`.
+The development version can be installed from GitHub with
+`BiocManager::install("IsoformAnalysisGroup/IsoNetAnalyzeR")`. Earlier
+releases, such as 0.6.5, remain available as tagged GitHub releases.
 
-If you already have the source archive and its dependencies installed:
+If you already have a source archive and its dependencies installed:
 
 ```r
-install.packages("IsoNetAnalyzeR_0.6.5.tar.gz", repos = NULL, type = "source")
+install.packages("IsoNetAnalyzeR_0.99.0.tar.gz", repos = NULL, type = "source")
 ```
 
 ## Try the example
 
-Run the installed example, which creates a small synthetic network, analyses its seed sets, generates plots, and demonstrates component analysis and optional seed-support validation:
+The installed tutorial walks through a complete analysis of the bundled GSE141432 example seeds:
+
+```r
+vignette("IsoNetAnalyzeR", package = "IsoNetAnalyzeR")
+```
+
+The installed example script creates a small synthetic network, analyses its seed sets, generates plots, and demonstrates component analysis and optional seed-support validation:
 
 ```r
 library(IsoNetAnalyzeR)
 source(system.file("examples", "full_workflow.R", package = "IsoNetAnalyzeR"))
-```
-
-To open the installed tutorial when it was built during installation:
-
-```r
-vignette("vignette_introduction", package = "IsoNetAnalyzeR")
 ```
 
 ## Prepare your input
@@ -84,9 +81,9 @@ write.csv(results, "network_summary.csv", row.names = FALSE)
 Review mapping and filtering before interpreting a result:
 
 ```r
-obj@metadata$analysis_network_coverage$comparison
-obj@metadata$analysis_duplicate_resolution$comparison
-obj@metadata$analysis_biotype_exclusions$comparison
+get_metadata(obj, "analysis_network_coverage")$comparison
+get_metadata(obj, "analysis_duplicate_resolution")$comparison
+get_metadata(obj, "analysis_biotype_exclusions")$comparison
 ```
 
 An unmapped seed is absent from the active reference network. A mapped isolated seed is present but has no retained predicted interaction; it remains a valid result. The generic interface accepts one-direction genes. Neither outcome establishes absence of biological interactions.
@@ -105,7 +102,7 @@ obj <- run_differential_pulldown(
   seed_fdr = 0.05,
   confirm = FALSE
 )
-obj@metadata$analysis_seed_support$supported_comparison$gene_audit
+get_metadata(obj, "analysis_seed_support")$supported_comparison$gene_audit
 ```
 
 This optional mode requires both mapped seed directions and at least one significant retained seed per gene, after eligibility filtering and identifier resolution. Nonsignificant complementary seeds are allowed. The package imposes no maximum seed count and does not recalculate the supplied p-values. With `seed_padj_col = NULL` (the default), this statistical-support check is disabled.
@@ -127,7 +124,9 @@ saveRDS(obj, "isonet_session.rds")
 writeLines(capture.output(sessionInfo()), "sessionInfo.txt")
 ```
 
-Focal seeds use purple fill and directional shapes. Neighbours and edges use green for up-only, orange for down-only, and blue for shared membership. These categories compare predicted neighbourhoods in the same reference network.
+Focal seeds use purple fill and directional shapes. Neighbours and edges use green for up-only, orange for down-only (with dashed edges), and blue for shared membership. Add `level = "gene"` to merge each gene's transcripts into one node. These categories compare predicted neighbourhoods in the same reference network.
+
+Nodes are labelled with gene symbols from `isonet_gene_names()`; each node is a transcript, so a gene can appear more than once. Use `node_labels = "id"` for transcript identifiers or `node_labels = "none"` to hide labels. `plot_component()` takes the same argument.
 
 Reload a saved session with `obj <- readRDS("isonet_session.rds")`. Save the input table, statistical selection rules, package version, and chosen parameters alongside the session.
 
@@ -142,7 +141,7 @@ obj <- IsoNetAnalyzeR("include_nmd", include_nmd = TRUE)
 obj <- IsoNetAnalyzeR("include_both", include_nmd = TRUE, include_nsd = TRUE)
 ```
 
-The flags are independent. The exclusion audit is available in `obj@metadata$network_biotype_filter`, and `isonet_transcript_biotypes()` returns the packaged transcript annotation. These options affect the network, not upstream RNA count matrices or statistical tests. Construct a new session and rerun analyses when changing this policy; saved graphs are not retroactively rebuilt.
+The flags are independent. The exclusion audit is returned by `get_metadata(obj, "network_biotype_filter")`, and `isonet_transcript_biotypes()` returns the packaged transcript annotation. These options affect the network, not upstream RNA count matrices or statistical tests. Construct a new session and rerun analyses when changing this policy; saved graphs are not retroactively rebuilt.
 
 A custom network must be an undirected `igraph` with unique vertex `name` values, non-missing vertex `gene` values, and a binary edge `interact` attribute. When either exclusion is enabled, provide known transcript biotypes through the vertex `transcript_biotype` attribute or the constructor's annotation table for IDs not covered by the packaged annotation. See `?IsoNetAnalyzeR` and the synthetic example for a complete custom network.
 

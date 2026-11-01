@@ -27,11 +27,9 @@ not normally be overwritten:
 \code{network_source}, \code{pi_threshold}, \code{network_cutoff}.
 }
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("my_experiment")
+obj <- IsoNetAnalyzeR("example")
 obj <- set_metadata(obj, "author", "Jane Doe")
-obj <- set_metadata(obj, "notes",  "Pilot run, March 2025")
-print_metadata(obj)
-}
+obj <- set_metadata(obj, "notes", "Pilot run")
+get_metadata(obj, "author")
 
 }

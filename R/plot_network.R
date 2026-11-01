@@ -42,6 +42,12 @@ NULL
 #' @param edge_alpha Numeric in \[0, 1\].  Edge opacity.  Default \code{0.4}.
 #' @param title Character scalar.  Plot title.  Auto-generated when \code{NULL}
 #'   (default).
+#' @param node_labels Character scalar.  \code{"symbol"} (default) labels
+#'   nodes with gene symbols, \code{"id"} with transcript (or, at gene level,
+#'   gene) identifiers, and \code{"none"} draws no labels.  Symbols come from a
+#'   \code{gene_name} vertex attribute when the network has one, otherwise
+#'   from \code{\link{isonet_gene_names}()}; nodes without a known symbol keep
+#'   their identifier.
 #' @param ... Additional arguments forwarded to \code{ggraph::ggraph()}.
 #'
 #' @details
@@ -61,26 +67,19 @@ NULL
 #'   \pkg{ggplot2} layers or saved with \code{ggplot2::ggsave()}.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
+#' obj <- IsoNetAnalyzeR("example")
 #'
-#' # Full network - isoform level, coloured by gene
-#' plot_network(obj, group_by_gene = TRUE)
+#' # Neighbourhood of one isoform
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' p <- plot_network(get_lookup(obj, "cltcl1_up"))
 #'
-#' # Full network - gene level
-#' plot_network(obj, level = "gene")
+#' # The same neighbourhood at gene level
+#' p <- plot_network(get_lookup(obj, "cltcl1_up"), level = "gene")
 #'
-#' # Lookup subgraph - default (isoform, interaction edges only)
-#' lkp <- lookup_virtual_pulldown(obj, seed = "ENST00000379236", order = 1)
-#' plot_network(lkp)
-#'
-#' # Lookup subgraph - show all edges including below-cutoff ones
-#' plot_network(lkp, all_edges = TRUE)
-#'
-#' # Lookup subgraph - gene level, save to file
-#' p <- plot_network(lkp, level = "gene")
-#' ggplot2::ggsave("lookup_gene.pdf", p, width = 8, height = 6)
-#' }
+#' # Transcript identifiers instead of gene symbols, or no labels
+#' p <- plot_network(get_lookup(obj, "cltcl1_up"), node_labels = "id")
+#' p <- plot_network(get_lookup(obj, "cltcl1_up"), node_labels = "none")
 #'
 #' @export
 setGeneric(
@@ -94,6 +93,7 @@ setGeneric(
            label_size    = 2.5,
            edge_alpha    = 0.4,
            title         = NULL,
+           node_labels   = c("symbol", "id", "none"),
            ...)
     standardGeneric("plot_network")
 )
@@ -118,6 +118,7 @@ setMethod(
            label_size    = 2.5,
            edge_alpha    = 0.4,
            title         = NULL,
+           node_labels   = c("symbol", "id", "none"),
            force         = FALSE,
            ...) {
 
@@ -126,23 +127,23 @@ setMethod(
     n_edges    <- igraph::ecount(object@network)
 
     if (!force && (n_vertices > 500L || n_edges > 2000L))
-      stop(sprintf(
-        paste0(
-          "The full session network has %d vertices and %d edges, ",
-          "which is too large to plot meaningfully.\n",
-          "Consider using:\n",
-          "  plot_network(get_analysis(obj, label))              ",
-          "# cross-gene subnetwork\n",
-          "  plot_network(get_gene_result(obj, label, gene_id))  ",
-          "# single gene\n",
-          "  plot_network(get_lookup(obj, label))                ",
-          "# single lookup\n",
-          "To plot the full network anyway: plot_network(obj, force = TRUE)"
-        ),
-        n_vertices, n_edges
-      ), call. = FALSE)
+      stop(
+        sprintf("The full session network has %d vertices and %d edges, ",
+                n_vertices, n_edges),
+        "which is too large to plot meaningfully.\n",
+        "Consider using:\n",
+        "  plot_network(get_analysis(obj, label))              ",
+        "# cross-gene subnetwork\n",
+        "  plot_network(get_gene_result(obj, label, gene_id))  ",
+        "# single gene\n",
+        "  plot_network(get_lookup(obj, label))                ",
+        "# single lookup\n",
+        "To plot the full network anyway: plot_network(obj, force = TRUE)",
+        call. = FALSE
+      )
 
     level <- match.arg(level, c("isoform", "gene"))
+    node_labels <- match.arg(node_labels)
     .check_plot_args(all_edges, group_by_gene, level)
     .check_plot_pkgs()
 
@@ -170,6 +171,7 @@ setMethod(
       edge_alpha    = edge_alpha,
       title         = title,
       seed_vertices = character(0),   # no seeds to highlight on the full network
+      node_labels   = node_labels,
       ...
     )
   }
@@ -195,9 +197,11 @@ setMethod(
            label_size    = 2.5,
            edge_alpha    = 0.4,
            title         = NULL,
+           node_labels   = c("symbol", "id", "none"),
            ...) {
 
     level <- match.arg(level, c("isoform", "gene"))
+    node_labels <- match.arg(node_labels)
     .check_plot_args(all_edges, group_by_gene, level)
     .check_plot_pkgs()
 
@@ -245,6 +249,7 @@ setMethod(
       edge_alpha    = edge_alpha,
       title         = title,
       seed_vertices = seed_vertices,
+      node_labels   = node_labels,
       ...
     )
   }
@@ -267,13 +272,14 @@ setMethod(
 #' @param title         Character scalar.
 #' @param seed_vertices Character vector of seed node names to highlight.
 #'   Empty vector = no highlighting.
+#' @param node_labels   "symbol", "id" or "none".
 #' @param ...           Forwarded to \code{ggraph::ggraph()}.
 #'
 #' @return A ggplot object, invisibly.
 #' @noRd
 .render_plot <- function(g, level, group_by_gene, layout,
                          node_size, label_size, edge_alpha,
-                         title, seed_vertices, ...) {
+                         title, seed_vertices, node_labels = "symbol", ...) {
 
   subtitle <- sprintf(
     "%d nodes  \u00b7  %d edges",
@@ -282,6 +288,7 @@ setMethod(
 
   # Mark seed nodes as a vertex attribute so ggraph can access it via aes()
   igraph::V(g)$is_seed <- igraph::V(g)$name %in% seed_vertices
+  g <- .add_node_labels(g, node_labels)
 
   p <- ggraph::ggraph(g, layout = layout, ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
@@ -289,7 +296,7 @@ setMethod(
                group_by_gene = group_by_gene,
                node_size     = node_size,
                has_seeds     = any(igraph::V(g)$is_seed)) +
-    .label_geom(label_size = label_size) +
+    .label_geom(label_size = label_size, node_labels = node_labels) +
     ggplot2::labs(title = title, subtitle = subtitle) +
     ggraph::theme_graph(base_family = "sans") +
     ggplot2::theme(
@@ -567,14 +574,42 @@ setMethod(
 }
 
 
-#' Label geom: repelled text for all nodes
+#' Label geom: repelled text for all nodes, or none
+#'
+#' Reads the \code{node_label} vertex attribute set by
+#' \code{.add_node_labels()}.
 #' @noRd
-.label_geom <- function(label_size) {
+.label_geom <- function(label_size, node_labels = "symbol") {
+  if (node_labels == "none") return(NULL)
   ggraph::geom_node_text(
-    ggplot2::aes(label = .data[["name"]]),
+    ggplot2::aes(label = .data[["node_label"]]),
     size  = label_size,
     repel = TRUE
   )
+}
+
+#' Add the text of each node's label as a \code{node_label} vertex attribute
+#'
+#' \code{"symbol"} uses a \code{gene_name} vertex attribute when the network
+#' has one, otherwise the bundled gene symbols looked up through the
+#' \code{gene} attribute (or the vertex name of gene-level graphs). Nodes
+#' without a symbol keep their ID. \code{"id"} and \code{"none"} use the
+#' vertex name; \code{"none"} labels are not drawn.
+#' @noRd
+.add_node_labels <- function(g, node_labels) {
+  ids <- igraph::V(g)$name
+  labels <- ids
+  if (node_labels == "symbol" && length(ids) > 0L) {
+    symbols <- igraph::vertex_attr(g, "gene_name")
+    if (is.null(symbols)) {
+      genes <- igraph::vertex_attr(g, "gene")
+      symbols <- .gene_symbols(if (is.null(genes)) ids else genes)
+    }
+    known <- !is.na(symbols) & nzchar(symbols)
+    labels[known] <- symbols[known]
+  }
+  igraph::V(g)$node_label <- labels
+  g
 }
 
 
@@ -621,6 +656,8 @@ setMethod(
 #'     up-seed neighbourhood, orange for the down-seed neighbourhood, and blue
 #'     when present in both. Focal seeds use a reddish-purple fill and directional
 #'     seed shapes, separating node role from neighbourhood membership.
+#'     Down-only edges are dashed and shared edges thicker, and the legend
+#'     sits below the plot.
 #' }
 #'
 #' Node shapes and black outlines provide redundant role encoding alongside
@@ -654,22 +691,20 @@ setMethod(
 #' @return A \code{ggplot} / \code{patchwork} object, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' # Plot both directions side-by-side (default)
-#' plot_network(gene_result)
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' gr <- get_gene_result(obj, "t2d", "ENSG00000070371")
 #'
-#' # Side-by-side with gene colouring
-#' plot_network(gene_result, group_by_gene = TRUE)
+#' # Up and down neighbourhoods side by side
+#' p <- plot_network(gr)
 #'
-#' # Overlay up and down subgraphs in a single plot
-#' plot_network(gene_result, direction = "overlay")
-#'
-#' # Overlay with gene colouring (membership shown via border + edge colour)
-#' plot_network(gene_result, direction = "overlay", group_by_gene = TRUE)
-#'
-#' # Plot only the up-labelled seed neighbourhood
-#' plot_network(gene_result, direction = "up")
-#' }
+#' # Both neighbourhoods in one overlay
+#' p <- plot_network(gr, direction = "overlay")
 #'
 #' @describeIn plot_network Plot a \linkS4class{GeneDiffPulldown} result.
 setMethod(
@@ -684,24 +719,26 @@ setMethod(
            label_size    = 2.5,
            edge_alpha    = 0.4,
            title         = NULL,
+           node_labels   = c("symbol", "id", "none"),
            ...,
            direction     = c("side_by_side", "up", "down", "overlay")) {
 
-    direction <- match.arg(direction)
-    level     <- match.arg(level, c("isoform", "gene"))
+    direction   <- match.arg(direction)
+    level       <- match.arg(level, c("isoform", "gene"))
+    node_labels <- match.arg(node_labels)
     .check_plot_args(all_edges = FALSE, group_by_gene = group_by_gene, level = level)
     .check_plot_pkgs()
 
     if (direction == "side_by_side") {
       return(.plot_gene_side_by_side(object, level, group_by_gene, layout,
                                      node_size, label_size, edge_alpha,
-                                     title, ...))
+                                     title, node_labels, ...))
     }
 
     if (direction == "overlay") {
       return(.plot_gene_overlay(object, level, group_by_gene, layout,
                                 node_size, label_size, edge_alpha,
-                                title, ...))
+                                title, node_labels, ...))
     }
 
     # Single-direction plot
@@ -724,7 +761,7 @@ setMethod(
 
     if (is.null(title))
       title <- sprintf("%s  -  %s  (%s level)",
-                       object@gene_id, direction, level)
+                       .gene_title(object@gene_id), direction, level)
 
     seed_vertices <- if (level == "gene") {
       unique(stats::na.omit(
@@ -744,6 +781,7 @@ setMethod(
       edge_alpha    = edge_alpha,
       title         = title,
       seed_vertices = seed_vertices,
+      node_labels   = node_labels,
       ...
     )
 
@@ -762,12 +800,15 @@ setMethod(
 #' @param label_size    Numeric.
 #' @param edge_alpha    Numeric.
 #' @param title         Character or NULL.
+#' @param node_labels   "symbol", "id" or "none".
 #' @param ...           Forwarded to ggraph.
 #' @return patchwork object, invisibly.
 #' @noRd
 .plot_gene_side_by_side <- function(object, level, group_by_gene, layout,
                                     node_size, label_size, edge_alpha,
-                                    title, ...) {
+                                    title, node_labels, ...) {
+
+  gene_title <- .gene_title(object@gene_id)
 
   if (!requireNamespace("patchwork", quietly = TRUE))
     stop("Package 'patchwork' is required for direction = 'side_by_side': ",
@@ -782,7 +823,7 @@ setMethod(
                             label = paste("No", dir_label, "subgraph"),
                             colour = "grey60", size = 4) +
           ggplot2::theme_void() +
-          ggplot2::labs(title = paste(object@gene_id, "-", dir_label))
+          ggplot2::labs(title = paste(gene_title, "-", dir_label))
       )
     }
 
@@ -810,8 +851,9 @@ setMethod(
       node_size     = node_size,
       label_size    = label_size,
       edge_alpha    = edge_alpha,
-      title         = paste(object@gene_id, "-", dir_label),
+      title         = paste(gene_title, "-", dir_label),
       seed_vertices = seed_vertices,
+      node_labels   = node_labels,
       ...
     )
   }
@@ -821,7 +863,7 @@ setMethod(
 
   combined <- p_up + p_down +
     patchwork::plot_annotation(
-      title   = title %||% sprintf("Differential pulldown  -  %s", object@gene_id),
+      title   = title %||% sprintf("Differential pulldown  -  %s", gene_title),
       caption = sprintf("level: %s", level)
     )
 
@@ -991,12 +1033,13 @@ setMethod(
 #' @param label_size    Numeric.
 #' @param edge_alpha    Numeric.
 #' @param title         Character or NULL.
+#' @param node_labels   "symbol", "id" or "none".
 #' @param ...           Forwarded to ggraph.
 #' @return A ggplot object, invisibly.
 #' @noRd
 .plot_gene_overlay <- function(object, level, group_by_gene, layout,
                                node_size, label_size, edge_alpha,
-                               title, ...) {
+                               title, node_labels, ...) {
 
   # Build the merged graph with membership annotations
   overlay <- .build_overlay_graph(
@@ -1092,6 +1135,8 @@ setMethod(
   if (igraph::vcount(g) == 0L)
     stop("Overlay graph has no vertices to plot.", call. = FALSE)
 
+  g <- .add_node_labels(g, node_labels)
+
   # -- Colour palettes (CVD-safe, Okabe-Ito) ----------------------------------
   membership_colours <- .membership_palette
   edge_colours       <- .edge_membership_palette
@@ -1106,12 +1151,12 @@ setMethod(
 
   # -- Build ggraph plot -------------------------------------------------------
   if (is.null(title))
-    title <- sprintf("Differential pulldown overlay  -  %s  (%s level)",
-                     object@gene_id, level)
+    title <- .gene_title(object@gene_id)
 
   subtitle <- sprintf(
-    "%d nodes  \u00b7  %d edges    (up-only: %d  |  shared: %d  |  down-only: %d)",
-    igraph::vcount(g), igraph::ecount(g),
+    paste("Predicted neighbourhoods, %s level  \u00b7  %d nodes, %d edges",
+          " \u00b7  up-only %d | shared %d | down-only %d"),
+    level, igraph::vcount(g), igraph::ecount(g),
     sum(igraph::V(g)$membership == "up_only"),
     sum(igraph::V(g)$membership == "shared"),
     sum(igraph::V(g)$membership == "down_only")
@@ -1132,8 +1177,35 @@ setMethod(
     c("non_seed", "up_seed", "down_seed", "both_seeds")
   )
 
-  membership_labels <- c(up_only = "Up only", shared = "Shared",
-                         down_only = "Down only")
+  membership_labels <- c(up_only = "Up-only", shared = "Shared",
+                         down_only = "Down-only")
+
+  # Down-only edges are dashed and shared edges thicker, so membership stays
+  # readable without colour
+  edge_linetypes <- c(up_only = "solid", shared = "solid",
+                      down_only = "dashed")
+  edge_widths    <- c(up_only = 0.5, shared = 0.9, down_only = 0.5)
+  edge_scales <- if (igraph::ecount(g) > 0L) {
+    list(
+      ggraph::scale_edge_colour_manual(
+        name = "Edge", values = edge_colours, labels = membership_labels,
+        drop = TRUE
+      ),
+      ggraph::scale_edge_linetype_manual(
+        name = "Edge", values = edge_linetypes, labels = membership_labels,
+        drop = TRUE
+      ),
+      ggraph::scale_edge_width_manual(
+        name = "Edge", values = edge_widths, labels = membership_labels,
+        drop = TRUE
+      )
+    )
+  }
+  edge_aes <- ggplot2::aes(
+    edge_colour   = .data[["membership"]],
+    edge_linetype = .data[["membership"]],
+    edge_width    = .data[["membership"]]
+  )
   seed_labels       <- c(non_seed = "Neighbour", up_seed = "Up seed",
                          down_seed = "Down seed", both_seeds = "Both seeds")
 
@@ -1155,18 +1227,8 @@ setMethod(
     names(gene_cols) <- unique_genes
 
     p <- ggraph::ggraph(g, layout = layout, ...) +
-      ggraph::geom_edge_link(
-        ggplot2::aes(colour = .data[["membership"]]),
-        alpha = edge_alpha
-      ) +
-      (if (igraph::ecount(g) > 0L) {
-        ggraph::scale_edge_colour_manual(
-          name   = "Edge membership",
-          values = edge_colours,
-          labels = membership_labels,
-          drop   = FALSE
-        )
-      } else NULL) +
+      ggraph::geom_edge_link(edge_aes, alpha = edge_alpha) +
+      edge_scales +
       ggraph::geom_node_point(
         ggplot2::aes(
           fill   = .data[["gene"]],
@@ -1198,11 +1260,7 @@ setMethod(
         labels = seed_labels,
         drop   = TRUE
       ) +
-      ggraph::geom_node_text(
-        ggplot2::aes(label = .data[["name"]]),
-        size  = label_size,
-        repel = TRUE
-      ) +
+      .label_geom(label_size, node_labels) +
       ggplot2::labs(title = title, subtitle = subtitle) +
       ggraph::theme_graph(base_family = "sans") +
       ggplot2::theme(
@@ -1223,6 +1281,8 @@ setMethod(
                                                                 fill  = "white"),
                                             order = 2),
         edge_colour = ggplot2::guide_legend(title = "Edge", order = 3),
+        edge_linetype = ggplot2::guide_legend(title = "Edge", order = 3),
+        edge_width  = ggplot2::guide_legend(title = "Edge", order = 3),
         shape       = ggplot2::guide_legend(title = "Seed status", order = 4),
         size        = ggplot2::guide_legend(title = "Seed status", order = 4)
       )
@@ -1244,25 +1304,15 @@ setMethod(
     )
     node_fill_colours <- c(membership_colours, focal_seed = .seed_colour)
     node_fill_labels <- c(
-      up_only = "Up-seed neighbourhood",
-      shared = "Both seed directions",
-      down_only = "Down-seed neighbourhood",
-      focal_seed = "Focal seed"
+      up_only = "Up-only",
+      shared = "Shared",
+      down_only = "Down-only",
+      focal_seed = "Seed"
     )
 
     p <- ggraph::ggraph(g, layout = layout, ...) +
-      ggraph::geom_edge_link(
-        ggplot2::aes(colour = .data[["membership"]]),
-        alpha = edge_alpha
-      ) +
-      (if (igraph::ecount(g) > 0L) {
-        ggraph::scale_edge_colour_manual(
-          name   = "Edge membership",
-          values = edge_colours,
-          labels = membership_labels,
-          drop   = TRUE
-        )
-      } else NULL) +
+      ggraph::geom_edge_link(edge_aes, alpha = edge_alpha) +
+      edge_scales +
       ggraph::geom_node_point(
         ggplot2::aes(
           fill   = .data[["node_fill"]],
@@ -1273,44 +1323,46 @@ setMethod(
         stroke = 0.65
       ) +
       ggplot2::scale_fill_manual(
-        name   = "Node role / neighbourhood",
+        name   = "Predicted neighbourhood",
         values = node_fill_colours,
         labels = node_fill_labels,
         drop   = TRUE
       ) +
       ggplot2::scale_shape_manual(
-        name   = "Seed status",
+        name   = "Node",
         values = seed_shapes,
         labels = seed_labels,
         drop   = TRUE
       ) +
       ggplot2::scale_size_manual(
-        name   = "Seed status",
+        name   = "Node",
         values = size_vals,
         labels = seed_labels,
         drop   = TRUE
       ) +
-      ggraph::geom_node_text(
-        ggplot2::aes(label = .data[["name"]]),
-        size  = label_size,
-        repel = TRUE
-      ) +
+      .label_geom(label_size, node_labels) +
       ggplot2::labs(title = title, subtitle = subtitle) +
       ggraph::theme_graph(base_family = "sans") +
       ggplot2::theme(
-        plot.title    = ggplot2::element_text(size = 13, face = "bold"),
-        plot.subtitle = ggplot2::element_text(size = 9, colour = "grey40"),
-        legend.position = "right"
+        plot.title      = ggplot2::element_text(size = 13, face = "bold",
+                                                hjust = 0.5),
+        plot.subtitle   = ggplot2::element_text(size = 9, colour = "grey40",
+                                                hjust = 0.5),
+        legend.position = "bottom",
+        legend.box      = "vertical",
+        legend.title    = ggplot2::element_text(face = "bold", size = 10),
+        legend.margin   = ggplot2::margin(0, 0, 0, 0)
       ) +
       ggplot2::guides(
-        fill        = ggplot2::guide_legend(
-          title = "Node role / neighbourhood",
+        fill          = ggplot2::guide_legend(
           order = 1,
           override.aes = list(shape = 21L, size = 3.5, colour = "black")
         ),
-        edge_colour = ggplot2::guide_legend(title = "Edge", order = 2),
-        shape       = ggplot2::guide_legend(title = "Seed status", order = 3),
-        size        = ggplot2::guide_legend(title = "Seed status", order = 3)
+        edge_colour   = ggplot2::guide_legend(order = 2),
+        edge_linetype = ggplot2::guide_legend(order = 2),
+        edge_width    = ggplot2::guide_legend(order = 2),
+        shape         = ggplot2::guide_legend(order = 3),
+        size          = ggplot2::guide_legend(order = 3)
       )
   }
 
@@ -1391,32 +1443,21 @@ setMethod(
 #' @return A \code{ggplot} object, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' # After running a differential pulldown:
-#' obj <- run_differential_pulldown(obj, "my_run", de_table, order = 1)
-#' result <- obj@@analyses$my_run
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' result <- get_analysis(obj, "t2d")
 #'
-#' # Cross-gene view of up-labelled seed neighbourhoods
-#' plot_network(result, direction = "up")
+#' # Cross-gene view of the up-labelled seed neighbourhoods
+#' p <- plot_network(result, direction = "up")
 #'
-#' # Both directions, subset to specific genes
-#' plot_network(result, genes = c("BRCA1", "TP53"))
-#'
-#' # Gene-level view
-#' plot_network(result, level = "gene")
-#'
-#' # Keep only components with >= 2 multi-gene nodes (shared hubs)
-#' plot_network(result, min_shared_nodes = 2)
-#'
-#' # Drop small components and loosely connected ones
-#' plot_network(result, min_component_nodes = 5, min_edges = 4)
-#'
-#' # Pre-filter genes with tiny neighborhoods, then keep shared-hub components
-#' plot_network(result, min_nodes = 10, min_shared_nodes = 2)
-#'
-#' # Hub-degree colour mode: shared nodes coloured by connectivity
-#' plot_network(result, colour_by = "hub_degree", min_shared_nodes = 2)
-#' }
+#' # Keep components that share at least one node between genes
+#' p <- plot_network(result, min_shared_nodes = 1)
 #'
 #' @describeIn plot_network Plot cross-gene network from a
 #'   \linkS4class{DifferentialPulldownAnalysis} result.
@@ -1432,6 +1473,7 @@ setMethod(
            label_size = 2.5,
            edge_alpha = 0.4,
            title      = NULL,
+           node_labels = c("symbol", "id", "none"),
            ...,
            direction          = c("both", "up", "down"),
            genes              = NULL,
@@ -1441,9 +1483,10 @@ setMethod(
            min_edges          = NULL,
            colour_by          = c("gene", "hub_degree")) {
 
-    direction <- match.arg(direction)
-    level     <- match.arg(level, c("isoform", "gene"))
-    colour_by <- match.arg(colour_by)
+    direction   <- match.arg(direction)
+    level       <- match.arg(level, c("isoform", "gene"))
+    colour_by   <- match.arg(colour_by)
+    node_labels <- match.arg(node_labels)
     .check_plot_pkgs()
 
     # -- Validate filter arguments ---------------------------------------------
@@ -1565,6 +1608,7 @@ setMethod(
       edge_alpha = edge_alpha,
       title      = title,
       colour_by  = colour_by,
+      node_labels = node_labels,
       ...
     )
   }
@@ -1666,12 +1710,16 @@ setMethod(
 #' @param label_size Numeric.
 #' @param edge_alpha Numeric.
 #' @param title      Character scalar.
+#' @param node_labels "symbol", "id" or "none".
 #' @param ...        Forwarded to ggraph.
 #' @return A ggplot object, invisibly.
 #' @noRd
 .render_cross_gene_plot <- function(g, seed_names, level, layout,
                                     node_size, label_size, edge_alpha,
-                                    title, colour_by = "gene", ...) {
+                                    title, colour_by = "gene",
+                                    node_labels = "symbol", ...) {
+
+  g <- .add_node_labels(g, node_labels)
 
   source_genes <- igraph::V(g)$source_gene
   is_multi     <- source_genes == "multi-gene"
@@ -1737,11 +1785,7 @@ setMethod(
         labels = c("FALSE" = "Neighbour", "TRUE" = "Seed"),
         drop   = FALSE
       ) +
-      ggraph::geom_node_text(
-        ggplot2::aes(label = .data[["name"]]),
-        size  = label_size,
-        repel = TRUE
-      ) +
+      .label_geom(label_size, node_labels) +
       ggplot2::labs(title = title, subtitle = subtitle) +
       ggraph::theme_graph(base_family = "sans") +
       ggplot2::theme(
@@ -1808,11 +1852,7 @@ setMethod(
       labels = c("FALSE" = "Neighbour", "TRUE" = "Seed"),
       drop   = FALSE
     ) +
-    ggraph::geom_node_text(
-      ggplot2::aes(label = .data[["name"]]),
-      size  = label_size,
-      repel = TRUE
-    ) +
+    .label_geom(label_size, node_labels) +
     ggplot2::labs(title = title, subtitle = subtitle) +
     ggraph::theme_graph(base_family = "sans") +
     ggplot2::theme(

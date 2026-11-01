@@ -30,7 +30,9 @@ NULL
 #'   \describe{
 #'     \item{full_isoforms}{Total isoform nodes in the full network.}
 #'     \item{full_genes}{Unique genes in the full network.}
-#'     \item{full_edges}{Total edges in the full network.}
+#'     \item{full_edges}{Total edges in the session network. For the
+#'       bundled network (from 0.99.0) this equals the number of predicted
+#'       interaction edges.}
 #'     \item{full_predicted_edges}{Edges with \code{interact == 1}.}
 #'     \item{pred_isoforms}{Isoform nodes in the predicted subnetwork.}
 #'     \item{pred_genes}{Unique genes in the predicted subnetwork.}
@@ -96,6 +98,22 @@ NULL
 #'   threshold above which a gene is classified as sticky.
 #'
 #' @slot created_at            \code{POSIXct} scalar.  Timestamp of the run.
+#'
+#' @return Objects of this class are created by \code{\link{run_network_diagnostics}} and returned by \code{\link{get_network_diagnostics}}.
+#'
+#' @examples
+#' # A small deterministic network keeps this example fast; on the bundled
+#' # network the diagnostics take about half a minute.
+#' g <- igraph::make_graph("Zachary")
+#' n <- igraph::vcount(g)
+#' igraph::V(g)$name <- paste0("tx", seq_len(n))
+#' igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+#' igraph::V(g)$transcript_biotype <- "protein_coding"
+#' igraph::E(g)$interact <- 1L
+#' toy <- IsoNetAnalyzeR("toy", network = g,
+#'                       metadata = list(network_cutoff = 0.25))
+#' toy <- run_network_diagnostics(toy)
+#' get_network_diagnostics(toy)
 #'
 #' @exportClass NetworkDiagnostics
 setClass(
@@ -179,42 +197,47 @@ setMethod("show", "NetworkDiagnostics", function(object) {
   s <- object@network_stats
 
   cli::cli_rule("NetworkDiagnostics")
-  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("")
+  .cli_aligned("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Full Network}")
-  cli::cli_text("  Isoforms / genes     : {s$full_isoforms} / {s$full_genes}")
-  cli::cli_text("  Total edges          : {s$full_edges}")
-  cli::cli_text("  Predicted edges      : {s$full_predicted_edges}")
-  cli::cli_text("  Isolated isoforms    : {s$isolated_isoforms} ({round(s$isolated_isoforms_pct, 1)}%)")
-  cli::cli_text("")
+  .cli_aligned("{.strong Full Network}")
+  .cli_aligned("  Isoforms / genes     : {s$full_isoforms} / {s$full_genes}")
+  .cli_aligned("  Total edges          : {s$full_edges}")
+  .cli_aligned("  Predicted edges      : {s$full_predicted_edges}")
+  .cli_aligned("  Isolated isoforms    : {s$isolated_isoforms} ({round(s$isolated_isoforms_pct, 1)}%)")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Predicted Isoform Network}")
-  cli::cli_text("  Isoforms / genes     : {s$pred_isoforms} / {s$pred_genes}")
-  cli::cli_text("  Edges                : {s$pred_edges}")
-  cli::cli_text("  Density              : {round(s$pred_density, 4)}")
-  cli::cli_text("  Avg degree           : {round(s$pred_avg_degree, 2)}")
-  cli::cli_text("  Avg clustering       : {round(s$pred_avg_clustering, 4)}")
-  cli::cli_text("  Components           : {s$pred_n_components}")
-  cli::cli_text("  Largest component    : {s$pred_largest_component_n} nodes ({round(s$pred_largest_component_pct, 1)}%)")
-  cli::cli_text("  Diameter             : {s$pred_diameter}")
-  cli::cli_text("  Avg path length      : {round(s$pred_avg_path_length, 2)}")
-  cli::cli_text("")
+  .cli_aligned("{.strong Predicted Isoform Network}")
+  .cli_aligned("  Isoforms / genes     : {s$pred_isoforms} / {s$pred_genes}")
+  .cli_aligned("  Edges                : {s$pred_edges}")
+  .cli_aligned("  Density              : {round(s$pred_density, 4)}")
+  .cli_aligned("  Avg degree           : {round(s$pred_avg_degree, 2)}")
+  .cli_aligned("  Avg clustering       : {round(s$pred_avg_clustering, 4)}")
+  .cli_aligned("  Components           : {s$pred_n_components}")
+  .cli_aligned("  Largest component    : {s$pred_largest_component_n} nodes ({round(s$pred_largest_component_pct, 1)}%)")
+  .cli_aligned("  Diameter             : {s$pred_diameter}")
+  .cli_aligned("  Avg path length      : {round(s$pred_avg_path_length, 2)}")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Predicted Gene-Level Network}")
-  cli::cli_text("  Genes / edges        : {s$gene_nodes} / {s$gene_edges}")
-  cli::cli_text("")
+  .cli_aligned("{.strong Predicted Gene-Level Network}")
+  .cli_aligned("  Genes / edges        : {s$gene_nodes} / {s$gene_edges}")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Sticky Nodes}  [{object@sticky_method} / cutoff = {object@sticky_cutoff}]")
-  cli::cli_text("  Sticky isoforms      : {nrow(object@sticky_isoform_table)} (threshold degree > {round(object@sticky_isoform_threshold, 2)})")
-  cli::cli_text("  Sticky genes         : {nrow(object@sticky_gene_table)} (threshold degree > {round(object@sticky_gene_threshold, 2)})")
-  cli::cli_text("")
+  .cli_aligned("{.strong Sticky Nodes}  [{object@sticky_method} / cutoff = {object@sticky_cutoff}]")
+  .cli_aligned("  Sticky isoforms      : {nrow(object@sticky_isoform_table)} (threshold degree > {round(object@sticky_isoform_threshold, 2)})")
+  .cli_aligned("  Sticky genes         : {nrow(object@sticky_gene_table)} (threshold degree > {round(object@sticky_gene_threshold, 2)})")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Gene Connectivity Status}")
+  .cli_aligned("{.strong Gene Connectivity Status}")
   status_counts <- table(object@isoform_per_gene_table$connectivity_status)
-  for (s_name in c("all_connected", "partial", "all_isolated")) {
+  # Same wording as panel F of plot_network_diagnostics()
+  status_labels <- c(all_connected = "All connected",
+                     partial       = "Partial",
+                     all_isolated  = "All isolated")
+  for (s_name in names(status_labels)) {
     n <- if (s_name %in% names(status_counts)) status_counts[[s_name]] else 0L
-    cli::cli_text("  {s_name} : {n} gene{?s}")
+    label <- formatC(status_labels[[s_name]], width = -21L)
+    .cli_aligned("  ", label, ": {n} gene{?s}")
   }
 
   cli::cli_rule()

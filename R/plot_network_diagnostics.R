@@ -261,16 +261,8 @@ utils::globalVariables(c(
   # the caller's global RNG state is saved and restored afterwards.
   max_pts <- 5000L
   if (nrow(df) > max_pts) {
-    old_seed <- if (exists(".Random.seed", envir = .GlobalEnv))
-      get(".Random.seed", envir = .GlobalEnv) else NULL
-    on.exit({
-      if (!is.null(old_seed))
-        assign(".Random.seed", old_seed, envir = .GlobalEnv)
-      else if (exists(".Random.seed", envir = .GlobalEnv))
-        rm(".Random.seed", envir = .GlobalEnv)
-    }, add = TRUE)
-    set.seed(42)
-    df <- df[sample.int(nrow(df), max_pts), , drop = FALSE]
+    keep <- withr::with_seed(42L, sample.int(nrow(df), max_pts))
+    df <- df[keep, , drop = FALSE]
   }
 
   ggplot2::ggplot(df,
@@ -330,6 +322,10 @@ utils::globalVariables(c(
       size   = 3,
       colour = "grey20"
     ) +
+    # Headroom so the count above the tallest bar is not clipped
+    ggplot2::scale_y_continuous(
+      expand = ggplot2::expansion(mult = c(0.02, 0.1))
+    ) +
     ggplot2::scale_fill_manual(
       values = c("All connected" = "#009E73",
                  "Partial"        = "#D55E00",
@@ -380,16 +376,18 @@ utils::globalVariables(c(
 #'   save with \code{ggplot2::ggsave()}.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- run_network_diagnostics(obj)
-#'
-#' # Display (no title; tagged panels A-F only)
-#' plot_network_diagnostics(obj)
-#'
-#' # Save to file
-#' p <- plot_network_diagnostics(obj)
-#' ggplot2::ggsave("network_diagnostics.pdf", p, width = 12, height = 7)
-#' }
+#' # A small deterministic network keeps this example fast; on the bundled
+#' # network the diagnostics take about half a minute.
+#' g <- igraph::make_graph("Zachary")
+#' n <- igraph::vcount(g)
+#' igraph::V(g)$name <- paste0("tx", seq_len(n))
+#' igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+#' igraph::V(g)$transcript_biotype <- "protein_coding"
+#' igraph::E(g)$interact <- 1L
+#' toy <- IsoNetAnalyzeR("toy", network = g,
+#'                       metadata = list(network_cutoff = 0.25))
+#' toy <- run_network_diagnostics(toy)
+#' p <- plot_network_diagnostics(toy)
 #'
 #' @export
 plot_network_diagnostics <- function(obj, title = NULL) {

@@ -36,6 +36,13 @@ NULL
 #'   run) or a \linkS4class{NetworkDiagnostics} object produced by
 #'   \code{\link{run_network_diagnostics}}.
 #'
+#' @return Objects of this class are created by \code{\link{IsoNetAnalyzeR}}.
+#'
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' obj
+#' list_analyses(obj)
+#'
 #' @exportClass IsoNetAnalyzeR
 setClass(
   "IsoNetAnalyzeR",
@@ -137,13 +144,19 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   existing saved sessions are not retroactively changed.
 #'
 #' @examples
-#' \dontrun{
-#' # Load the built-in network
-#' obj <- IsoNetAnalyzeR("my_experiment")
+#' # Session on the bundled network (NMD and NSD transcripts excluded)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj
 #'
-#' # Supply a custom network
-#' obj <- IsoNetAnalyzeR("custom", network = my_igraph)
-#' }
+#' # A user-supplied network needs vertex names, a `gene` vertex attribute,
+#' # a binary `interact` edge attribute and known transcript biotypes
+#' g <- igraph::graph_from_data_frame(
+#'   data.frame(from = "tx1", to = "tx2", interact = 1L, pi = 0.9),
+#'   directed = FALSE,
+#'   vertices = data.frame(name = c("tx1", "tx2"), gene = c("g1", "g2"),
+#'                         transcript_biotype = "protein_coding")
+#' )
+#' IsoNetAnalyzeR("custom", network = g, metadata = list(network_cutoff = 0))
 #'
 #' @export
 IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
@@ -188,16 +201,16 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
       )
     )
     message(sprintf(
-      "Loaded package-internal network: %d vertices, %d edges.",
-      igraph::vcount(network), igraph::ecount(network)
+      "Loaded the bundled network: %s transcripts, %s edges.",
+      .fmt_int(igraph::vcount(network)), .fmt_int(igraph::ecount(network))
     ))
   } else {
     if (!inherits(network, "igraph"))
       stop("`network` must be an igraph object.", call. = FALSE)
     auto_meta <- list(network_source = "user_supplied")
     message(sprintf(
-      "Using user-supplied network: %d vertices, %d edges.",
-      igraph::vcount(network), igraph::ecount(network)
+      "Using the supplied network: %s transcripts, %s edges.",
+      .fmt_int(igraph::vcount(network)), .fmt_int(igraph::ecount(network))
     ))
   }
 
@@ -218,11 +231,14 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
   )
   network <- filtered$network
   merged_meta$network_biotype_filter <- filtered$audit
-  message(sprintf(
-    "Transcript eligibility: excluded %d NMD and %d NSD vertices; %d remain.",
-    filtered$audit$excluded_nmd, filtered$audit$excluded_nsd,
-    filtered$audit$vertices_after
-  ))
+  message(
+    sprintf("Excluded %s NMD and %s NSD transcripts with their edges;\n",
+            .fmt_int(filtered$audit$excluded_nmd),
+            .fmt_int(filtered$audit$excluded_nsd)),
+    sprintf("%s transcripts and %s edges remain.",
+            .fmt_int(igraph::vcount(network)),
+            .fmt_int(igraph::ecount(network)))
+  )
 
   #-- Construct & validate -----------------------------------------------------
   obj <- new(
@@ -249,21 +265,28 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
 #'   session object.
 #' @param object An \linkS4class{IsoNetAnalyzeR} object.
 setMethod("show", "IsoNetAnalyzeR", function(object) {
-  cli::cli_rule("IsoNetAnalyzeR session")
-  cli::cli_text("Name       : {object@name}")
-  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("Network    : {igraph::vcount(object@network)} vertices / {igraph::ecount(object@network)} edges  [source: {object@metadata[['network_source']] %||% 'unknown'}]")
-  cli::cli_text("Analyses   : {length(object@analyses)} stored  [{(.slot_names_str(object@analyses))}]")
-  cli::cli_text("Lookups    : {length(object@lookups)} stored  [{(.slot_names_str(object@lookups))}]")
+  source <- object@metadata[["network_source"]] %||% "unknown"
+  source <- switch(source, package_internal = "bundled",
+                   user_supplied = "user-supplied", source)
+  n_vertices <- .fmt_int(igraph::vcount(object@network))
+  n_edges    <- .fmt_int(igraph::ecount(object@network))
   diag_status <- if (is.null(object@network_diagnostics)) "not run" else
     format(object@network_diagnostics@created_at, '%Y-%m-%d %H:%M:%S')
-  cli::cli_text("Diagnostics: {diag_status}")
 
-  if (length(object@metadata) > 0L) {
-    extra <- setdiff(names(object@metadata), "network_source")
-    if (length(extra)) {
-      cli::cli_text("Metadata   : {paste(extra, collapse = ', ')}")
-    }
+  cli::cli_rule("IsoNetAnalyzeR session")
+  .cli_aligned("Name        : {object@name}")
+  .cli_aligned("Created     : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("Network     : {n_vertices} transcripts, {n_edges} edges ({source})")
+  .cli_aligned("Analyses    : {(.slot_names_str(object@analyses))}")
+  .cli_aligned("Lookups     : {(.slot_names_str(object@lookups))}")
+  .cli_aligned("Diagnostics : {diag_status}")
+
+  extra <- setdiff(names(object@metadata), "network_source")
+  if (length(extra)) {
+    keys <- strwrap(paste(extra, collapse = ", "),
+                    width = cli::console_width() - 15L)
+    .cli_aligned("Metadata    : {keys[1L]}")
+    for (line in keys[-1L]) .cli_aligned("              {line}")
   }
   cli::cli_rule()
   invisible(object)
@@ -284,6 +307,36 @@ setMethod("show", "IsoNetAnalyzeR", function(object) {
   if (length(lst) == 0L) return("none")
   paste(names(lst), collapse = ", ")
 }
+
+#' Format counts with thousands separators
+#' @noRd
+.fmt_int <- function(x) formatC(x, format = "d", big.mark = ",")
+
+#' cli::cli_text() that keeps column alignment
+#'
+#' cli_text() collapses repeated spaces, which misaligns the padded labels of
+#' printed summaries. Runs of spaces outside glue braces become non-breaking
+#' spaces, which cli prints as ordinary spaces. A line break inside the text,
+#' with the indentation that follows it, still reads as one space.
+#' @noRd
+.cli_aligned <- function(..., .envir = parent.frame()) {
+  text  <- gsub("\n[ \t]*", " ", paste0(...))
+  chars <- strsplit(text, "")[[1L]]
+  depth <- cumsum(chars == "{") - cumsum(chars == "}")
+  space <- chars == " " & depth == 0L
+  n <- length(space)
+  run <- space & (c(FALSE, space[-n]) | c(space[-1L], FALSE))
+  chars[run] <- "\u00a0"
+  cli::cli_text(paste(chars, collapse = ""), .envir = .envir)
+}
+
+#' Variable name of the session object, for "Access with" hints
+#'
+#' Takes \code{substitute(obj)} from the calling function and returns the
+#' caller's variable name, or \code{"obj"} when the argument was an
+#' expression.
+#' @noRd
+.obj_name <- function(expr) if (is.name(expr)) as.character(expr) else "obj"
 
 #' Return the package name from within the package namespace
 #' @noRd
@@ -356,6 +409,16 @@ packageName <- function() "IsoNetAnalyzeR"
 #'
 #' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
 #' @return Character vector of analysis labels, or \code{character(0)} if none.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' list_analyses(obj)
+#'
 #' @export
 setGeneric("list_analyses", function(obj) standardGeneric("list_analyses"))
 
@@ -372,6 +435,17 @@ setMethod("list_analyses", "IsoNetAnalyzeR", function(obj) {
 #' @param label Character scalar. The key under which the analysis was stored.
 #'
 #' @return A \linkS4class{DifferentialPulldownAnalysis} object.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' list_analyses(obj)
+#' get_analysis(obj, "t2d")
+#'
 #' @export
 setGeneric("get_analysis", function(obj, label) standardGeneric("get_analysis"))
 
@@ -392,6 +466,12 @@ setMethod("get_analysis", "IsoNetAnalyzeR", function(obj, label) {
 #'
 #' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
 #' @return Character vector of lookup labels, or \code{character(0)} if none.
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' list_lookups(obj)
+#'
 #' @export
 setGeneric("list_lookups", function(obj) standardGeneric("list_lookups"))
 
@@ -408,6 +488,12 @@ setMethod("list_lookups", "IsoNetAnalyzeR", function(obj) {
 #' @param label Character scalar. The key under which the lookup was stored.
 #'
 #' @return A \linkS4class{VirtualPulldownLookup} object.
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' get_lookup(obj, "cltcl1_up")
+#'
 #' @export
 setGeneric("get_lookup", function(obj, label) standardGeneric("get_lookup"))
 
@@ -439,10 +525,18 @@ setMethod("get_lookup", "IsoNetAnalyzeR", function(obj, label) {
 #' @return A \linkS4class{NetworkDiagnostics} object.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- run_network_diagnostics(obj)
-#' get_network_diagnostics(obj)
-#' }
+#' # A small deterministic network keeps this example fast; on the bundled
+#' # network the diagnostics take about half a minute.
+#' g <- igraph::make_graph("Zachary")
+#' n <- igraph::vcount(g)
+#' igraph::V(g)$name <- paste0("tx", seq_len(n))
+#' igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+#' igraph::V(g)$transcript_biotype <- "protein_coding"
+#' igraph::E(g)$interact <- 1L
+#' toy <- IsoNetAnalyzeR("toy", network = g,
+#'                       metadata = list(network_cutoff = 0.25))
+#' toy <- run_network_diagnostics(toy)
+#' get_network_diagnostics(toy)
 #'
 #' @export
 setGeneric("get_network_diagnostics",
@@ -480,12 +574,10 @@ setMethod("get_network_diagnostics", "IsoNetAnalyzeR", function(obj) {
 #' @return An updated \linkS4class{IsoNetAnalyzeR} object (invisibly).
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("my_experiment")
+#' obj <- IsoNetAnalyzeR("example")
 #' obj <- set_metadata(obj, "author", "Jane Doe")
-#' obj <- set_metadata(obj, "notes",  "Pilot run, March 2025")
-#' print_metadata(obj)
-#' }
+#' obj <- set_metadata(obj, "notes", "Pilot run")
+#' get_metadata(obj, "author")
 #'
 #' @export
 set_metadata <- function(obj, key, value) {
@@ -498,4 +590,85 @@ set_metadata <- function(obj, key, value) {
 
   obj@metadata[[key]] <- value
   invisible(obj)
+}
+
+
+# ==============================================================================
+#  get_metadata
+# ==============================================================================
+
+#' Retrieve metadata from an IsoNetAnalyzeR session object
+#'
+#' Returns one named entry of the session metadata, or the complete metadata
+#' list. The constructor and the analysis functions record provenance here:
+#' \code{network_source}, \code{network_cutoff} and
+#' \code{network_biotype_filter} (the transcript eligibility audit) are set
+#' when the session is created, and \code{analysis_network_coverage},
+#' \code{analysis_seed_support} and \code{analysis_duplicate_resolution} are
+#' lists keyed by analysis label.
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#' @param key Character scalar naming one metadata entry, or \code{NULL}
+#'   (default) to return all entries.
+#'
+#' @return The value stored under \code{key}, or the named list of all
+#'   metadata when \code{key} is \code{NULL}.
+#'
+#' @seealso \code{\link{set_metadata}}, \code{\link{print_metadata}}
+#'
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' names(get_metadata(obj))
+#' get_metadata(obj, "network_cutoff")
+#' get_metadata(obj, "network_biotype_filter")$excluded_nmd
+#'
+#' @export
+get_metadata <- function(obj, key = NULL) {
+
+  if (!is(obj, "IsoNetAnalyzeR"))
+    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
+
+  if (is.null(key))
+    return(obj@metadata)
+
+  if (!is.character(key) || length(key) != 1L || is.na(key) ||
+      !nzchar(trimws(key)))
+    stop("`key` must be a single non-empty character string.", call. = FALSE)
+
+  if (!key %in% names(obj@metadata))
+    stop(sprintf("No metadata entry '%s'. Available: %s",
+                 key, .slot_names_str(obj@metadata)), call. = FALSE)
+
+  obj@metadata[[key]]
+}
+
+
+# ==============================================================================
+#  get_network
+# ==============================================================================
+
+#' Retrieve the interaction network of an IsoNetAnalyzeR session
+#'
+#' Returns the isoform interaction network used by the session, after
+#' transcript eligibility filtering.
+#'
+#' @param obj An \linkS4class{IsoNetAnalyzeR} session object.
+#'
+#' @return An undirected \code{igraph} object. Vertices are transcripts with
+#'   \code{name}, \code{gene} and \code{transcript_biotype} attributes; edges
+#'   carry a binary \code{interact} attribute and, for the bundled network,
+#'   the predicted interaction probability \code{pi}.
+#'
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' net <- get_network(obj)
+#' c(vertices = igraph::vcount(net), edges = igraph::ecount(net))
+#'
+#' @export
+get_network <- function(obj) {
+
+  if (!is(obj, "IsoNetAnalyzeR"))
+    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
+
+  obj@network
 }

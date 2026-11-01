@@ -23,15 +23,9 @@ NULL
 #' @return \code{object}, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
-#' print_metadata(obj)
-#'
-#' # Add custom metadata and inspect
+#' obj <- IsoNetAnalyzeR("example")
 #' obj <- set_metadata(obj, "author", "Jane Doe")
-#' obj <- set_metadata(obj, "notes",  "Pilot run, March 2025")
 #' print_metadata(obj)
-#' }
 #'
 #' @export
 setGeneric("print_metadata", function(object, ...) standardGeneric("print_metadata"))
@@ -85,7 +79,9 @@ setMethod("print_metadata", "IsoNetAnalyzeR", function(object, ...) {
       preview
     }
 
-    padded_key <- formatC(key, width = -pad_width, flag = "-")
+    # cli collapses ordinary spaces; non-breaking padding keeps the columns
+    padded_key <- gsub(" ", "\u00a0", formatC(key, width = -pad_width,
+                                               flag = "-"), fixed = TRUE)
     cli::cli_text("{padded_key} : {val_str}")
   }
 

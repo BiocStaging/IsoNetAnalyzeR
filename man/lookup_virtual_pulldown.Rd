@@ -50,41 +50,23 @@ order-0 anchors in a single pulldown.  The network is taken directly from
 alternative thresholds.
 }
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
+obj <- IsoNetAnalyzeR("example")
 
-# Single seed — uses stored network_cutoff
-obj <- lookup_virtual_pulldown(obj,
-                               "ENST00000379236",
-                               seed = "ENST00000379236",
+# One isoform seed, using the session's stored cutoff
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
                                order = 1)
-obj
 
-# Multiple seeds - all treated as order-0 anchors in one pulldown
+# Several seeds act as joint order-0 anchors; try a stricter cutoff
 obj <- lookup_virtual_pulldown(
-  obj,
-  "multiple_input",
-  seed  = c("ENST00000379236", "ENST00000445118"),
-  order = 1
+  obj, "cltcl1_both",
+  seed = c("ENST00000621271", "ENST00000427926"),
+  order = 1, cutoff = 0.4
 )
 
-# Custom cutoff - explore a stricter threshold without changing the session
-obj <- lookup_virtual_pulldown(
-  obj,
-  "ENST00000379236",
-  seed   = "ENST00000379236",
-  order  = 1,
-  cutoff = 0.4
-)
-
-# Multiple gene seeds - all treated as order-0 anchors in one pulldown
-obj <- lookup_virtual_pulldown(
-  obj,
-  "combined_lkp",
-  seed  = c("ENST00000379236", "ENST00000445118"),
-  order = 1
-)
-get_lookup(obj, "combined_lkp")
-}
+# All network isoforms of a gene as seeds
+obj <- lookup_virtual_pulldown(obj, "cltcl1_gene", seed = "ENSG00000070371",
+                               order = 1, level = "gene")
+list_lookups(obj)
+get_lookup(obj, "cltcl1_gene")
 
 }

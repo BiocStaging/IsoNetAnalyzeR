@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{ComponentAnalysis} object.}
 }
+\value{
+Objects of this class are created by \code{\link{run_component_analysis}}; read them with \code{\link{get_component_overview}} and \code{\link{get_component}}.
+}
 \description{
 Produced by \code{\link{run_component_analysis}}.  Stores Tier-1 structural
 and Tier-2 topological summary tables derived from decomposing the merged
@@ -89,3 +92,16 @@ objects, keyed by user-supplied label.  Populated by
 \item{\code{created_at}}{\code{POSIXct} scalar.  Timestamp of the run.}
 }}
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+get_component_overview(obj, "t2d", "comp")
+
+}

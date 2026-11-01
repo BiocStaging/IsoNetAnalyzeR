@@ -32,18 +32,10 @@ utility.
 
 }}
 \examples{
-\dontrun{
-# Run a look-up first
-obj <- lookup_virtual_pulldown(obj, "my_lkp",
-                               seed = "ENST00000379236", order = 1)
-
-# Retrieve the igraph subgraph
-g <- get_lookup_subgraph(obj, "my_lkp")
-igraph::vcount(g)
-igraph::ecount(g)
-
-# Pass directly to plot_network
-plot_network(g)
-}
+obj <- IsoNetAnalyzeR("example")
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+g <- get_lookup_subgraph(obj, "cltcl1_up")
+c(nodes = igraph::vcount(g), edges = igraph::ecount(g))
 
 }

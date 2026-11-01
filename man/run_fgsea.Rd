@@ -126,23 +126,30 @@ parameters. Live pathway collections can change over time.
 }
 
 \examples{
-\dontrun{
-# Tier 1 - built-in preset
-obj <- run_fgsea(obj, "my_run", label = "nodes_gsea")
-obj <- run_fgsea(obj, "my_run", label = "edges_gsea", rank_by = "delta_edges")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+# For speed, this example analyses only the seed genes found in Hallmark
+# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+# must be small.
+in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+                                 order = 1, confirm = FALSE, verbose = FALSE)
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
+get_gsea_table(obj, "t2d", "hallmark_gsea")
 
-# Tier 3 - custom ranking
-cgs      <- get_cross_gene_summary(obj, "my_run")
+# Custom ranking: a weighted node and edge difference per gene
+cgs <- get_cross_gene_summary(obj, "t2d")
 my_stats <- setNames(
   (cgs$up_nodes - cgs$down_nodes) * 0.7 +
-  (cgs$up_edges - cgs$down_edges) * 0.3,
+    (cgs$up_edges - cgs$down_edges) * 0.3,
   cgs$gene_id
 )
-obj <- run_fgsea(obj, "my_run", label = "weighted", stats = my_stats)
-
-# Retrieve filtered results (use get_gsea_table / get_gsea_stats)
-get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
-get_gsea_stats(obj, "my_run", "nodes_gsea")
-}
+obj <- run_fgsea(obj, "t2d", label = "weighted", stats = my_stats,
+                 pathways = hallmark, minSize = 3)
 
 }

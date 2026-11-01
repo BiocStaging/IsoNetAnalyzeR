@@ -33,3 +33,22 @@ Sums raw count rows into the kept transcript representative for each
 protein-identical group. This transformation must be performed before
 differential expression or transcript-usage model fitting.
 }
+\examples{
+map <- isonet_duplicate_map()
+counts <- matrix(
+  c(10L, 4L, 7L,
+    2L, 1L, 3L,
+    5L, 5L, 5L),
+  nrow = 3, byrow = TRUE,
+  dimnames = list(c(map$kept_ENST[1], map$redundant_ENST[1],
+                    map$kept_ENST[2]), paste0("sample", seq_len(3)))
+)
+features <- data.frame(
+  gene_id = c(map$kept_ENSG[1], map$redundant_ENSG[1], map$kept_ENSG[2]),
+  isoform_id = rownames(counts)
+)
+res <- aggregate_duplicate_counts(counts, features)
+res$object
+res$summary
+
+}

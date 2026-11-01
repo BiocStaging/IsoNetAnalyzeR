@@ -41,16 +41,16 @@ obj <- run_differential_pulldown(
   order = 1, cutoff = 0, confirm = FALSE, verbose = FALSE
 )
 
-coverage <- obj@metadata$analysis_network_coverage$synthetic
+coverage <- get_metadata(obj, "analysis_network_coverage")$synthetic
 coverage$overall
 coverage$by_direction
-obj@metadata$analysis_duplicate_resolution$synthetic$summary
+get_metadata(obj, "analysis_duplicate_resolution")$synthetic$summary
 
 summary <- get_cross_gene_summary(obj, "synthetic")
 summary
 
 gene_A <- get_gene_result(obj, "synthetic", "gene_A")
-gene_A@graph_summary
+gene_A
 
 p <- plot_network(gene_A, layout = "circle")
 # ggplot2::ggsave("gene_A.pdf", p, width = 7, height = 5)
@@ -74,7 +74,7 @@ obj <- run_differential_pulldown(
   order = 1, cutoff = 0, confirm = FALSE, verbose = FALSE,
   seed_padj_col = "adjusted_pvalue", seed_fdr = 0.05
 )
-obj@metadata$analysis_seed_support$supported$gene_audit
+get_metadata(obj, "analysis_seed_support")$supported$gene_audit
 # One significant retained seed supports this pair; the complementary seed
 # need not be significant. Both directions are required in this mode.
 p_overlay <- plot_network(

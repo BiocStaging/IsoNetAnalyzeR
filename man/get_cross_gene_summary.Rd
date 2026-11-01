@@ -31,9 +31,15 @@ conditions side by side.
 
 }}
 \examples{
-\dontrun{
-cgs <- get_cross_gene_summary(obj, "my_run")
-head(cgs)
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+cgs <- get_cross_gene_summary(obj, "t2d")
+cgs[, c("gene_id", "up_nodes", "down_nodes", "up_edges", "down_edges")]
 
 }

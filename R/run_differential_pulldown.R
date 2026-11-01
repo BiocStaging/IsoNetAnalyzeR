@@ -129,31 +129,22 @@ NULL
 #'   the result via \code{get_analysis(obj, label)}.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' cltcl1 <- seeds[seeds$gene_name == "CLTCL1", ]
+#' obj <- IsoNetAnalyzeR("example")
 #'
-#' # --- Sequential (default, no extra packages needed) -----------------------
+#' # Exploratory run: gene_id, isoform_id and direction only
+#' obj <- run_differential_pulldown(obj, "explore", cltcl1, order = 1,
+#'                                  confirm = FALSE, verbose = FALSE)
+#'
+#' # Require at least one significant retained seed per gene
 #' obj <- run_differential_pulldown(
-#'   obj, "condition_A_vs_B", "de_isoforms.csv", order = 1
+#'   obj, "supported", cltcl1, order = 1, confirm = FALSE, verbose = FALSE,
+#'   seed_padj_col = "within_gene_padj", seed_fdr = 0.05
 #' )
-#'
-#' # --- Parallel (requires future + future.apply) ----------------------------
-#' library(future)
-#' plan(multisession, workers = 4)   # works on all platforms
-#'
-#' obj <- run_differential_pulldown(
-#'   obj, "condition_A_vs_B", "de_isoforms.csv",
-#'   order    = 1,
-#'   parallel = TRUE
-#' )
-#'
-#' plan(sequential)   # restore after the run
-#'
-#' # --- Inspect results ------------------------------------------------------
-#' get_analysis(obj, "condition_A_vs_B")
-#' get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048")
-#' plot_network(get_gene_result(obj, "condition_A_vs_B", "ENSG00000012048"))
-#' }
+#' get_metadata(obj, "analysis_seed_support")$supported$gene_audit
+#' get_cross_gene_summary(obj, "supported")
 #'
 #' @export
 run_differential_pulldown <- function(obj,
@@ -167,6 +158,8 @@ run_differential_pulldown <- function(obj,
                                       resolve_duplicates = TRUE,
                                       seed_padj_col = NULL,
                                       seed_fdr = 0.05) {
+
+  obj_name <- .obj_name(substitute(obj))
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -287,7 +280,7 @@ run_differential_pulldown <- function(obj,
       nrow(tbl),
       length(gene_ids),
       length(unique(tbl$isoform_id)),
-      if (parallel) paste0("parallel [", class(future::plan())[[1L]], "]")
+      if (parallel) sprintf("parallel [%s]", class(future::plan())[[1L]])
       else "sequential"
     ))
 
@@ -377,7 +370,8 @@ run_differential_pulldown <- function(obj,
     obj@metadata[["analysis_duplicate_resolution"]][[label]] <-
       duplicate_resolution
   }
-  message(sprintf("Done. Access the analysis with:\n  get_analysis(obj, \"%s\")", label))
+  message(sprintf("Done. Access the analysis with:\n  get_analysis(%s, \"%s\")",
+                  obj_name, label))
   invisible(obj)
 }
 
@@ -545,40 +539,40 @@ run_differential_pulldown <- function(obj,
 
   # ---- print report ----------------------------------------------------------
   cli::cli_rule("Network Coverage Report")
-  cli::cli_text("")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Isoforms}")
-  cli::cli_text("  Unique submitted IDs       : {overall$n_input}")
-  cli::cli_text("  Unique resolved representatives: {overall$n_resolved_representatives}")
-  cli::cli_text("  Duplicate-remapped IDs     : {overall$n_remapped_from_duplicate}")
-  cli::cli_text("  Version-normalized IDs     : {overall$n_version_normalized}")
-  cli::cli_text("  Mapped, predicted edge     : {overall$n_mapped_with_predicted_edge}")
-  cli::cli_text("  Mapped, no predicted edge  : {overall$n_mapped_no_predicted_edge}")
-  cli::cli_text("  Unmapped                   : {overall$n_unmapped}")
-  cli::cli_text("  Mapping                    : {overall$n_mapped} / {overall$n_input} ({round(overall$pct_mapped, 1)}%)")
+  .cli_aligned("{.strong Isoforms}")
+  .cli_aligned("  Unique submitted IDs            : {overall$n_input}")
+  .cli_aligned("  Unique resolved representatives : {overall$n_resolved_representatives}")
+  .cli_aligned("  Duplicate-remapped IDs          : {overall$n_remapped_from_duplicate}")
+  .cli_aligned("  Version-normalized IDs          : {overall$n_version_normalized}")
+  .cli_aligned("  Mapped, predicted edge          : {overall$n_mapped_with_predicted_edge}")
+  .cli_aligned("  Mapped, no predicted edge       : {overall$n_mapped_no_predicted_edge}")
+  .cli_aligned("  Unmapped                        : {overall$n_unmapped}")
+  .cli_aligned("  Mapping                         : {overall$n_mapped} / {overall$n_input} ({round(overall$pct_mapped, 1)}%)")
   for (i in seq_len(nrow(by_direction))) {
     row <- by_direction[i, , drop = FALSE]
-    cli::cli_text(
+    .cli_aligned(
       "  {row$direction}: mapped with edge {row$n_mapped_with_predicted_edge}; mapped without edge {row$n_mapped_no_predicted_edge}; unmapped {row$n_unmapped} ({round(row$pct_mapped, 1)}% mapped)"
     )
   }
-  cli::cli_text("")
+  .cli_aligned("")
 
-  cli::cli_text("{.strong Genes}")
-  cli::cli_text(
-    "  Total in input   : {n_genes_total}"
+  .cli_aligned("{.strong Genes}")
+  .cli_aligned(
+    "  Total in input                  : {n_genes_total}"
   )
-  cli::cli_text(
-    "  At least 1 isoform in network : {n_genes_covered} / {n_genes_total} ({round(pct_genes, 1)}%)"
+  .cli_aligned(
+    "  At least 1 isoform in network   : {n_genes_covered} / {n_genes_total} ({round(pct_genes, 1)}%)"
   )
-  cli::cli_text("  No submitted isoforms mapped  : {n_genes_total - n_genes_covered}")
-  cli::cli_text(
+  .cli_aligned("  No submitted isoforms mapped    : {n_genes_total - n_genes_covered}")
+  .cli_aligned(
     "  Note: isoforms found in network with no interact==1 edges will produce a"
   )
-  cli::cli_text(
+  .cli_aligned(
     "        zero-interaction subgraph (single node), which is a valid result."
   )
-  cli::cli_text("")
+  .cli_aligned("")
   cli::cli_rule()
 
   warn_rows <- rbind(overall, by_direction)
@@ -829,25 +823,21 @@ run_differential_pulldown <- function(obj,
       if (length(directions) > 1L) {
         drop_genes <- c(drop_genes, gene)
         warning(
-          sprintf(
-            paste0(
-              "Dropping gene '%s': protein-identical submitted transcripts ",
-              "%s resolve to representative '%s' with opposite directions."
-            ),
-            gene, submitted_description, representative
-          ),
+          sprintf("Dropping gene '%s': protein-identical submitted transcripts ",
+                  gene),
+          sprintf("%s resolve to representative '%s' with opposite directions.",
+                  submitted_description, representative),
           call. = FALSE
         )
       } else {
         collapse_rows <- c(collapse_rows, rows[-1L])
         audit$action[rows[-1L]] <- "collapsed_same_direction"
-        message(sprintf(
-          paste0(
-            "Collapsed %d submitted isoform IDs into one protein-identical ",
-            "network representative '%s' for gene '%s'."
-          ),
-          length(unique(audit$submitted_id[rows])), representative, gene
-        ))
+        message(
+          sprintf("Collapsed %d submitted isoform IDs into one protein-identical ",
+                  length(unique(audit$submitted_id[rows]))),
+          sprintf("network representative '%s' for gene '%s'.",
+                  representative, gene)
+        )
       }
     }
 
@@ -862,11 +852,9 @@ run_differential_pulldown <- function(obj,
 
     if (nrow(tbl) == 0L) {
       stop(
-        paste0(
-          "No analyzable rows remain after protein-identical collision ",
-          "handling. All submitted genes contained opposite-direction ",
-          "collisions."
-        ),
+        "No analyzable rows remain after protein-identical collision ",
+        "handling. All submitted genes contained opposite-direction ",
+        "collisions.",
         call. = FALSE
       )
     }

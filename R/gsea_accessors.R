@@ -49,16 +49,24 @@ NULL
 #'   \code{leadingEdge}, sorted by \code{padj} ascending.
 #'
 #' @examples
-#' \dontrun{
-#' # All pathways tested
-#' get_gsea_table(obj, "cond_A", "gsea_nodes")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' # For speed, this example analyses only the seed genes found in Hallmark
+#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+#' # must be small.
+#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' set.seed(42)
+#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#'                  minSize = 3)
 #'
-#' # Significant pathways only
-#' get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.05)
-#'
-#' # Strongly significant pathways
-#' get_gsea_table(obj, "cond_A", "gsea_nodes", padj_cutoff = 0.01)
-#' }
+#' # All tested gene sets, and those passing an adjusted p-value cutoff
+#' get_gsea_table(obj, "t2d", "hallmark_gsea")
+#' get_gsea_table(obj, "t2d", "hallmark_gsea", padj_cutoff = 0.05)
 #'
 #' @export
 setGeneric("get_gsea_table",
@@ -125,11 +133,23 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 #'   Sorted by \code{stat} descending (i.e. rank 1 first).
 #'
 #' @examples
-#' \dontrun{
-#' stats_df <- get_gsea_stats(obj, "cond_A", "gsea_nodes")
-#' head(stats_df, 20)   # top 20 genes by rank statistic
-#' tail(stats_df, 20)   # bottom 20 (most down-shifted)
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' # For speed, this example analyses only the seed genes found in Hallmark
+#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+#' # must be small.
+#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' set.seed(42)
+#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#'                  minSize = 3)
+#'
+#' # The ranked statistic used by fgsea, highest first
+#' head(get_gsea_stats(obj, "t2d", "hallmark_gsea"))
 #'
 #' @export
 setGeneric("get_gsea_stats",
@@ -189,23 +209,26 @@ setMethod("get_gsea_stats", "IsoNetAnalyzeR",
 #'   \code{component_id} then \code{padj} ascending.
 #'
 #' @examples
-#' \dontrun{
-#' # All terms, all components
-#' get_ora_table(obj, "cond_A", "comp_both", "ora_bp")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+#'                          pathways = hallmark)
 #'
-#' # All terms for component 1 only
-#' get_ora_table(obj, "cond_A", "comp_both", "ora_bp", component_id = 1)
+#' # Top two gene sets per component
+#' get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 2)
 #'
-#' # Significant terms across all components
-#' get_ora_table(obj, "cond_A", "comp_both", "ora_bp", padj_cutoff = 0.05)
-#'
-#' # Top 3 terms per component — quick biological overview of all components
-#' get_ora_table(obj, "cond_A", "comp_both", "ora_bp", top_n = 3)
-#'
-#' # Top 5 significant terms for component 2
-#' get_ora_table(obj, "cond_A", "comp_both", "ora_bp",
-#'               component_id = 2, padj_cutoff = 0.05, top_n = 5)
-#' }
+#' # Significant gene sets of component 1
+#' get_ora_table(obj, "t2d", "comp", "hallmark", component_id = 1,
+#'               padj_cutoff = 0.05)
 #'
 #' @export
 setGeneric("get_ora_table",

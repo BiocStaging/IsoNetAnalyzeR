@@ -70,22 +70,25 @@ applied in the order: \code{component_id} → \code{padj_cutoff} →
 
 }}
 \examples{
-\dontrun{
-# All terms, all components
-get_ora_table(obj, "cond_A", "comp_both", "ora_bp")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+                         pathways = hallmark)
 
-# All terms for component 1 only
-get_ora_table(obj, "cond_A", "comp_both", "ora_bp", component_id = 1)
+# Top two gene sets per component
+get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 2)
 
-# Significant terms across all components
-get_ora_table(obj, "cond_A", "comp_both", "ora_bp", padj_cutoff = 0.05)
-
-# Top 3 terms per component — quick biological overview of all components
-get_ora_table(obj, "cond_A", "comp_both", "ora_bp", top_n = 3)
-
-# Top 5 significant terms for component 2
-get_ora_table(obj, "cond_A", "comp_both", "ora_bp",
-              component_id = 2, padj_cutoff = 0.05, top_n = 5)
-}
+# Significant gene sets of component 1
+get_ora_table(obj, "t2d", "comp", "hallmark", component_id = 1,
+              padj_cutoff = 0.05)
 
 }

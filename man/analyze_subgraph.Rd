@@ -42,3 +42,9 @@ of the interactions that anchored the pulldown.  For non-seed vertices these
 columns are \code{NA} — their edges were pulled in by BFS expansion and the
 pi values reflect the network globally rather than any seed-specific signal.
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+g <- virtual_pulldown(obj, "ENST00000621271", order = 1)
+head(analyze_subgraph(g))
+
+}

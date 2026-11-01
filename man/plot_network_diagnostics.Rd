@@ -41,15 +41,17 @@ and the isoforms-per-gene panel (E) use log-scaled counts to make the
 heavy right tail readable; no power-law shape is implied by this choice.
 }
 \examples{
-\dontrun{
-obj <- run_network_diagnostics(obj)
-
-# Display (no title; tagged panels A-F only)
-plot_network_diagnostics(obj)
-
-# Save to file
-p <- plot_network_diagnostics(obj)
-ggplot2::ggsave("network_diagnostics.pdf", p, width = 12, height = 7)
-}
+# A small deterministic network keeps this example fast; on the bundled
+# network the diagnostics take about half a minute.
+g <- igraph::make_graph("Zachary")
+n <- igraph::vcount(g)
+igraph::V(g)$name <- paste0("tx", seq_len(n))
+igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+igraph::V(g)$transcript_biotype <- "protein_coding"
+igraph::E(g)$interact <- 1L
+toy <- IsoNetAnalyzeR("toy", network = g,
+                      metadata = list(network_cutoff = 0.25))
+toy <- run_network_diagnostics(toy)
+p <- plot_network_diagnostics(toy)
 
 }

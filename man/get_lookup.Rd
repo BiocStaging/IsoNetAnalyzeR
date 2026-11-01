@@ -17,3 +17,10 @@ A \linkS4class{VirtualPulldownLookup} object.
 \description{
 Retrieve a stored lookup result
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+get_lookup(obj, "cltcl1_up")
+
+}

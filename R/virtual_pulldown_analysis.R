@@ -110,6 +110,14 @@
 #'   \item{starness}{Degree centralization score (0 = uniform, 1 = perfect star).}
 #'   \item{genes}{Number of unique genes represented.}
 #' }
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' neighbourhoods <- list(
+#'   cltcl1_up = virtual_pulldown(obj, "ENST00000621271", order = 1),
+#'   cltcl1_down = virtual_pulldown(obj, "ENST00000427926", order = 1)
+#' )
+#' summarize_subgraphs(neighbourhoods)
+#'
 #' @export
 summarize_subgraphs <- function(vp_list) {
   if (!is.list(vp_list) || length(vp_list) == 0) {
@@ -180,6 +188,11 @@ summarize_subgraphs <- function(vp_list) {
 #'     similar moderate confidence.  \code{NA} for non-seed vertices and for
 #'     seed vertices with only one incident edge.}
 #' }
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' g <- virtual_pulldown(obj, "ENST00000621271", order = 1)
+#' head(analyze_subgraph(g))
+#'
 #' @export
 analyze_subgraph <- function(graph) {
   if (!inherits(graph, "igraph"))

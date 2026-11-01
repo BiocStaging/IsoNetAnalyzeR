@@ -87,32 +87,24 @@ genes. Biological relevance requires external evidence.
 }
 
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
-obj <- run_differential_pulldown(obj, "cond_A", "de_isoforms.csv", order = 1)
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
 
-# Default: isoform level, both directions, all genes
-obj <- run_component_analysis(obj, "cond_A", label = "comp_both")
-
-# show() summary
-obj   # the updated session object; the component analysis is listed
-
-# Combined Tier-1 + Tier-2 overview (one row per component)
-overview <- get_component_overview(obj, "cond_A", "comp_both")
+# Isoform-level components of both seed directions
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+overview <- get_component_overview(obj, "t2d", "comp")
 
 # Components containing both up and down seed labels
-overview[overview$mixed, ]
+overview[overview$mixed, c("component_id", "n_nodes", "n_shared_nodes")]
 
-# Components with a descriptive hub-spoke topology
-overview[!is.na(overview$topology_class) &
-           overview$topology_class == "hub-spoke", ]
-
-# Top shared-node hubs by betweenness across all components
-comp1 <- get_component(obj, "cond_A", "comp_both", component_id = 1)
-comp1[!is.na(comp1$betweenness_norm), ]
-
-# Full per-component overview is already a joined table
-head(overview[order(-overview$n_nodes), ])
-}
+# Gene-level components
+obj <- run_component_analysis(obj, "t2d", label = "comp_gene",
+                              level = "gene")
 
 }

@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{An \linkS4class{VirtualPulldownLookup} session object.}
 }
+\value{
+Objects of this class are created by \code{\link{lookup_virtual_pulldown}} and returned by \code{\link{get_lookup}}.
+}
 \description{
 Stores the result of a one-shot virtual pulldown query at either isoform or
 gene level, without running a full analysis across many seeds.  Can
@@ -45,3 +48,10 @@ independent of the session metadata.}
 \item{\code{created_at}}{\code{POSIXct} scalar. Timestamp of the look-up.}
 }}
 
+\examples{
+obj <- IsoNetAnalyzeR("example")
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+get_lookup(obj, "cltcl1_up")
+
+}

@@ -56,6 +56,7 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 }
 
 #' CVD-safe direction colours (Okabe-Ito)
+#' @noRd
 .col_up   <- "#E69F00"   # orange  - up condition
 .col_down <- "#56B4E9"   # sky blue - down condition
 
@@ -181,7 +182,8 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 
   label_n   <- as.integer(label_n)
   label_ids <- .select_labels(df, label, label_n)
-  df$label__ <- ifelse(df$gene_id %in% label_ids, df$gene_id, NA_character_)
+  df$label__ <- ifelse(df$gene_id %in% label_ids, .gene_label(df$gene_id),
+                       NA_character_)
 
   all_vals <- c(df$x__, df$y__)
   ax_max   <- max(all_vals, na.rm = TRUE) * 1.05
@@ -263,7 +265,7 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #' Plot cross-gene summary: scatter of two columns per gene
 #'
 #' Plots any two numeric columns from \code{cross_gene_summary} as a scatter,
-#' one point per gene.  A diagonal identity line makes condition asymmetry
+#' one point per gene.  A diagonal identity line makes up/down asymmetry
 #' immediately visible.  For a quick five-panel overview across all standard
 #' metrics, see \code{\link{plot_cross_gene_overview}}.
 #'
@@ -294,6 +296,17 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{ggplot} object, invisibly.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' p <- plot_cross_gene_scatter(obj, "t2d", "up_nodes", "down_nodes")
+#'
 #' @export
 plot_cross_gene_scatter <- function(obj,
                                     analysis,
@@ -383,6 +396,17 @@ plot_cross_gene_scatter <- function(obj,
 #'
 #' @return A \code{patchwork} object, invisibly.  The combined figure is
 #'   printed as a side-effect.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' p <- plot_cross_gene_overview(obj, "t2d")
+#'
 #' @export
 plot_cross_gene_overview <- function(obj,
                                      analysis,
@@ -440,7 +464,7 @@ plot_cross_gene_overview <- function(obj,
       title    = title %||% sprintf("Cross-gene overview  [%s]", analysis),
       subtitle = paste0(
         "Each panel: up-seed neighbourhood (X) vs down-seed neighbourhood (Y).  ",
-        "Points on the diagonal = no change between conditions.\n",
+        "Points on the diagonal: both neighbourhoods are the same size.\n",
         if (log_counts) paste0(
           "Axes labelled (log) use log10(x) scaling.  ",
           "Axes labelled (log+1) use log10(x + 1) scaling.  "
@@ -464,7 +488,7 @@ plot_cross_gene_overview <- function(obj,
 #' log10 fold-change \code{log10(x_col / y_col)} when \code{log_ratio = TRUE})
 #' and displays the distribution as a boxplot with individual gene points
 #' overlaid as a jitter strip.  A horizontal reference line at zero marks no
-#' difference between conditions.  Orange points have a positive delta
+#' difference between the two columns.  Orange points have a positive delta
 #' (x_col > y_col); blue have a negative delta.
 #'
 #' @section Log-ratio mode:
@@ -472,7 +496,7 @@ plot_cross_gene_overview <- function(obj,
 #' \code{log10((x_col + 1) / (y_col + 1))}.  Adding 1 before dividing means
 #' zero-value genes map to 0 (no change) rather than being dropped, so all
 #' genes are retained.  The zero reference line corresponds to a ratio of 1
-#' (no change between conditions).
+#' (no difference).
 #'
 #' @param obj       An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis  Character scalar.  Label of the
@@ -497,6 +521,17 @@ plot_cross_gene_overview <- function(obj,
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{ggplot} object, invisibly.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' p <- plot_cross_gene_boxplot(obj, "t2d", "up_nodes", "down_nodes")
+#'
 #' @export
 plot_cross_gene_boxplot <- function(obj,
                                     analysis,
@@ -553,7 +588,8 @@ plot_cross_gene_boxplot <- function(obj,
 
   label_n   <- as.integer(label_n)
   label_ids <- .select_labels(df, label, label_n)
-  df$label__ <- ifelse(df$gene_id %in% label_ids, df$gene_id, NA_character_)
+  df$label__ <- ifelse(df$gene_id %in% label_ids, .gene_label(df$gene_id),
+                       NA_character_)
 
   df$group  <- ""
   pt_colour <- ifelse(df$delta__ > 0, .col_up, .col_down)
@@ -653,7 +689,8 @@ plot_cross_gene_boxplot <- function(obj,
 
   label_n   <- as.integer(label_n)
   label_ids <- .select_labels(df, label, label_n)
-  df$label__ <- ifelse(df$gene_id %in% label_ids, df$gene_id, NA_character_)
+  df$label__ <- ifelse(df$gene_id %in% label_ids, .gene_label(df$gene_id),
+                       NA_character_)
 
   df$group  <- ""
   pt_colour <- ifelse(df$delta__ > 0, .col_up, .col_down)
@@ -769,6 +806,17 @@ plot_cross_gene_boxplot <- function(obj,
 #' @param title      Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{patchwork} object, invisibly.
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' p <- plot_cross_gene_boxplot_overview(obj, "t2d")
+#'
 #' @export
 plot_cross_gene_boxplot_overview <- function(obj,
                                              analysis,

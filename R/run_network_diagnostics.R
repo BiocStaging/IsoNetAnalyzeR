@@ -99,7 +99,7 @@ NULL
 #' \describe{
 #'   \item{\code{"quantile"} (default)}{Threshold is the \code{sticky_cutoff}
 #'     quantile of the degree distribution.  \code{sticky_cutoff = 0.95} means
-#'     the top 5\% by degree are sticky.  Robust to the heavy-tailed
+#'     the top 5% by degree are sticky.  Robust to the heavy-tailed
 #'     distributions typical of protein interaction networks.}
 #'   \item{\code{"sd"}}{Threshold is \code{mean + sticky_cutoff * SD}.
 #'     More sensitive to extreme hubs inflating the mean.}
@@ -116,24 +116,30 @@ NULL
 #'   Access the result with \code{get_network_diagnostics(obj)}.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
+#' # A small deterministic network keeps this example fast; on the bundled
+#' # network the diagnostics take about half a minute.
+#' g <- igraph::make_graph("Zachary")
+#' n <- igraph::vcount(g)
+#' igraph::V(g)$name <- paste0("tx", seq_len(n))
+#' igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+#' igraph::V(g)$transcript_biotype <- "protein_coding"
+#' igraph::E(g)$interact <- 1L
+#' toy <- IsoNetAnalyzeR("toy", network = g,
+#'                       metadata = list(network_cutoff = 0.25))
 #'
-#' # Default: quantile method, top 5%
-#' obj <- run_network_diagnostics(obj)
-#' get_network_diagnostics(obj)
+#' # Default: sticky nodes are the top 5% by degree
+#' toy <- run_network_diagnostics(toy)
+#' toy
 #'
-#' # SD method
-#' obj <- run_network_diagnostics(obj, sticky_method = "sd", sticky_cutoff = 2)
-#'
-#' # Stricter quantile threshold
-#' obj <- run_network_diagnostics(obj, sticky_cutoff = 0.99)
-#' }
+#' # Standard-deviation rule instead of a quantile
+#' toy <- run_network_diagnostics(toy, sticky_method = "sd", sticky_cutoff = 2)
 #'
 #' @export
 run_network_diagnostics <- function(obj,
                                     sticky_method = c("quantile", "sd"),
                                     sticky_cutoff = NULL) {
+
+  obj_name <- .obj_name(substitute(obj))
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -389,7 +395,8 @@ run_network_diagnostics <- function(obj,
   obj@network_diagnostics <- diag_obj
 
   message(sprintf(
-    "Network diagnostics complete. Access with get_network_diagnostics(obj)."
+    "Network diagnostics complete. Access with get_network_diagnostics(%s).",
+    obj_name
   ))
 
   invisible(obj)

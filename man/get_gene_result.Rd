@@ -32,12 +32,14 @@ graph-level summaries for that gene.
 
 }}
 \examples{
-\dontrun{
-gr <- get_gene_result(obj, "my_run", "ENSG00000120333")
-gr   # show() summary
-
-# Per-isoform statistics for both directions (use the dedicated accessor)
-get_isoform_stats(obj, "my_run", "ENSG00000120333")
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+gr <- get_gene_result(obj, "t2d", "ENSG00000070371")
+gr
 
 }

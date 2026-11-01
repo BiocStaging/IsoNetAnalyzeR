@@ -17,3 +17,15 @@ A \linkS4class{DifferentialPulldownAnalysis} object.
 \description{
 Retrieve a stored analysis result
 }
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+list_analyses(obj)
+get_analysis(obj, "t2d")
+
+}

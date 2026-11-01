@@ -48,12 +48,18 @@ is supplied the package's internal isoform interaction network
 \code{.network_cutoff} and \code{.pi_threshold} values stored as metadata.
 }
 \examples{
-\dontrun{
-# Load the built-in network
-obj <- IsoNetAnalyzeR("my_experiment")
+# Session on the bundled network (NMD and NSD transcripts excluded)
+obj <- IsoNetAnalyzeR("example")
+obj
 
-# Supply a custom network
-obj <- IsoNetAnalyzeR("custom", network = my_igraph)
-}
+# A user-supplied network needs vertex names, a `gene` vertex attribute,
+# a binary `interact` edge attribute and known transcript biotypes
+g <- igraph::graph_from_data_frame(
+  data.frame(from = "tx1", to = "tx2", interact = 1L, pi = 0.9),
+  directed = FALSE,
+  vertices = data.frame(name = c("tx1", "tx2"), gene = c("g1", "g2"),
+                        transcript_biotype = "protein_coding")
+)
+IsoNetAnalyzeR("custom", network = g, metadata = list(network_cutoff = 0))
 
 }

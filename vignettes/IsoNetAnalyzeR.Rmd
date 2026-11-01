@@ -1,0 +1,511 @@
+---
+title: "Introduction to IsoNetAnalyzeR"
+author:
+- name: Dimitrios S. Kanakoglou
+  affiliation: Technical University of Denmark (DTU)
+  email: dimkan@dtu.dk
+- name: Nikolas A. Mumm
+  affiliation: Technical University of Denmark (DTU)
+package: IsoNetAnalyzeR
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+abstract: >
+  Alternative splicing can change the protein domains encoded by a gene, and
+  with them the proteins that the gene product can bind. IsoNetAnalyzeR
+  compares the predicted interaction neighbourhoods of transcript isoforms
+  whose usage goes up with those whose usage goes down, using an
+  isoform-resolved predicted protein interaction network. This vignette walks
+  through a complete analysis of isoform switches between obese type 2
+  diabetic and lean human adipose tissue.
+vignette: >
+  %\VignetteIndexEntry{Introduction to IsoNetAnalyzeR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 5, fig.align = "center")
+and_list <- function(x) {
+  if (length(x) < 2L) return(x)
+  paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)])
+}
+caps <- list(
+  overview = paste("Neighbourhood statistics of every gene. Each panel plots",
+                   "the up-seeded pulldown (x) against the down-seeded one",
+                   "(y); genes on the diagonal have equal values."),
+  cltcl1 = paste("Predicted neighbourhoods of the up- and down-labelled",
+                 "CLTCL1 isoforms, one node per gene. The CLTCL1 node",
+                 "(diamond) holds both seeds. Genes and edges are green when",
+                 "reached only from the up-labelled isoform, orange with",
+                 "dashed edges when reached only from the down-labelled",
+                 "isoform, and blue when reached from both."),
+  component = paste("The largest mixed component. Diamonds are seeds.",
+                    "Every other node is coloured by the seed direction",
+                    "it is closest to; purple nodes are equally close to up",
+                    "and down seeds."),
+  diagnostics = paste("Diagnostics of the bundled network after",
+                      "decay-transcript exclusion.")
+)
+```
+
+```{css, echo = FALSE}
+/* Floating table of contents: a wrapped entry continues under its title,
+   not under its section number */
+div#TOC.tocify li.tocify-item {
+  padding-left: 2.8em;
+}
+div#TOC.tocify li.tocify-item span.header-section-number {
+  width: 2.3em;
+  margin-left: -2.3em;
+}
+```
+
+# Introduction
+
+A differential transcript usage (DTU) analysis reports isoforms whose share of
+their gene's expression changes between conditions. When the isoforms of a
+gene encode different proteins, such a switch can change which interaction
+partners the gene product can reach. IsoNetAnalyzeR makes that comparison
+concrete. For each gene, it takes the isoforms labelled **up** and the
+isoforms labelled **down**, expands each set into its neighbourhood in a
+predicted isoform-level interaction network (a *virtual pulldown*), and
+compares the two neighbourhoods.
+
+The package provides:
+
+- per-gene comparison of up- and down-seeded neighbourhoods, with node, edge
+  and topology statistics;
+- cross-gene summaries and plots;
+- connected components that join neighbourhoods across genes;
+- over-representation and gene set enrichment analysis;
+- diagnostics of the reference network;
+- resolution of versioned and protein-identical transcript identifiers.
+
+It does **not** test for differential transcript usage, choose which isoforms
+are important, or measure interactions. Seed selection and its statistics
+belong to the upstream analysis. The network is a static prediction, so the
+comparisons describe predicted neighbourhoods, not measured gains or losses
+of interactions in either condition.
+
+# Installation
+
+```{r install, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("IsoNetAnalyzeR")
+```
+
+```{r load}
+library(IsoNetAnalyzeR)
+```
+
+# The reference network
+
+An analysis starts with a session object. Without further arguments it loads
+the bundled network: isoform-resolved predicted protein interactions
+produced by the Isoform Analysis Group at DTU. A Bayesian latent-variable
+model developed by Isabella Østerlund resolved high-confidence STRING
+physical interactions (combined score of at least 700; Szklarczyk et al.
+2023) from genes to isoform pairs. Each vertex is a
+transcript; each edge carries the model's interaction probability (`pi`) and
+is flagged as a predicted interaction (`interact = 1`). Provenance, including
+STRING's CC BY 4.0 licence, is documented in
+`system.file("PROVENANCE.md", package = "IsoNetAnalyzeR")`.
+
+```{r session}
+obj <- IsoNetAnalyzeR("GSE141432")
+obj
+```
+
+New sessions exclude transcripts annotated (GENCODE v41) as
+nonsense-mediated decay (NMD) or non-stop decay (NSD) targets, both as seeds
+and as neighbours, because they are not expected to produce stable proteins.
+The exclusion is recorded in the session metadata:
+
+```{r eligibility}
+eligibility <- get_metadata(obj, "network_biotype_filter")
+unlist(eligibility[c("vertices_before", "excluded_nmd", "excluded_nsd",
+                     "vertices_after", "edges_after")])
+```
+
+Set `include_nmd = TRUE` or `include_nsd = TRUE` when creating the session to
+keep either class. A different network can be supplied as an `igraph` object
+through the `network` argument (Section \@ref(isolated-and-unmapped-seeds)
+builds one).
+
+The session also stores the neighbourhood cutoff calibrated when the network
+was built. During a pulldown, a neighbour is kept only if at least this
+fraction of its predicted interactions fall inside the candidate
+neighbourhood, which removes promiscuous hubs that would otherwise attach to
+every neighbourhood:
+
+```{r cutoff}
+unname(get_metadata(obj, "network_cutoff"))
+```
+
+# Input: isoform seeds
+
+The input is a table with one row per seed isoform and three required
+columns:
+
+| Column | Content |
+| --- | --- |
+| `gene_id` | Gene identifier, matching the network's `gene` attribute |
+| `isoform_id` | Transcript identifier; version suffixes are accepted |
+| `direction` | `"up"` or `"down"`: labels for the two seed sets of a gene |
+
+The bundled network uses Ensembl gene and transcript identifiers.
+
+The package ships seeds from GEO series GSE141432: white adipose tissue from
+8 lean, 8 obese normoglycaemic and 8 obese type 2 diabetic (T2D) donors. The
+contrast is obese T2D versus lean. In the upstream analysis, genes passed a
+gene-level FDR of 0.05 and had a maximum absolute isoform fraction change
+(dIF) of at least 0.1. Within each gene, transcripts with an absolute dIF of
+at least 0.1 were tested with a Benjamini-Hochberg correction, stored here as
+`within_gene_padj`, and each gene kept at least one significant seed and
+seeds in both directions. Positive `signed_dif` values are labelled `up`.
+
+```{r seeds}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+head(seeds)
+table(seeds$direction)
+length(unique(seeds$gene_id))
+```
+
+When preparing your own table, keep only the isoforms your study design
+selects, and label each by the sign of its usage change. The package imposes
+no maximum number of seeds per gene. A gene with seeds in only one direction
+is accepted; it simply has no comparison partner.
+
+# Differential pulldown
+
+`run_differential_pulldown()` expands every gene's up and down seed sets by
+`order` interaction steps and applies the neighbourhood cutoff. With
+`seed_padj_col`, it also checks retained support: after identifier
+resolution, eligibility filtering and mapping, every gene must still have
+seeds in both directions and at least one seed with an adjusted p-value at or
+below `seed_fdr`. Complementary seeds do not have to be individually
+significant.
+
+```{r pulldown}
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds,
+  order = 1, confirm = FALSE, verbose = FALSE,
+  seed_padj_col = "within_gene_padj", seed_fdr = 0.05
+)
+```
+
+The coverage report distinguishes three outcomes for each seed: mapped with
+predicted interactions, mapped without any predicted interaction, and absent
+from the network. The tables are stored in the session:
+
+```{r coverage}
+coverage <- get_metadata(obj, "analysis_network_coverage")$t2d
+coverage$by_direction[, c("direction", "n_input",
+                          "n_mapped_with_predicted_edge",
+                          "n_mapped_no_predicted_edge", "n_unmapped")]
+support <- get_metadata(obj, "analysis_seed_support")$t2d$gene_audit
+table(support$reason)
+```
+
+The cross-gene summary has one row per gene, with neighbourhood sizes and
+topology for each direction. Result tables are keyed by Ensembl gene ID;
+`isonet_gene_names()` returns the gene symbols of the bundled network for
+annotating them. Here are the genes with the largest difference in
+neighbourhood size:
+
+```{r cross-gene}
+gene_names <- isonet_gene_names()
+cgs <- get_cross_gene_summary(obj, "t2d")
+cgs$gene_name <- gene_names$gene_name[match(cgs$gene_id, gene_names$gene_id)]
+cgs$delta_nodes <- cgs$up_nodes - cgs$down_nodes
+head(cgs[order(-abs(cgs$delta_nodes)),
+         c("gene_name", "up_nodes", "down_nodes", "up_edges", "down_edges",
+           "jaccard")], 8)
+```
+
+`jaccard` is the overlap of the two neighbourhoods' nodes: 1 means the
+isoforms reach the same predicted partners, 0 means entirely different ones.
+
+```{r overview-plot, fig.height = 6, fig.cap = caps$overview}
+plot_cross_gene_overview(obj, "t2d")
+```
+
+# Example gene: CLTCL1
+
+CLTCL1 encodes clathrin heavy chain-like 1 (CHC22). In this contrast, one
+CLTCL1 isoform gains usage and another loses it.
+
+```{r cltcl1}
+cltcl1 <- get_gene_result(obj, "t2d", "ENSG00000070371")
+cltcl1
+stats <- get_isoform_stats(obj, "t2d", "ENSG00000070371")
+stats[stats$is_seed, c("direction", "isoform", "degree", "mean_pi")]
+```
+
+```{r cltcl1-counts, include = FALSE}
+up_graph <- get_pulldown_graph(cltcl1, "up")
+down_graph <- get_pulldown_graph(cltcl1, "down")
+partner_genes <- function(g) {
+  genes <- setdiff(unique(igraph::V(g)$gene), "ENSG00000070371")
+  and_list(sort(gene_names$gene_name[match(genes, gene_names$gene_id)]))
+}
+```
+
+The up-labelled isoform reaches `r igraph::vcount(up_graph) - 1` predicted
+partners, transcripts of `r partner_genes(up_graph)`, through
+`r igraph::ecount(up_graph)` edges. The down-labelled isoform's
+neighbourhood has `r igraph::vcount(down_graph) - 1` partners, transcripts of
+`r partner_genes(down_graph)`, and `r igraph::ecount(down_graph)` edges. The
+overlay shows both neighbourhoods at once, with each gene's transcripts merged
+into one node:
+
+```{r cltcl1-plot, fig.height = 6, fig.cap = caps$cltcl1}
+plot_network(cltcl1, direction = "overlay", level = "gene",
+             node_size = 3.5, label_size = 3)
+```
+
+Nodes are labelled with gene symbols. The default, `level = "isoform"`,
+draws one node per transcript instead, so a gene with several isoforms in a
+neighbourhood appears more than once and the two seeds are separate
+triangles. To label nodes with transcript identifiers, or to hide the labels,
+use the `node_labels` argument, which `plot_component()` also accepts:
+
+```{r labels, eval = FALSE}
+plot_network(cltcl1, direction = "overlay")                       # isoforms
+plot_network(cltcl1, direction = "overlay", node_labels = "id")   # IDs
+plot_network(cltcl1, direction = "overlay", node_labels = "none") # no labels
+```
+
+Read this as a statement about the reference network: the isoform used more
+in obese T2D tissue is predicted to reach fewer partners than the isoform
+used less, and different ones. Whether those partners are bound in adipose
+tissue needs independent evidence.
+
+# Connected components
+
+Neighbourhoods of different genes can share nodes. Component analysis merges
+all neighbourhoods into one graph and reports its connected components, so
+that genes whose isoform switches converge on the same proteins appear
+together.
+
+```{r components}
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+overview <- get_component_overview(obj, "t2d", "comp")
+head(overview[, c("component_id", "n_nodes", "n_edges", "n_seeds_up",
+                  "n_seeds_down", "mixed", "n_shared_nodes",
+                  "topology_class")])
+```
+
+A `mixed` component contains both up and down seeds. `topology_class` is a
+heuristic description of shape (`hub-spoke`, `chain-like` or
+`clique-like`), not a mechanistic classification.
+
+```{r component-genes, include = FALSE}
+largest_mixed <- overview$component_id[overview$mixed][1]
+nodes <- get_component(obj, "t2d", "comp", largest_mixed)
+network <- get_network(obj)
+seed_genes <- igraph::V(network)$gene[
+  match(nodes$node[nodes$is_seed], igraph::V(network)$name)
+]
+seed_symbols <- sort(unique(
+  gene_names$gene_name[match(seed_genes, gene_names$gene_id)]
+))
+```
+
+The largest mixed component joins the neighbourhoods of
+`r and_list(seed_symbols)`. With `colour_neighbours = TRUE`,
+each neighbour is coloured by the seed direction it is closest to:
+
+```{r component-plot, fig.width = 9, fig.height = 7, fig.cap = caps$component}
+plot_component(obj, "t2d", "comp", component_id = largest_mixed,
+               colour_by = "direction", colour_neighbours = TRUE)
+```
+
+# Functional annotation
+
+## Over-representation in components
+
+`run_component_ora()` tests each component's genes against a gene set
+collection, with all genes in the network as the universe. Without a
+`pathways` argument it retrieves GO gene sets through **msigdbr**; for a
+reproducible analysis, pass a saved collection. Here we use the MSigDB
+Hallmark collection shipped with the package (50 gene sets, Ensembl IDs):
+
+```{r ora}
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+attr(hallmark, "source")$db_version
+obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+                         pathways = hallmark)
+ora <- get_ora_table(obj, "t2d", "comp", "hallmark", padj_cutoff = 0.05,
+                     top_n = 1)
+head(ora[, c("component_id", "pathway", "overlap", "padj")], 8)
+```
+
+## Gene set enrichment across genes
+
+`run_fgsea()` ranks the analysed genes by a neighbourhood statistic, by
+default the difference in node count between the up and down neighbourhoods,
+and runs **fgsea**. With `r nrow(cgs)` genes the ranked list is short, so
+only small gene sets can be tested and power is low. We lower `minSize` for
+illustration. fgsea notes that it uses its simple permutation algorithm when
+`nperm` is set; that note is hidden here.
+
+```{r gsea, warning = FALSE}
+set.seed(42)
+obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+                 minSize = 3)
+get_gsea_table(obj, "t2d", "hallmark_gsea")[, c("pathway", "size", "NES",
+                                                "pval", "padj")]
+```
+
+Custom rankings can be passed through the `stats` argument.
+
+# Network diagnostics
+
+Results depend on the structure of the reference network. Diagnostics report
+its components, degree distribution, clustering and *sticky* nodes,
+high-degree vertices that join many neighbourhoods. This step takes about half
+a minute on the bundled network.
+
+```{r diagnostics}
+obj <- run_network_diagnostics(obj)
+get_network_diagnostics(obj)
+```
+
+```{r diag-plot, fig.width = 10, fig.height = 6, fig.cap = caps$diagnostics}
+plot_network_diagnostics(obj)
+```
+
+# Single-isoform lookups
+
+To explore one isoform without a differential design, use
+`lookup_virtual_pulldown()`. Seeds can be isoforms or, with
+`level = "gene"`, all of a gene's isoforms in the network.
+
+```{r lookup}
+obj <- lookup_virtual_pulldown(obj, "cltcl1_down", seed = "ENST00000427926",
+                               order = 1)
+lookup <- get_lookup_stats(obj, "cltcl1_down")
+subgraph <- get_lookup_subgraph(obj, "cltcl1_down")
+gene_of <- stats::setNames(igraph::V(subgraph)$gene, igraph::V(subgraph)$name)
+lookup$gene_name <- gene_names$gene_name[
+  match(gene_of[lookup$isoform], gene_names$gene_id)
+]
+rownames(lookup) <- NULL
+head(lookup[, c("isoform", "gene_name", "is_seed", "degree",
+                "distance_from_seed")])
+```
+
+# Identical proteins
+
+Different transcripts can encode the same protein. The package ships a map,
+supplied by Isabella Østerlund, of
+`r format(nrow(isonet_duplicate_map()), big.mark = ",")` redundant
+transcripts to their protein-identical representatives. Seed identifiers are
+resolved against it by default: version suffixes are removed, and a redundant
+transcript is replaced by its representative when the network and gene
+annotation agree. If a gene's up and down seeds resolve to the same
+representative, the apparent switch is between identical proteins, so that
+gene is dropped.
+
+```{r resolve}
+map <- isonet_duplicate_map()
+ids <- c("ENST00000427926.5", map$redundant_ENST[map$network_applicable][1])
+resolved <- resolve_duplicate_isoforms(ids, network = get_network(obj))
+attr(resolved, "dedup_audit")[, c("submitted_id", "resolved_id",
+                                  "resolution")]
+```
+
+For DTU testing itself, aggregate counts of protein-identical transcripts
+before fitting models, so that isoform fractions are computed over distinct
+proteins. Gene and library totals are preserved:
+
+```{r aggregate}
+counts <- matrix(
+  c(10L, 4L, 7L,
+    2L, 1L, 3L,
+    5L, 5L, 5L),
+  nrow = 3, byrow = TRUE,
+  dimnames = list(c(map$kept_ENST[1], map$redundant_ENST[1], map$kept_ENST[2]),
+                  paste0("sample", seq_len(3)))
+)
+features <- data.frame(
+  gene_id = c(map$kept_ENSG[1], map$redundant_ENSG[1], map$kept_ENSG[2]),
+  isoform_id = rownames(counts)
+)
+aggregated <- aggregate_duplicate_counts(counts, features)
+aggregated$object
+```
+
+# Isolated vs unmapped {#isolated-and-unmapped-seeds}
+
+A seed in the network without any predicted interaction gives a valid
+one-node neighbourhood. A seed absent from the network gives no neighbourhood
+at all. The two must not be confused, and neither shows that the isoform
+lacks interactions. This small custom network has one transcript with
+neighbours, one without, and a seed that is missing:
+
+```{r isolated}
+vertices <- data.frame(
+  name = c("tx_A_up", "tx_A_down", "tx_B", "tx_C"),
+  gene = c("gene_A", "gene_A", "gene_B", "gene_C"),
+  transcript_biotype = "protein_coding"
+)
+edges <- data.frame(from = c("tx_A_up", "tx_A_down"), to = "tx_B",
+                    interact = 1L, pi = c(0.90, 0.75))
+toy <- IsoNetAnalyzeR(
+  "toy",
+  network = igraph::graph_from_data_frame(edges, directed = FALSE,
+                                          vertices = vertices),
+  metadata = list(network_cutoff = 0)
+)
+toy_seeds <- data.frame(
+  gene_id = c("gene_A", "gene_A", "gene_C", "gene_D"),
+  isoform_id = c("tx_A_up", "tx_A_down", "tx_C", "tx_absent"),
+  direction = c("up", "down", "up", "down")
+)
+toy <- run_differential_pulldown(toy, "toy", toy_seeds, order = 1,
+                                 confirm = FALSE, verbose = FALSE)
+isolated <- get_pulldown_graph(get_gene_result(toy, "toy", "gene_C"), "up")
+c(nodes = igraph::vcount(isolated), edges = igraph::ecount(isolated))
+is.null(get_pulldown_graph(get_gene_result(toy, "toy", "gene_D"), "down"))
+```
+
+The run warns that `gene_D` has no seed in the network.
+
+# Interpreting results
+
+Both neighbourhoods of a gene come from the same static network, so:
+
+- node and edge differences compare seed-derived neighbourhoods, not
+  condition-specific interactomes;
+- `n_edges_gained` and `n_edges_lost` in the cross-gene summary count edges
+  unique to the up-seeded and down-seeded neighbourhoods respectively;
+- a `mixed` component only records that both seed labels are present;
+- a high-degree or high-betweenness node is a structural observation that
+  needs biological validation.
+
+For reproducible work, save the gene set collection you used with its
+version, set the random seed before enrichment, and keep the seed table and
+its selection rules with the results. Sessions can be saved with `saveRDS()`.
+
+# Acknowledgements
+
+Isabella Østerlund developed the Bayesian model behind the isoform-resolved
+interaction network and supplied the map of protein-identical transcripts.
+She and Kristoffer Vitting-Seerup (Isoform Analysis Group, DTU) supervised
+the thesis project in which the package was first developed. The network
+derives from STRING (Szklarczyk et al. 2023), used under the CC BY 4.0
+licence.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

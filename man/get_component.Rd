@@ -49,23 +49,21 @@ computed for shared nodes.  This makes it easy to filter for hub nodes with
 \code{!is.na(betweenness_norm)} or to sort all nodes by their hub score.
 }
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
-obj <- run_differential_pulldown(obj, "cond_A", input, order = 1)
-obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
 
-# Inspect the largest component
-comp1 <- get_component(obj, "cond_A", "comp_iso", component_id = 1)
-comp1
+# Nodes of the largest component
+comp1 <- get_component(obj, "t2d", "comp", component_id = 1)
+head(comp1)
 
 # Seed nodes only
 comp1[comp1$is_seed, ]
-
-# Shared hub nodes only (have a betweenness score)
-comp1[!is.na(comp1$betweenness_norm), ]
-
-# Top hub by betweenness within this component
-comp1[which.min(comp1$betweenness_rank), ]
-}
 
 }

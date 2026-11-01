@@ -47,22 +47,19 @@ components (\code{mixed == TRUE}), hub-spoke topology
 \code{\link{get_component}}.
 }
 \examples{
-\dontrun{
-obj <- IsoNetAnalyzeR("demo")
-obj <- run_differential_pulldown(obj, "cond_A", input, order = 1)
-obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+overview <- get_component_overview(obj, "t2d", "comp")
 
-overview <- get_component_overview(obj, "cond_A", "comp_iso")
-
-# Components containing both seed labels
-overview[overview$mixed, ]
-
-# Components with a descriptive hub-spoke topology
-overview[!is.na(overview$topology_class) &
-           overview$topology_class == "hub-spoke", ]
-
-# Sort by number of nodes descending
-overview[order(-overview$n_nodes), ]
-}
+# Largest components first
+head(overview[order(-overview$n_nodes),
+              c("component_id", "n_nodes", "n_edges", "topology_class")])
 
 }

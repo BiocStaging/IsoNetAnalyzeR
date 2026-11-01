@@ -36,3 +36,15 @@ Remaps redundant Ensembl transcript identifiers to their kept protein
 representative. With a network supplied, a mapping is applied only when it
 is compatible with that graph. Identifiers absent from the map are retained.
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+map <- isonet_duplicate_map()
+
+# A versioned identifier and a redundant protein-identical transcript,
+# resolved against the session network
+ids <- c("ENST00000621271.4", map$redundant_ENST[map$network_applicable][1])
+resolved <- resolve_duplicate_isoforms(ids, network = get_network(obj))
+resolved
+attr(resolved, "dedup_audit")
+
+}

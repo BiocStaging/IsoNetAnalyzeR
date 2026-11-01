@@ -27,6 +27,9 @@
 
 \item{label}{Character scalar. The key under which the lookup was stored.}
 }
+\value{
+Objects of this class are created by \code{\link{IsoNetAnalyzeR}}.
+}
 \description{
 The central object of the \pkg{IsoNetAnalyzeR} package. It holds the
 isoform interaction network, session metadata, a named list of full
@@ -73,3 +76,9 @@ run) or a \linkS4class{NetworkDiagnostics} object produced by
 \code{\link{run_network_diagnostics}}.}
 }}
 
+\examples{
+obj <- IsoNetAnalyzeR("example")
+obj
+list_analyses(obj)
+
+}

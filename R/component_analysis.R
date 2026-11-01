@@ -95,6 +95,20 @@ NULL
 #' These thresholds are descriptive heuristics and do not establish a
 #' regulator, complex, pathway, or mechanism.
 #'
+#' @return Objects of this class are created by \code{\link{run_component_analysis}}; read them with \code{\link{get_component_overview}} and \code{\link{get_component}}.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' get_component_overview(obj, "t2d", "comp")
+#'
 #' @exportClass ComponentAnalysis
 setClass(
   "ComponentAnalysis",
@@ -159,15 +173,15 @@ setMethod("show", "ComponentAnalysis", function(object) {
   n_mixed <- if (n_comp > 0L) sum(ct$mixed, na.rm = TRUE) else 0L
 
   cli::cli_rule("ComponentAnalysis")
-  cli::cli_text("Label        : {object@label}")
-  cli::cli_text("Parent run   : {object@parent_label}")
-  cli::cli_text("Created      : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("Direction    : {object@direction}    Level: {object@level}")
-  cli::cli_text("Genes        : {if (length(object@genes) == 0L) 'all' else length(object@genes)}")
-  cli::cli_text("Components   : {n_comp} retained  ({n_mixed} mixed up/down)")
+  .cli_aligned("Label        : {object@label}")
+  .cli_aligned("Parent run   : {object@parent_label}")
+  .cli_aligned("Created      : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("Direction    : {object@direction}    Level: {object@level}")
+  .cli_aligned("Genes        : {if (length(object@genes) == 0L) 'all' else length(object@genes)}")
+  .cli_aligned("Components   : {n_comp} retained  ({n_mixed} mixed up/down)")
 
   if (n_comp > 0L) {
-    cli::cli_text(
+    .cli_aligned(
       "Size range   : {min(ct$n_nodes)} - {max(ct$n_nodes)} nodes per component"
     )
 
@@ -176,11 +190,11 @@ setMethod("show", "ComponentAnalysis", function(object) {
       tclass_str    <- paste(
         names(tclass_counts), tclass_counts, sep = ": ", collapse = "  |  "
       )
-      cli::cli_text("Topology     : {tclass_str}")
+      .cli_aligned("Topology     : {tclass_str}")
     }
 
     if (nrow(ht) > 0L)
-      cli::cli_text(
+      .cli_aligned(
         "Shared hubs  : {nrow(ht)} scored  (top: {ht$node[1]}, betweenness_norm = {round(ht$betweenness_norm[1], 3)})"
       )
   }
@@ -251,33 +265,25 @@ setMethod("show", "ComponentAnalysis", function(object) {
 #'   table for a single component).
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
-#' obj <- run_differential_pulldown(obj, "cond_A", "de_isoforms.csv", order = 1)
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
 #'
-#' # Default: isoform level, both directions, all genes
-#' obj <- run_component_analysis(obj, "cond_A", label = "comp_both")
-#'
-#' # show() summary
-#' obj   # the updated session object; the component analysis is listed
-#'
-#' # Combined Tier-1 + Tier-2 overview (one row per component)
-#' overview <- get_component_overview(obj, "cond_A", "comp_both")
+#' # Isoform-level components of both seed directions
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' overview <- get_component_overview(obj, "t2d", "comp")
 #'
 #' # Components containing both up and down seed labels
-#' overview[overview$mixed, ]
+#' overview[overview$mixed, c("component_id", "n_nodes", "n_shared_nodes")]
 #'
-#' # Components with a descriptive hub-spoke topology
-#' overview[!is.na(overview$topology_class) &
-#'            overview$topology_class == "hub-spoke", ]
-#'
-#' # Top shared-node hubs by betweenness across all components
-#' comp1 <- get_component(obj, "cond_A", "comp_both", component_id = 1)
-#' comp1[!is.na(comp1$betweenness_norm), ]
-#'
-#' # Full per-component overview is already a joined table
-#' head(overview[order(-overview$n_nodes), ])
-#' }
+#' # Gene-level components
+#' obj <- run_component_analysis(obj, "t2d", label = "comp_gene",
+#'                               level = "gene")
 #'
 #' @export
 run_component_analysis <- function(obj,
@@ -289,6 +295,8 @@ run_component_analysis <- function(obj,
                                    min_component_nodes = NULL,
                                    min_shared_nodes    = NULL,
                                    min_edges           = NULL) {
+
+  obj_name <- .obj_name(substitute(obj))
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -363,7 +371,7 @@ run_component_analysis <- function(obj,
     return(.store_component_result(
       obj, analysis, label, direction, level, genes,
       .empty_component_table(), .empty_node_table(),
-      .empty_topology_table(),  .empty_hub_table()
+      .empty_topology_table(),  .empty_hub_table(), obj_name
     ))
   }
 
@@ -380,7 +388,7 @@ run_component_analysis <- function(obj,
     return(.store_component_result(
       obj, analysis, label, direction, level, genes,
       .empty_component_table(), .empty_node_table(),
-      .empty_topology_table(),  .empty_hub_table()
+      .empty_topology_table(),  .empty_hub_table(), obj_name
     ))
   }
 
@@ -412,7 +420,7 @@ run_component_analysis <- function(obj,
   # -- Store and return --------------------------------------------------------
   .store_component_result(
     obj, analysis, label, direction, level, genes,
-    component_table, node_table, topology_table, hub_table
+    component_table, node_table, topology_table, hub_table, obj_name
   )
 }
 
@@ -425,7 +433,8 @@ run_component_analysis <- function(obj,
 #' @noRd
 .store_component_result <- function(obj, analysis, label, direction, level,
                                     genes, component_table, node_table,
-                                    topology_table, hub_table) {
+                                    topology_table, hub_table,
+                                    obj_name = "obj") {
   comp_result <- new(
     "ComponentAnalysis",
     label           = as.character(label),
@@ -445,8 +454,8 @@ run_component_analysis <- function(obj,
   obj@analyses[[analysis]]@component_analyses[[label]] <- comp_result
 
   message(sprintf(
-    "Done. Access the results with:\n  get_component_overview(obj, \"%s\", \"%s\")",
-    analysis, label
+    "Done. Access the results with:\n  get_component_overview(%s, \"%s\", \"%s\")",
+    obj_name, analysis, label
   ))
 
   invisible(obj)
@@ -901,23 +910,20 @@ run_component_analysis <- function(obj,
 #'   metrics are undefined).
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
-#' obj <- run_differential_pulldown(obj, "cond_A", input, order = 1)
-#' obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' overview <- get_component_overview(obj, "t2d", "comp")
 #'
-#' overview <- get_component_overview(obj, "cond_A", "comp_iso")
-#'
-#' # Components containing both seed labels
-#' overview[overview$mixed, ]
-#'
-#' # Components with a descriptive hub-spoke topology
-#' overview[!is.na(overview$topology_class) &
-#'            overview$topology_class == "hub-spoke", ]
-#'
-#' # Sort by number of nodes descending
-#' overview[order(-overview$n_nodes), ]
-#' }
+#' # Largest components first
+#' head(overview[order(-overview$n_nodes),
+#'               c("component_id", "n_nodes", "n_edges", "topology_class")])
 #'
 #' @export
 get_component_overview <- function(obj, analysis, component_analysis) {
@@ -988,24 +994,22 @@ get_component_overview <- function(obj, analysis, component_analysis) {
 #'   with \code{NA}s at the end.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
-#' obj <- run_differential_pulldown(obj, "cond_A", input, order = 1)
-#' obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
 #'
-#' # Inspect the largest component
-#' comp1 <- get_component(obj, "cond_A", "comp_iso", component_id = 1)
-#' comp1
+#' # Nodes of the largest component
+#' comp1 <- get_component(obj, "t2d", "comp", component_id = 1)
+#' head(comp1)
 #'
 #' # Seed nodes only
 #' comp1[comp1$is_seed, ]
-#'
-#' # Shared hub nodes only (have a betweenness score)
-#' comp1[!is.na(comp1$betweenness_norm), ]
-#'
-#' # Top hub by betweenness within this component
-#' comp1[which.min(comp1$betweenness_rank), ]
-#' }
 #'
 #' @export
 get_component <- function(obj, analysis, component_analysis, component_id) {

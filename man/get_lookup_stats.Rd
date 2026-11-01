@@ -34,17 +34,10 @@ the pulldown subgraph and is the output of \code{\link{analyze_subgraph}}.
 
 }}
 \examples{
-\dontrun{
-# Run a look-up first
-obj <- lookup_virtual_pulldown(obj, "my_lkp",
-                               seed = "ENST00000379236", order = 1)
-
-# Retrieve the node stats data frame
-stats <- get_lookup_stats(obj, "my_lkp")
+obj <- IsoNetAnalyzeR("example")
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+stats <- get_lookup_stats(obj, "cltcl1_up")
 head(stats)
-
-# Seed nodes only
-stats[stats$is_seed, ]
-}
 
 }

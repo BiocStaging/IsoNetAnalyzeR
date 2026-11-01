@@ -33,22 +33,20 @@ Retrieve a stored component ORA result
 
 }}
 \examples{
-\dontrun{
-ora <- get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-ora  # show() summary
-
-# Significant terms for component 2
-res <- ora@result_table
-res[res$component_id == 2 & res$padj < 0.05,
-    c("pathway", "padj", "overlap", "pathway_size")]
-
-# Top GO term per component (one row per component)
-res[!duplicated(res$component_id),
-    c("component_id", "pathway", "padj", "overlap")]
-
-# Inspect overlapping genes for the top term of component 1
-top1 <- res[res$component_id == 1, ]
-top1$overlap_genes[[1]]
-}
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+                         pathways = hallmark)
+ora <- get_component_ora_result(obj, "t2d", "comp", "hallmark")
+ora
 
 }

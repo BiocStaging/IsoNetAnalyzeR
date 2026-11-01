@@ -21,3 +21,9 @@ redundant Ensembl transcript identifiers to the representative transcript
 retained for the same protein product. Rows outside the embedded network are
 retained because they are still needed for upstream count aggregation.
 }
+\examples{
+map <- isonet_duplicate_map()
+head(map[, c("kept_ENST", "redundant_ENST", "network_applicable")])
+table(map$network_applicable)
+
+}

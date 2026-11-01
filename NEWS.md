@@ -1,3 +1,90 @@
+# IsoNetAnalyzeR 0.99.0
+
+Version prepared for submission to Bioconductor.
+
+## Bundled network
+
+- The bundled network now contains the 158,458 predicted interaction edges
+  (`interact == 1`) and all 58,164 transcripts, instead of all 2,853,266
+  scored pairs. Every analysis already restricted the network to these
+  edges, so pulldowns, lookups, components, enrichment and diagnostics are
+  unchanged; this was verified against 0.6.5. Pulldowns are about ten times
+  faster and the source package is under Bioconductor's 5 MB limit.
+- Counts of all scored edges change accordingly: the session edge count, the
+  eligibility audit fields `edges_before`/`edges_after`, and the diagnostics
+  field `full_edges` now count predicted interaction edges.
+  `plot_network(obj, all_edges = TRUE)` on a whole session no longer draws
+  non-interacting pairs.
+- `inst/scripts/reduce_network.R` derives the new network from the 0.6.5
+  file; `inst/PROVENANCE.md` documents both checksums.
+
+## New features
+
+- `get_metadata()` returns session metadata such as coverage, seed-support
+  and eligibility audits, replacing direct slot access.
+- `get_pulldown_graph()` returns a gene's up- or down-seeded pulldown graph.
+- `get_network()` returns the session network.
+- Network plots label nodes with gene symbols. `plot_network()` and
+  `plot_component()` gain `node_labels = c("symbol", "id", "none")` to switch
+  to transcript or gene identifiers or to hide labels, and gene plot titles
+  show the symbol next to the gene ID. Gene labels in the cross-gene scatter
+  and boxplots also use symbols.
+- `isonet_gene_names()` returns the GENCODE v41 gene symbols of the bundled
+  network (`inst/extdata/gene_names_gencode_v41.csv.gz`, produced by
+  `inst/scripts/make_gene_names.R`), for annotating result tables.
+
+## Printed output
+
+- Printed summaries keep their column alignment, which `cli` had collapsed;
+  the coverage report labels share one width.
+- Session creation reports counts with thousands separators and states that
+  excluded NMD and NSD transcripts take their edges with them, which explains
+  the two edge counts. The session summary calls the bundled network
+  "bundled".
+- "Access with" hints use the name of the variable passed as `obj`, and the
+  enrichment summaries show "user-supplied" instead of `NA` for gene sets
+  passed through `pathways`.
+
+## Plot fixes
+
+- The `direction = "overlay"` plot of `plot_network()` follows the style of
+  the paper figures: dashed down-only edges, thicker shared edges, a short
+  centred title with the gene symbol, and legends below the plot. The
+  vignette draws it at gene level, as the paper does.
+
+- `plot_component(colour_by = "direction")` draws one legend for colour and
+  one for seed status instead of two legends both titled "Direction";
+  equidistant neighbours are labelled "Equidistant".
+- The `plot_cross_gene_overview()` subtitle no longer describes the up/down
+  comparison as a change between conditions.
+- The gene-connectivity panel of `plot_network_diagnostics()` leaves room for
+  the count above its tallest bar.
+
+## Documentation and data
+
+- New vignette, "Introduction to IsoNetAnalyzeR", analysing isoform switches
+  between obese type 2 diabetic and lean adipose tissue (GEO GSE141432).
+  It credits Isabella Østerlund's network model and protein-identical map
+  and has an Acknowledgements section.
+- Example data: `gse141432_t2d_vs_lean_seeds.csv` (137 seeds of 65 genes)
+  and the MSigDB Hallmark gene sets (`msigdb_hallmark_ensembl.rds`), with
+  generating scripts in `inst/scripts/`.
+- `inst/PROVENANCE.md` describes how the network was derived from STRING
+  physical interactions and attributes STRING's CC BY 4.0 licence.
+- Every exported function and class has runnable examples.
+- The help page for `run_network_diagnostics()` no longer truncates the
+  description of the default sticky-node rule.
+
+## Package infrastructure
+
+- `biocViews`, `URL` and `BugReports` added; ORCID iDs, copyright holders
+  and the thesis supervisors listed in `Authors@R`; licence declared as
+  `MIT + file LICENSE` with the full text in `LICENSE.md`.
+- `msigdbr` moved to Suggests; `withr` added to Imports to draw the
+  diagnostics plot subsample with a local seed.
+- Condition messages no longer build text with `paste()`; message text is
+  unchanged.
+
 # IsoNetAnalyzeR 0.6.5
 
 - Add a concise README with direct user-guide links, a self-contained installed instructions file, and a separate network-eligibility explanation with references.

@@ -82,6 +82,25 @@ NULL
 #'   \code{n_genes_dropped_na}.
 #' @slot created_at   \code{POSIXct} scalar.  Timestamp of the run.
 #'
+#' @return Objects of this class are created by \code{\link{run_fgsea}} and returned by \code{\link{get_gsea_result}}.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' # For speed, this example analyses only the seed genes found in Hallmark
+#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+#' # must be small.
+#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' set.seed(42)
+#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#'                  minSize = 3)
+#' get_gsea_result(obj, "t2d", "hallmark_gsea")
+#'
 #' @exportClass FgseaResult
 setClass(
   "FgseaResult",
@@ -110,20 +129,22 @@ setMethod("show", "FgseaResult", function(object) {
   top_row <- if (nrow(rt) > 0L) rt[1L, ] else NULL
 
   cli::cli_rule("FgseaResult")
-  cli::cli_text("Label        : {object@label}")
-  cli::cli_text("Parent run   : {object@parent_label}")
-  cli::cli_text("Created      : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("Rank by      : {object@rank_by}")
-  cli::cli_text("GO category  : {object@go_category}")
-  cli::cli_text("Genes ranked : {object@params$n_genes_ranked}  ({object@params$n_genes_dropped_na} dropped - NA rank)")
-  cli::cli_text("Pathways     : {nrow(rt)} tested  |  {n_sig} significant (padj < 0.05)")
+  .cli_aligned("Label        : {object@label}")
+  .cli_aligned("Parent run   : {object@parent_label}")
+  .cli_aligned("Created      : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("Rank by      : {object@rank_by}")
+  gene_sets <- if (is.na(object@go_category)) "user-supplied" else
+    object@go_category
+  .cli_aligned("Gene sets    : {gene_sets}")
+  .cli_aligned("Genes ranked : {object@params$n_genes_ranked}  ({object@params$n_genes_dropped_na} dropped - NA rank)")
+  .cli_aligned("Pathways     : {nrow(rt)} tested  |  {n_sig} significant (padj < 0.05)")
 
   if (!is.null(top_row))
-    cli::cli_text(
+    .cli_aligned(
       "Top pathway  : {top_row$pathway}  (NES = {round(top_row$NES, 3)}, padj = {signif(top_row$padj, 3)})"
     )
 
-  cli::cli_text(
+  .cli_aligned(
     "Params       : minSize = {object@params$minSize}  maxSize = {object@params$maxSize}  nperm = {object@params$nperm}"
   )
   cli::cli_rule()
@@ -224,24 +245,31 @@ setMethod("show", "FgseaResult", function(object) {
 #'   Access via \code{get_gsea_result(obj, analysis, label)}.
 #'
 #' @examples
-#' \dontrun{
-#' # Tier 1 - built-in preset
-#' obj <- run_fgsea(obj, "my_run", label = "nodes_gsea")
-#' obj <- run_fgsea(obj, "my_run", label = "edges_gsea", rank_by = "delta_edges")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' # For speed, this example analyses only the seed genes found in Hallmark
+#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+#' # must be small.
+#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' set.seed(42)
+#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#'                  minSize = 3)
+#' get_gsea_table(obj, "t2d", "hallmark_gsea")
 #'
-#' # Tier 3 - custom ranking
-#' cgs      <- get_cross_gene_summary(obj, "my_run")
+#' # Custom ranking: a weighted node and edge difference per gene
+#' cgs <- get_cross_gene_summary(obj, "t2d")
 #' my_stats <- setNames(
 #'   (cgs$up_nodes - cgs$down_nodes) * 0.7 +
-#'   (cgs$up_edges - cgs$down_edges) * 0.3,
+#'     (cgs$up_edges - cgs$down_edges) * 0.3,
 #'   cgs$gene_id
 #' )
-#' obj <- run_fgsea(obj, "my_run", label = "weighted", stats = my_stats)
-#'
-#' # Retrieve filtered results (use get_gsea_table / get_gsea_stats)
-#' get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
-#' get_gsea_stats(obj, "my_run", "nodes_gsea")
-#' }
+#' obj <- run_fgsea(obj, "t2d", label = "weighted", stats = my_stats,
+#'                  pathways = hallmark, minSize = 3)
 #'
 #' @export
 run_fgsea <- function(obj,
@@ -255,6 +283,8 @@ run_fgsea <- function(obj,
                       maxSize      = 500L,
                       nperm        = 1000L,
                       ...) {
+
+  obj_name <- .obj_name(substitute(obj))
 
   # -- Package checks ----------------------------------------------------------
   if (!requireNamespace("fgsea",    quietly = TRUE))
@@ -386,11 +416,10 @@ run_fgsea <- function(obj,
   diff_res@gsea_results[[label]] <- gsea_result
   obj@analyses[[analysis]]       <- diff_res
 
-  message(sprintf(paste0(
-    "Done. Access results with:\n",
-    "  get_gsea_result(obj, \"%s\", \"%s\")"),
-    analysis, label
-  ))
+  message(
+    "Access results with:\n",
+    sprintf("  get_gsea_result(%s, \"%s\", \"%s\")", obj_name, analysis, label)
+  )
 
   invisible(obj)
 }
@@ -508,14 +537,21 @@ run_fgsea <- function(obj,
 #' @return A \linkS4class{FgseaResult} object.
 #'
 #' @examples
-#' \dontrun{
-#' # show() summary
-#' get_gsea_result(obj, "my_run", "nodes_gsea")
-#'
-#' # For data frames, use the dedicated table accessors:
-#' get_gsea_table(obj, "my_run", "nodes_gsea", padj_cutoff = 0.05)
-#' get_gsea_stats(obj, "my_run", "nodes_gsea")
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' # For speed, this example analyses only the seed genes found in Hallmark
+#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
+#' # must be small.
+#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
+#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' set.seed(42)
+#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#'                  minSize = 3)
+#' get_gsea_result(obj, "t2d", "hallmark_gsea")
 #'
 #' @export
 setGeneric("get_gsea_result",

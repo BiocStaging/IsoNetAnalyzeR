@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{ComponentOraResult} object.}
 }
+\value{
+Objects of this class are created by \code{\link{run_component_ora}} and returned by \code{\link{get_component_ora_result}}.
+}
 \description{
 Produced by \code{\link{run_component_ora}}.  Stores the ORA result table
 across all components and all run parameters.  Stored inside
@@ -63,3 +66,20 @@ Sorted by \code{component_id} then \code{padj} ascending.}
 \item{\code{created_at}}{\code{POSIXct} scalar.  Timestamp of the run.}
 }}
 
+\examples{
+seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+                              package = "IsoNetAnalyzeR"))
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+obj <- IsoNetAnalyzeR("example")
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+obj <- run_component_analysis(obj, "t2d", label = "comp")
+hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+                                package = "IsoNetAnalyzeR"))
+obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+                         pathways = hallmark)
+get_component_ora_result(obj, "t2d", "comp", "hallmark")
+
+}

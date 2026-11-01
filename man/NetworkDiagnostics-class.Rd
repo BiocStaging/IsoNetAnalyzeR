@@ -11,6 +11,9 @@
 \arguments{
 \item{object}{A \linkS4class{NetworkDiagnostics} object.}
 }
+\value{
+Objects of this class are created by \code{\link{run_network_diagnostics}} and returned by \code{\link{get_network_diagnostics}}.
+}
 \description{
 Top-level container produced by \code{\link{run_network_diagnostics}}.
 Stores structural and topological summary statistics of the loaded isoform
@@ -31,7 +34,9 @@ network views and global topology metrics.  Columns:
 \describe{
 \item{full_isoforms}{Total isoform nodes in the full network.}
 \item{full_genes}{Unique genes in the full network.}
-\item{full_edges}{Total edges in the full network.}
+\item{full_edges}{Total edges in the session network. For the
+bundled network (from 0.99.0) this equals the number of predicted
+interaction edges.}
 \item{full_predicted_edges}{Edges with \code{interact == 1}.}
 \item{pred_isoforms}{Isoform nodes in the predicted subnetwork.}
 \item{pred_genes}{Unique genes in the predicted subnetwork.}
@@ -99,3 +104,18 @@ threshold above which a gene is classified as sticky.}
 \item{\code{created_at}}{\code{POSIXct} scalar.  Timestamp of the run.}
 }}
 
+\examples{
+# A small deterministic network keeps this example fast; on the bundled
+# network the diagnostics take about half a minute.
+g <- igraph::make_graph("Zachary")
+n <- igraph::vcount(g)
+igraph::V(g)$name <- paste0("tx", seq_len(n))
+igraph::V(g)$gene <- paste0("gene", ceiling(seq_len(n) / 2))
+igraph::V(g)$transcript_biotype <- "protein_coding"
+igraph::E(g)$interact <- 1L
+toy <- IsoNetAnalyzeR("toy", network = g,
+                      metadata = list(network_cutoff = 0.25))
+toy <- run_network_diagnostics(toy)
+get_network_diagnostics(toy)
+
+}

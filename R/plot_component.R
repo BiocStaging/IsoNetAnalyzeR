@@ -129,35 +129,37 @@ NULL
 #' @param edge_alpha         Numeric in \[0, 1\].  Edge opacity.  Default
 #'   \code{0.4}.
 #' @param title              Character scalar or \code{NULL} (auto-generated).
+#' @param node_labels        Character scalar.  \code{"symbol"} (default)
+#'   labels nodes with gene symbols, \code{"id"} with transcript (or, at gene
+#'   level, gene) identifiers, and \code{"none"} draws no labels.  See
+#'   \code{\link{plot_network}}.
 #' @param ...                Additional arguments forwarded to
 #'   \code{ggraph::ggraph()}.
 #'
 #' @return A \code{ggplot} object, invisibly.
 #'
 #' @examples
-#' \dontrun{
-#' obj <- IsoNetAnalyzeR("demo")
-#' obj <- run_differential_pulldown(obj, "cond_A", "de_isoforms.csv", order = 1)
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
 #'
-#' # Isoform-level component analysis
-#' obj <- run_component_analysis(obj, "cond_A", label = "comp_iso")
+#' # Colour seeds by direction
+#' p <- plot_component(obj, "t2d", "comp", component_id = 1,
+#'                     colour_by = "direction")
 #'
-#' # Gene-level component analysis
-#' obj <- run_component_analysis(obj, "cond_A", label = "comp_gene",
-#'                               level = "gene")
+#' # Territory map: neighbours coloured by the seed directions reaching them
+#' p <- plot_component(obj, "t2d", "comp", component_id = 1,
+#'                     colour_by = "direction", colour_neighbours = TRUE)
 #'
-#' # Isoform level — direction mode, seeds only
-#' plot_component(obj, "cond_A", "comp_iso", component_id = 1,
-#'                colour_by = "direction")
-#'
-#' # Isoform level — territory map
-#' plot_component(obj, "cond_A", "comp_iso", component_id = 1,
-#'                colour_by = "direction", colour_neighbours = TRUE)
-#'
-#' # Gene level — dominance score (diverging scale)
-#' plot_component(obj, "cond_A", "comp_gene", component_id = 1,
-#'                colour_by = "direction")
-#' }
+#' # Without node labels
+#' p <- plot_component(obj, "t2d", "comp", component_id = 1,
+#'                     node_labels = "none")
 #'
 #' @export
 plot_component <- function(obj,
@@ -171,6 +173,7 @@ plot_component <- function(obj,
                            label_size        = 2.5,
                            edge_alpha        = 0.4,
                            title             = NULL,
+                           node_labels       = c("symbol", "id", "none"),
                            ...) {
 
   # -- Input validation --------------------------------------------------------
@@ -216,7 +219,8 @@ plot_component <- function(obj,
       component_id, n_comps
     ), call. = FALSE)
 
-  colour_by <- match.arg(colour_by)
+  colour_by   <- match.arg(colour_by)
+  node_labels <- match.arg(node_labels)
 
   if (!is.logical(colour_neighbours) || length(colour_neighbours) != 1L ||
       is.na(colour_neighbours))
@@ -290,6 +294,7 @@ plot_component <- function(obj,
         label_size  = label_size,
         edge_alpha  = edge_alpha,
         title       = title,
+        node_labels = node_labels,
         ...
       )
     } else {
@@ -302,6 +307,7 @@ plot_component <- function(obj,
         label_size        = label_size,
         edge_alpha        = edge_alpha,
         title             = title,
+        node_labels       = node_labels,
         ...
       )
     }
@@ -316,6 +322,7 @@ plot_component <- function(obj,
       edge_alpha = edge_alpha,
       title      = title,
       colour_by  = colour_by,
+      node_labels = node_labels,
       ...
     )
   }
@@ -469,7 +476,8 @@ plot_component <- function(obj,
 #' @noRd
 .render_component_direction_plot <- function(g, colour_neighbours, layout,
                                              node_size, label_size,
-                                             edge_alpha, title, ...) {
+                                             edge_alpha, title,
+                                             node_labels = "symbol", ...) {
 
   seed_dir <- igraph::V(g)$seed_direction
   is_seed  <- !is.na(seed_dir)
@@ -481,11 +489,13 @@ plot_component <- function(obj,
   }
 
   # Shape encodes actual seed status regardless of territory colouring
-  shape_role <- ifelse(is_seed, seed_dir, "neighbour")
+  shape_role <- ifelse(is_seed, "seed", "neighbour")
 
   all_levels <- c("up", "down", "both", "neighbour")
   igraph::V(g)$colour_role <- factor(colour_role, levels = all_levels)
-  igraph::V(g)$shape_role  <- factor(shape_role,  levels = all_levels)
+  igraph::V(g)$shape_role  <- factor(shape_role,
+                                     levels = c("seed", "neighbour"))
+  g <- .add_node_labels(g, node_labels)
 
   n_multi  <- sum(igraph::V(g)$source_gene == "multi-gene", na.rm = TRUE)
   subtitle <- sprintf(
@@ -498,15 +508,16 @@ plot_component <- function(obj,
 
   dir_labels <- if (colour_neighbours) {
     c(up = "Up territory", down = "Down territory",
-      both = "Contested", neighbour = "Unreachable")
+      both = "Equidistant", neighbour = "Unreachable")
   } else {
     c(up = "Up seed", down = "Down seed",
       both = "Up & down seed", neighbour = "Neighbour")
   }
+  colour_title <- if (colour_neighbours) "Nearest seed" else "Direction"
 
-  shape_vals <- c(up = 18L, down = 18L, both = 18L, neighbour = 16L)
-  size_vals  <- c(up        = node_size * 1.6, down  = node_size * 1.6,
-                  both      = node_size * 1.6, neighbour = node_size)
+  shape_vals  <- c(seed = 18L, neighbour = 16L)
+  shape_names <- c(seed = "Seed", neighbour = "Neighbour")
+  size_vals   <- c(seed = node_size * 1.6, neighbour = node_size)
 
   p <- ggraph::ggraph(g, layout = layout, ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
@@ -515,14 +526,13 @@ plot_component <- function(obj,
                    shape  = .data[["shape_role"]],
                    size   = .data[["shape_role"]])
     ) +
-    ggplot2::scale_colour_manual(name = "Direction", values = dir_colours,
+    ggplot2::scale_colour_manual(name = colour_title, values = dir_colours,
                                  labels = dir_labels, drop = TRUE) +
-    ggplot2::scale_shape_manual(name  = "Direction", values = shape_vals,
-                                labels = dir_labels, drop = TRUE) +
-    ggplot2::scale_size_manual(name   = "Direction", values = size_vals,
-                               labels = dir_labels, drop = TRUE) +
-    ggraph::geom_node_text(ggplot2::aes(label = .data[["name"]]),
-                           size = label_size, repel = TRUE) +
+    ggplot2::scale_shape_manual(name  = "Node", values = shape_vals,
+                                labels = shape_names, drop = TRUE) +
+    ggplot2::scale_size_manual(name   = "Node", values = size_vals,
+                               labels = shape_names, drop = TRUE) +
+    .label_geom(label_size, node_labels) +
     ggplot2::labs(title = title, subtitle = subtitle) +
     ggraph::theme_graph(base_family = "sans") +
     ggplot2::theme(
@@ -531,9 +541,10 @@ plot_component <- function(obj,
       legend.position = "right"
     ) +
     ggplot2::guides(
-      colour = ggplot2::guide_legend(title = "Direction", order = 1,
-                                     override.aes = list(size = 3)),
-      shape  = ggplot2::guide_legend(title = "Direction", order = 1),
+      colour = ggplot2::guide_legend(order = 1,
+                                     override.aes = list(shape = 16L,
+                                                         size = 3)),
+      shape  = ggplot2::guide_legend(order = 2),
       size   = "none"
     )
 
@@ -571,12 +582,14 @@ plot_component <- function(obj,
 #' @noRd
 .render_component_dominance_plot <- function(g, input_table, layout,
                                              node_size, label_size,
-                                             edge_alpha, title, ...) {
+                                             edge_alpha, title,
+                                             node_labels = "symbol", ...) {
 
   scores  <- .compute_dominance_scores(g, input_table)
   is_seed <- !is.na(igraph::V(g)$seed_direction)
 
   igraph::V(g)$dominance <- scores
+  g <- .add_node_labels(g, node_labels)
 
   # Seeds (any seed isoform) → diamond; pure neighbours → circle
   igraph::V(g)$node_shape <- ifelse(is_seed, 18L, 16L)
@@ -608,11 +621,7 @@ plot_component <- function(obj,
       size  = igraph::V(g)$node_size
     ) +
     scale_col +
-    ggraph::geom_node_text(
-      ggplot2::aes(label = .data[["name"]]),
-      size  = label_size,
-      repel = TRUE
-    ) +
+    .label_geom(label_size, node_labels) +
     ggplot2::labs(
       title    = title,
       subtitle = subtitle,

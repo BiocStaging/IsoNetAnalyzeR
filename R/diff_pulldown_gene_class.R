@@ -43,6 +43,18 @@
 #'   \code{n_up_network}, \code{n_down_network} (isoforms found in the network),
 #'   \code{has_up}, \code{has_down} (logical flags for subgraph availability).
 #'
+#' @return Objects of this class are returned by \code{\link{get_gene_result}}.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' get_gene_result(obj, "t2d", "ENSG00000070371")
+#'
 #' @exportClass GeneDiffPulldown
 setClass(
   "GeneDiffPulldown",
@@ -237,7 +249,7 @@ setMethod("show", "GeneDiffPulldown", function(object) {
   gs <- object@gene_summary
 
   cli::cli_rule("GeneDiffPulldown")
-  cli::cli_text("Gene       : {object@gene_id}")
+  .cli_aligned("Gene       : {(.gene_title(object@gene_id))}")
 
   up_desc <- if (gs$has_up) {
     paste0("subgraph with ",
@@ -259,10 +271,53 @@ setMethod("show", "GeneDiffPulldown", function(object) {
     "no network hits"
   }
 
-  cli::cli_text("Up         : {gs$n_up_input} isoform(s) input
+  .cli_aligned("Up         : {gs$n_up_input} isoform(s) input
                {cli::symbol$arrow_right} {up_desc}")
-  cli::cli_text("Down       : {gs$n_down_input} isoform(s) input
+  .cli_aligned("Down       : {gs$n_down_input} isoform(s) input
                {cli::symbol$arrow_right} {down_desc}")
   cli::cli_rule()
   invisible(object)
+})
+
+
+# ==============================================================================
+#  get_pulldown_graph
+# ==============================================================================
+
+#' Retrieve the up- or down-seeded pulldown graph of one gene
+#'
+#' Returns the virtual pulldown subgraph seeded from a gene's up-labelled or
+#' down-labelled isoforms.
+#'
+#' @param x         A \linkS4class{GeneDiffPulldown} object, as returned by
+#'   \code{\link{get_gene_result}}.
+#' @param direction Either \code{"up"} or \code{"down"}.
+#'
+#' @return An \code{igraph} object, or \code{NULL} when none of the gene's
+#'   isoforms in that direction were found in the session network. A seed
+#'   that is in the network but has no predicted interaction gives a
+#'   one-vertex graph.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name == "CLTCL1", ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' cltcl1 <- get_gene_result(obj, "t2d", "ENSG00000070371")
+#' up <- get_pulldown_graph(cltcl1, "up")
+#' c(nodes = igraph::vcount(up), edges = igraph::ecount(up))
+#'
+#' @export
+setGeneric("get_pulldown_graph",
+           function(x, direction = c("up", "down"))
+             standardGeneric("get_pulldown_graph"))
+
+#' @describeIn get_pulldown_graph Method for \linkS4class{GeneDiffPulldown}.
+setMethod("get_pulldown_graph", "GeneDiffPulldown",
+          function(x, direction = c("up", "down")) {
+  direction <- match.arg(direction)
+  if (direction == "up") x@up_graph else x@down_graph
 })

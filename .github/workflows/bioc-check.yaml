@@ -1,0 +1,31 @@
+name: Bioconductor devel check
+
+on:
+  pull_request:
+  push:
+    branches: [main, devel]
+
+permissions: read-all
+
+jobs:
+  bioc-check:
+    runs-on: ubuntu-latest
+    container: bioconductor/bioconductor_docker:devel
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          Rscript -e 'BiocManager::install(c("BiocCheck", "rcmdcheck", "remotes"), ask = FALSE, update = FALSE)'
+          Rscript -e 'remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories(), upgrade = "never")'
+
+      - name: Build
+        run: R CMD build .
+
+      - name: R CMD check
+        run: |
+          Rscript -e 'rcmdcheck::rcmdcheck(Sys.glob("IsoNetAnalyzeR_*.tar.gz"), args = "--no-manual", error_on = "warning", check_dir = "check")'
+
+      - name: BiocCheck
+        run: |
+          Rscript -e 'BiocCheck::BiocCheck(Sys.glob("IsoNetAnalyzeR_*.tar.gz"), `new-package` = TRUE, `quit-with-status` = TRUE)'

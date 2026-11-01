@@ -29,3 +29,12 @@ Computes a set of network-level statistics for each subgraph in
 multiple seed vertices, their names are collapsed into a single
 comma-separated string.
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+neighbourhoods <- list(
+  cltcl1_up = virtual_pulldown(obj, "ENST00000621271", order = 1),
+  cltcl1_down = virtual_pulldown(obj, "ENST00000427926", order = 1)
+)
+summarize_subgraphs(neighbourhoods)
+
+}

@@ -29,6 +29,14 @@
 #'   \code{level}.
 #' @slot created_at \code{POSIXct} scalar. Timestamp of the look-up.
 #'
+#' @return Objects of this class are created by \code{\link{lookup_virtual_pulldown}} and returned by \code{\link{get_lookup}}.
+#'
+#' @examples
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' get_lookup(obj, "cltcl1_up")
+#'
 #' @exportClass VirtualPulldownLookup
 setClass(
   "VirtualPulldownLookup",
@@ -118,19 +126,19 @@ setMethod("show", "VirtualPulldownLookup", function(object) {
   cli::cli_rule("VirtualPulldownLookup")
 
   if (length(object@seed) == 1L) {
-    cli::cli_text("Seed(s)    : {object@seed}  [{object@level} level]")
+    .cli_aligned("Seed(s)    : {object@seed}  [{object@level} level]")
   } else {
-    cli::cli_text("Seed(s)    : [{object@level} level]")
+    .cli_aligned("Seed(s)    : [{object@level} level]")
     for (s in object@seed) {
-      cli::cli_text("    {s}")
+      .cli_aligned("    {s}")
     }
   }
 
-  cli::cli_text("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("Order      : {object@params[['order']] %||% '?'}")
-  cli::cli_text("Cutoff     : {round(object@cutoff, 4)}")
-  cli::cli_text("Subgraph   : {igraph::vcount(object@subgraph)} vertices, {igraph::ecount(object@subgraph)} edges")
-  cli::cli_text("Node stats : {nrow(object@node_stats)} row(s), {ncol(object@node_stats)} col(s)")
+  .cli_aligned("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  .cli_aligned("Order      : {object@params[['order']] %||% '?'}")
+  .cli_aligned("Cutoff     : {round(object@cutoff, 4)}")
+  .cli_aligned("Subgraph   : {igraph::vcount(object@subgraph)} vertices, {igraph::ecount(object@subgraph)} edges")
+  .cli_aligned("Node stats : {nrow(object@node_stats)} row(s), {ncol(object@node_stats)} col(s)")
   cli::cli_rule()
   invisible(object)
 })
@@ -158,18 +166,11 @@ setMethod("show", "VirtualPulldownLookup", function(object) {
 #'   \code{distance_from_seed}, \code{mean_pi}, \code{pi_entropy}.
 #'
 #' @examples
-#' \dontrun{
-#' # Run a look-up first
-#' obj <- lookup_virtual_pulldown(obj, "my_lkp",
-#'                                seed = "ENST00000379236", order = 1)
-#'
-#' # Retrieve the node stats data frame
-#' stats <- get_lookup_stats(obj, "my_lkp")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' stats <- get_lookup_stats(obj, "cltcl1_up")
 #' head(stats)
-#'
-#' # Seed nodes only
-#' stats[stats$is_seed, ]
-#' }
 #'
 #' @export
 setGeneric("get_lookup_stats",
@@ -202,19 +203,11 @@ setMethod("get_lookup_stats", "IsoNetAnalyzeR",
 #' @return An \code{igraph} object representing the pulldown subnetwork.
 #'
 #' @examples
-#' \dontrun{
-#' # Run a look-up first
-#' obj <- lookup_virtual_pulldown(obj, "my_lkp",
-#'                                seed = "ENST00000379236", order = 1)
-#'
-#' # Retrieve the igraph subgraph
-#' g <- get_lookup_subgraph(obj, "my_lkp")
-#' igraph::vcount(g)
-#' igraph::ecount(g)
-#'
-#' # Pass directly to plot_network
-#' plot_network(g)
-#' }
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+#'                                order = 1)
+#' g <- get_lookup_subgraph(obj, "cltcl1_up")
+#' c(nodes = igraph::vcount(g), edges = igraph::ecount(g))
 #'
 #' @export
 setGeneric("get_lookup_subgraph",

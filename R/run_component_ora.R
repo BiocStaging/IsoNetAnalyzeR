@@ -72,6 +72,24 @@ NULL
 #'   \code{universe_size}.
 #' @slot created_at         \code{POSIXct} scalar.  Timestamp of the run.
 #'
+#' @return Objects of this class are created by \code{\link{run_component_ora}} and returned by \code{\link{get_component_ora_result}}.
+#'
+#' @examples
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+#'                          pathways = hallmark)
+#' get_component_ora_result(obj, "t2d", "comp", "hallmark")
+#'
 #' @exportClass ComponentOraResult
 setClass(
   "ComponentOraResult",
@@ -109,33 +127,35 @@ setMethod("show", "ComponentOraResult", function(object) {
   } else NULL
 
   cli::cli_rule("ComponentOraResult")
-  cli::cli_text("Label           : {object@label}")
-  cli::cli_text("Parent comp. run: {object@parent_label}")
-  cli::cli_text("Diff. analysis  : {object@grandparent_label}")
-  cli::cli_text("Created         : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
-  cli::cli_text("GO category     : {object@go_category}")
-  cli::cli_text("Nodes used      : {object@nodes_used}")
-  cli::cli_text("Universe size   : {object@params$universe_size} genes")
-  cli::cli_text(
+  .cli_aligned("Label           : {object@label}")
+  .cli_aligned("Parent comp. run: {object@parent_label}")
+  .cli_aligned("Diff. analysis  : {object@grandparent_label}")
+  .cli_aligned("Created         : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")
+  gene_sets <- if (is.na(object@go_category)) "user-supplied" else
+    object@go_category
+  .cli_aligned("Gene sets       : {gene_sets}")
+  .cli_aligned("Nodes used      : {object@nodes_used}")
+  .cli_aligned("Universe size   : {object@params$universe_size} genes")
+  .cli_aligned(
     "Components      : {n_comp_tested} tested  |  {n_comp_skip} skipped (too few genes)"
   )
-  cli::cli_text(
+  .cli_aligned(
     "Results         : {nrow(rt)} term(s) across all components  |  {n_sig} significant (padj < 0.05)"
   )
 
   if (!is.null(top_per_comp) && nrow(top_per_comp) > 0L) {
-    cli::cli_text("Top term per component:")
+    .cli_aligned("Top term per component:")
     for (i in seq_len(min(5L, nrow(top_per_comp)))) {
       r <- top_per_comp[i, ]
-      cli::cli_text(
+      .cli_aligned(
         "  Comp {r$component_id}: {r$pathway}  (padj = {signif(r$padj, 3)}, overlap = {r$overlap})"
       )
     }
     if (nrow(top_per_comp) > 5L)
-      cli::cli_text("  ... ({nrow(top_per_comp) - 5L} more components)")
+      .cli_aligned("  ... ({nrow(top_per_comp) - 5L} more components)")
   }
 
-  cli::cli_text(
+  .cli_aligned(
     "Params          : minSize = {object@params$minSize}  maxSize = {object@params$maxSize}"
   )
   cli::cli_rule()
@@ -225,27 +245,23 @@ setMethod("show", "ComponentOraResult", function(object) {
 #'   \code{get_component_ora_result(obj, analysis, component_analysis, label)}.
 #'
 #' @examples
-#' \dontrun{
-#' # Run component analysis first
-#' obj <- run_component_analysis(obj, "my_run", label = "comp_both")
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+#'                          pathways = hallmark)
+#' get_component_ora_result(obj, "t2d", "comp", "hallmark")
 #'
-#' # Annotate components with GO:BP terms (default)
-#' obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_bp")
-#'
-#' # Also test molecular function
-#' obj <- run_component_ora(obj, "my_run", "comp_both", label = "go_mf",
-#'                          go_category = "GO:MF")
-#'
-#' # show() summary of the result object
-#' get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-#'
-#' # All significant terms for component 1
-#' get_ora_table(obj, "my_run", "comp_both", "go_bp",
-#'               component_id = 1, padj_cutoff = 0.05)
-#'
-#' # Top term per component across all components
-#' get_ora_table(obj, "my_run", "comp_both", "go_bp", top_n = 1)
-#' }
+#' # Most significant gene set per component
+#' get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 1)
 #'
 #' @export
 run_component_ora <- function(obj,
@@ -258,6 +274,8 @@ run_component_ora <- function(obj,
                               universe           = NULL,
                               minSize            = 10L,
                               maxSize            = 500L) {
+
+  obj_name <- .obj_name(substitute(obj))
 
   # -- Package checks ----------------------------------------------------------
   if (!requireNamespace("fgsea", quietly = TRUE))
@@ -445,11 +463,11 @@ run_component_ora <- function(obj,
   obj@analyses[[analysis]]@component_analyses[[component_analysis]]@ora_results[[label]] <-
     ora_result
 
-  message(sprintf(paste0(
-    "Done. Access results with:\n",
-    "  get_component_ora_result(obj, \"%s\", \"%s\", \"%s\")"),
-    analysis, component_analysis, label
-  ))
+  message(
+    "Access results with:\n",
+    sprintf("  get_component_ora_result(%s, \"%s\", \"%s\", \"%s\")",
+            obj_name, analysis, component_analysis, label)
+  )
 
   invisible(obj)
 }
@@ -581,23 +599,21 @@ run_component_ora <- function(obj,
 #' @return A \linkS4class{ComponentOraResult} object.
 #'
 #' @examples
-#' \dontrun{
-#' ora <- get_component_ora_result(obj, "my_run", "comp_both", "go_bp")
-#' ora  # show() summary
-#'
-#' # Significant terms for component 2
-#' res <- ora@@result_table
-#' res[res$component_id == 2 & res$padj < 0.05,
-#'     c("pathway", "padj", "overlap", "pathway_size")]
-#'
-#' # Top GO term per component (one row per component)
-#' res[!duplicated(res$component_id),
-#'     c("component_id", "pathway", "padj", "overlap")]
-#'
-#' # Inspect overlapping genes for the top term of component 1
-#' top1 <- res[res$component_id == 1, ]
-#' top1$overlap_genes[[1]]
-#' }
+#' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
+#'                               package = "IsoNetAnalyzeR"))
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
+#' obj <- IsoNetAnalyzeR("example")
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' obj <- run_component_analysis(obj, "t2d", label = "comp")
+#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
+#'                                 package = "IsoNetAnalyzeR"))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
+#'                          pathways = hallmark)
+#' ora <- get_component_ora_result(obj, "t2d", "comp", "hallmark")
+#' ora
 #'
 #' @export
 setGeneric("get_component_ora_result",

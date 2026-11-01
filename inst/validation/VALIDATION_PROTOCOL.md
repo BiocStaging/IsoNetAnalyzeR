@@ -1,4 +1,4 @@
-# IsoNetAnalyzeR 0.6.5 validation protocol
+# IsoNetAnalyzeR 0.99.0 validation protocol
 
 ## Automated package checks
 
@@ -8,8 +8,11 @@
 4. Run `R CMD check --no-manual` and require `Status: OK`.
 5. Run `R CMD check --as-cran`; archive the full log and explain any external
    incoming-feasibility notes separately from package defects.
-6. Confirm version 0.6.5, the canonical tarball SHA-256, and the unchanged
-   `R/sysdata.rda` SHA-256.
+6. Confirm version 0.99.0, the canonical tarball SHA-256, and the
+   `R/sysdata.rda` SHA-256 recorded in `inst/PROVENANCE.md`.
+7. Run `BiocCheck::BiocCheck(new-package = TRUE)` on the source tarball.
+8. Whenever the network file changes, rerun the network equivalence
+   comparison against the previous release and archive its report.
 
 ## Required regression cases
 
@@ -36,7 +39,7 @@
 - Three-state coverage overall and per supplied direction: unmapped, mapped
   without a predicted edge, and mapped with a predicted edge.
 - Diagnostic low-mapping warnings, typed returned coverage, and persistence in
-  `obj@metadata$analysis_network_coverage[[label]]`.
+  `get_metadata(obj, "analysis_network_coverage")[[label]]`.
 - Missing identifiers/directions, exact duplicates, direction and gene
   conflicts, network mapping disagreement, fractional integers, non-finite
   values, and invalid stored cutoffs.
@@ -52,12 +55,14 @@
   node-stat tables without the flag.
 - Plot assignment and `ggsave()` on explicit output paths without creating
   `Rplots.pdf`.
-- Execution of the synthetic vignette workflow.
+- Execution of the vignette and every man-page example.
 
 ## Scientific invariants
 
-- The embedded network file and its checksum are unchanged from repaired
-  commit `f24b467`.
+- The embedded network is the interaction-only reduction of the 0.6.5 file
+  (`inst/scripts/reduce_network.R`). It keeps every vertex and every
+  `interact == 1` edge, so analysis results are identical to 0.6.5; only
+  counts of all scored edges change.
 - The complete duplicate map is used for count aggregation independently of
   network applicability. Count aggregation preserves per-gene and global totals
   but requires a complete downstream statistical refit.
@@ -78,16 +83,17 @@
 
 ## Publication boundary
 
-No publication dataset, seed-selection method, threshold, candidate list,
-sensitivity result, or golden output is included in the package. Publication
-reproduction is owned by the companion analysis and is validated separately.
-PairedGSEA redevelopment remains out of scope.
+The package ships one example seed table (GSE141432, obese type 2 diabetic
+versus lean adipose tissue) for the vignette and examples. Its origin and
+selection rules are documented in `inst/scripts/`. Study-wide sensitivity
+analyses, candidate lists and golden outputs remain in the companion analysis
+and are validated separately. PairedGSEA redevelopment remains out of scope.
 
 ## Release artifacts
 
 - one canonical source tarball and SHA-256;
-- unchanged embedded-network checksum;
+- embedded-network checksum matching `inst/PROVENANCE.md`;
 - test, build, clean-install, and check logs;
-- annotated local `v0.6.5` tag pointing at the validated release commit;
+- annotated local `v0.99.0` tag pointing at the validated release commit;
 - release notes and manual publication instructions; remote publication is a
   separate action by the release maintainer.

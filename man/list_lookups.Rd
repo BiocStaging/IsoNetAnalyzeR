@@ -15,3 +15,10 @@ Character vector of lookup labels, or \code{character(0)} if none.
 \description{
 List stored lookup labels
 }
+\examples{
+obj <- IsoNetAnalyzeR("example")
+obj <- lookup_virtual_pulldown(obj, "cltcl1_up", seed = "ENST00000621271",
+                               order = 1)
+list_lookups(obj)
+
+}

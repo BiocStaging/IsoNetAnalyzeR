@@ -4,18 +4,16 @@ These instructions describe the 0.99.0 interface. They cover a complete analysis
 
 ## Installation
 
-Install from Bioconductor:
+IsoNetAnalyzeR requires R 4.6 or later. Until it is available from Bioconductor, install it from GitHub; `build_vignettes = TRUE` also builds the tutorial:
 
 ```r
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("IsoNetAnalyzeR")
+install.packages(c("BiocManager", "remotes"))
+BiocManager::install("IsoformAnalysisGroup/IsoNetAnalyzeR",
+                     dependencies = TRUE, build_vignettes = TRUE)
 library(IsoNetAnalyzeR)
 ```
 
-The development version can be installed from GitHub with
-`BiocManager::install("IsoformAnalysisGroup/IsoNetAnalyzeR")`. Earlier
-releases, such as 0.6.5, remain available as tagged GitHub releases.
+Once it is available from Bioconductor, use `BiocManager::install("IsoNetAnalyzeR")`. Earlier releases, such as 0.6.5, remain available as tagged GitHub releases.
 
 If you already have a source archive and its dependencies installed:
 

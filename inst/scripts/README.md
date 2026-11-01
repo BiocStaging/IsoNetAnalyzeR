@@ -27,3 +27,5 @@ repository.
   bundled network.
 - `make_example_data.R` writes the two example files from the frozen
   GSE141432 seed table and `msigdbr`.
+- `make_readme_figure.R` draws the CLTCL1 figure of the repository README
+  (`man/figures/README-cltcl1.png`) from the vignette's analysis.

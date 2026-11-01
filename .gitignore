@@ -12,3 +12,4 @@
 !inst/extdata/protein_identical_isoform_map_provenance.csv
 !inst/extdata/gse141432_t2d_vs_lean_seeds.csv
 *.Rproj
+data-raw/plots/

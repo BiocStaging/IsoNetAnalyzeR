@@ -80,6 +80,7 @@ Version prepared for submission to Bioconductor.
 - `biocViews`, `URL` and `BugReports` added; ORCID iDs, copyright holders
   and the thesis supervisors listed in `Authors@R`; licence declared as
   `MIT + file LICENSE` with the full text in `LICENSE.md`.
+- Requires R 4.6.0 or later, the R version of Bioconductor devel.
 - `msigdbr` moved to Suggests; `withr` added to Imports to draw the
   diagnostics plot subsample with a local seed.
 - Condition messages no longer build text with `paste()`; message text is

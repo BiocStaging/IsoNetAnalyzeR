@@ -71,8 +71,7 @@ Version prepared for submission to Bioconductor.
   generating scripts in `inst/scripts/`.
 - `inst/PROVENANCE.md` describes how the network was derived from STRING
   physical interactions and attributes STRING's CC BY 4.0 licence.
-- The README shows the CLTCL1 example (`inst/scripts/make_readme_figure.R`)
-  and explains how to install from GitHub until the package is on
+- The README explains how to install from GitHub until the package is on
   Bioconductor.
 - Every exported function and class has runnable examples.
 - The help page for `run_network_diagnostics()` no longer truncates the

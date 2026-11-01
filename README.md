@@ -2,10 +2,6 @@
 
 IsoNetAnalyzeR compares the predicted protein-interaction neighbourhoods of transcript isoforms. Given isoforms whose usage goes up and isoforms whose usage goes down, for example from a differential transcript usage analysis, it expands each set in an isoform-resolved predicted interaction network and compares the resulting neighbourhoods per gene and across genes. It also provides connected-component analysis, network diagnostics, plots and enrichment analysis.
 
-![Predicted interaction neighbourhoods of the CLTCL1 isoforms](man/figures/README-cltcl1.png)
-
-*CLTCL1 in obese type 2 diabetic versus lean adipose tissue (GEO GSE141432), from the vignette. Genes reached only from the up-labelled isoform are green, genes reached only from the down-labelled isoform are orange with dashed edges, and genes reached from both are blue.*
-
 ## Installation
 
 IsoNetAnalyzeR requires R 4.6 or later. Until it is available from Bioconductor, install it from GitHub; `build_vignettes = TRUE` also builds the tutorial:

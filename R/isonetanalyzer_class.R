@@ -140,8 +140,8 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   GENCODE v41 table. Unknown vertex biotypes are an error when either decay
 #'   exclusion is enabled. Gene-level biotypes are not used.
 #' @return An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
-#'   in metadata$network_biotype_filter. Construct a new session to change policy;
-#'   existing saved sessions are not retroactively changed.
+#'   in metadata$network_biotype_filter. Create a new session to change the
+#'   policy.
 #'
 #' @examples
 #' # Session on the bundled network (NMD and NSD transcripts excluded)

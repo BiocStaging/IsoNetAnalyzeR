@@ -53,10 +53,8 @@ NULL
 #'   \code{jaccard} (Jaccard index of node-set overlap between up and down
 #'     subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 #'     subgraph is absent),
-#'   \code{n_edges_gained} (legacy field name for edges unique to the
-#'     up-seed neighbourhood),
-#'   \code{n_edges_lost} (legacy field name for edges unique to the
-#'     down-seed neighbourhood),
+#'   \code{n_edges_gained} (edges unique to the up-seed neighbourhood),
+#'   \code{n_edges_lost} (edges unique to the down-seed neighbourhood),
 #'   \code{n_edges_shared} (edges present in both subgraphs; together with
 #'     \code{n_edges_gained} and \code{n_edges_lost} this partitions the edges
 #'     in the two seed-derived neighbourhoods). All three edge columns are
@@ -537,8 +535,7 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' a single gene into one long-format data frame, with a \code{direction}
 #' column (\code{"up"} / \code{"down"}) identifying the condition.  A
 #' \code{is_seed} column flags isoforms that were supplied as seeds, using the
-#' explicit seed annotation stored by \code{analyze_subgraph()}. Legacy saved
-#' objects without that column fall back to distance from seed equal to zero.
+#' explicit seed annotation stored by \code{analyze_subgraph()}.
 #' Isoforms that appear in only one condition are
 #' represented in that condition's rows only; no artificial NAs are introduced
 #' for the missing direction.

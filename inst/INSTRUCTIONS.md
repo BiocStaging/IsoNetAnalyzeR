@@ -1,6 +1,6 @@
 # IsoNetAnalyzeR user instructions
 
-These instructions describe the 0.99.0 interface. They cover a complete analysis using your own selected transcript isoforms. The [example script](examples/full_workflow.R) supplies synthetic data for trying the package first.
+These instructions cover a complete analysis of your own selected transcript isoforms. The [example script](examples/full_workflow.R) supplies synthetic data for trying the package first.
 
 ## Installation
 
@@ -13,13 +13,7 @@ BiocManager::install("IsoformAnalysisGroup/IsoNetAnalyzeR",
 library(IsoNetAnalyzeR)
 ```
 
-Once it is available from Bioconductor, use `BiocManager::install("IsoNetAnalyzeR")`. Earlier releases, such as 0.6.5, remain available as tagged GitHub releases.
-
-If you already have a source archive and its dependencies installed:
-
-```r
-install.packages("IsoNetAnalyzeR_0.99.0.tar.gz", repos = NULL, type = "source")
-```
+Once it is available from Bioconductor, use `BiocManager::install("IsoNetAnalyzeR")`.
 
 ## Try the example
 
@@ -72,7 +66,7 @@ results
 write.csv(results, "network_summary.csv", row.names = FALSE)
 ```
 
-`order = 1` expands first-order seed neighbourhoods. If `cutoff` is omitted, the session's stored internal-edge cutoff is used. Record the parameters you choose. See `?run_differential_pulldown` for the full argument reference.
+`order = 1` expands first-order seed neighbourhoods. If `cutoff` is omitted, the session's stored internal-edge cutoff is used. See `?run_differential_pulldown` for the full argument reference.
 
 ### Check coverage
 
@@ -103,7 +97,7 @@ obj <- run_differential_pulldown(
 get_metadata(obj, "analysis_seed_support")$supported_comparison$gene_audit
 ```
 
-This optional mode requires both mapped seed directions and at least one significant retained seed per gene, after eligibility filtering and identifier resolution. Nonsignificant complementary seeds are allowed. The package imposes no maximum seed count and does not recalculate the supplied p-values. With `seed_padj_col = NULL` (the default), this statistical-support check is disabled.
+This optional mode requires both mapped seed directions and at least one significant retained seed per gene, after eligibility filtering and identifier resolution. Nonsignificant complementary seeds are allowed. The supplied p-values are used as given. With `seed_padj_col = NULL` (the default), this statistical-support check is disabled.
 
 ## Plot and save results
 
@@ -126,7 +120,7 @@ Focal seeds use purple fill and directional shapes. Neighbours and edges use gre
 
 Nodes are labelled with gene symbols from `isonet_gene_names()`; each node is a transcript, so a gene can appear more than once. Use `node_labels = "id"` for transcript identifiers or `node_labels = "none"` to hide labels. `plot_component()` takes the same argument.
 
-Reload a saved session with `obj <- readRDS("isonet_session.rds")`. Save the input table, statistical selection rules, package version, and chosen parameters alongside the session.
+Reload a saved session with `obj <- readRDS("isonet_session.rds")`.
 
 ## Network eligibility and custom networks
 
@@ -148,7 +142,7 @@ A custom network must be an undirected `igraph` with unique vertex `name` values
 - Use `run_component_analysis()` and `get_component_overview()` to summarize connected components across genes.
 - Use `lookup_virtual_pulldown()` for a selected transcript neighbourhood.
 - Use `run_network_diagnostics()` for coverage, isolation, and degree summaries.
-- Use `run_fgsea()` or `run_component_ora()` for enrichment. Save the exact pathway collection, set a random seed, and record parameters for reproducibility.
+- Use `run_fgsea()` or `run_component_ora()` for enrichment; set a random seed first, because `run_fgsea()` uses random permutations.
 - Use `aggregate_duplicate_counts()` before statistical fitting if your study aggregates protein-identical transcripts. Refit the statistical models after aggregation; do not reuse adjusted p-values from the original fit.
 
-Function details and additional examples are available through `help(package = "IsoNetAnalyzeR")` and the installed vignette. Legacy result fields `n_edges_gained` and `n_edges_lost` denote edges unique to the up-seed and down-seed predicted neighbourhoods, respectively.
+Function details and additional examples are available through `help(package = "IsoNetAnalyzeR")` and the installed vignette. In the cross-gene summary, `n_edges_gained` and `n_edges_lost` count the edges unique to the up-seed and down-seed neighbourhoods.

@@ -65,10 +65,8 @@ found in the network; \code{NA} when \code{n_input == 0}),
 \code{jaccard} (Jaccard index of node-set overlap between up and down
 subgraphs: \code{|up intersect down| / |up union down|}; \code{NA} when either
 subgraph is absent),
-\code{n_edges_gained} (legacy field name for edges unique to the
-up-seed neighbourhood),
-\code{n_edges_lost} (legacy field name for edges unique to the
-down-seed neighbourhood),
+\code{n_edges_gained} (edges unique to the up-seed neighbourhood),
+\code{n_edges_lost} (edges unique to the down-seed neighbourhood),
 \code{n_edges_shared} (edges present in both subgraphs; together with
 \code{n_edges_gained} and \code{n_edges_lost} this partitions the edges
 in the two seed-derived neighbourhoods). All three edge columns are

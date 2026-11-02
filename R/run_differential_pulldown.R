@@ -114,8 +114,8 @@ NULL
 #' @param resolve_duplicates Logical. Resolve versioned and protein-identical
 #'   redundant transcript identifiers before analysis. Same-direction
 #'   representative collisions are collapsed and genes with opposite-direction
-#'   collisions are excluded. Default \code{TRUE}; use \code{FALSE} for exact
-#'   0.4.0-compatible identifier handling.
+#'   collisions are excluded. Default \code{TRUE}; use \code{FALSE} to match
+#'   identifiers exactly.
 #' @param verbose  Logical. Print per-gene progress messages. Default
 #'   \code{TRUE}.
 #' @param seed_padj_col Optional name of the caller-supplied adjusted p-value

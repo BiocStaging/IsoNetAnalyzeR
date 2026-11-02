@@ -18,8 +18,6 @@ Once it is available from Bioconductor:
 BiocManager::install("IsoNetAnalyzeR")
 ```
 
-Earlier releases, such as [0.6.5](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/releases/tag/v0.6.5), remain available as tagged GitHub releases.
-
 ## Getting started
 
 The vignette walks through a complete analysis of isoform switches between obese type 2 diabetic and lean adipose tissue (GEO GSE141432), using example data shipped with the package:
@@ -38,7 +36,6 @@ For your own data, prepare a table with `gene_id`, `isoform_id` and `direction` 
 - [Runnable synthetic example](inst/examples/full_workflow.R)
 - [Network eligibility rationale](inst/NETWORK_ELIGIBILITY.md)
 - [Data provenance](inst/PROVENANCE.md) and [data scripts](inst/scripts/README.md)
-- [Maintainer validation protocol](inst/validation/VALIDATION_PROTOCOL.md)
 - [Version history](NEWS.md)
 
 Function reference: `help(package = "IsoNetAnalyzeR")`.

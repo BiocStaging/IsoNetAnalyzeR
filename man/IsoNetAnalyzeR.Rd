@@ -38,8 +38,8 @@ exclusion is enabled. Gene-level biotypes are not used.}
 }
 \value{
 An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
-in metadata$network_biotype_filter. Construct a new session to change policy;
-existing saved sessions are not retroactively changed.
+in metadata$network_biotype_filter. Create a new session to change the
+policy.
 }
 \description{
 Initialises an \linkS4class{IsoNetAnalyzeR} object. When no \code{network}

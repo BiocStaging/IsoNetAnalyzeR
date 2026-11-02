@@ -29,7 +29,7 @@ obj <- IsoNetAnalyzeR(
 
 # The caller supplies this validated three-column contract. Versioned ENSTs and
 # graph-compatible protein-identical duplicates resolve automatically; use
-# resolve_duplicates = FALSE only to reproduce the exact-ID v0.4.0 behaviour.
+# set resolve_duplicates = FALSE to match identifiers exactly.
 seed_table <- data.frame(
   gene_id = c("gene_A", "gene_A", "gene_C"),
   isoform_id = c("tx_A_up", "tx_A_down", "tx_C_isolated"),

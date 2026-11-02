@@ -35,22 +35,19 @@ Version prepared for submission to Bioconductor.
 
 ## Printed output
 
-- Printed summaries keep their column alignment, which `cli` had collapsed;
-  the coverage report labels share one width.
+- Printed summaries are aligned in columns.
 - Session creation reports counts with thousands separators and states that
   excluded NMD and NSD transcripts take their edges with them, which explains
-  the two edge counts. The session summary calls the bundled network
-  "bundled".
+  the two edge counts.
 - "Access with" hints use the name of the variable passed as `obj`, and the
   enrichment summaries show "user-supplied" instead of `NA` for gene sets
   passed through `pathways`.
 
 ## Plot fixes
 
-- The `direction = "overlay"` plot of `plot_network()` follows the style of
-  the paper figures: dashed down-only edges, thicker shared edges, a short
-  centred title with the gene symbol, and legends below the plot. The
-  vignette draws it at gene level, as the paper does.
+- The `direction = "overlay"` plot of `plot_network()` draws down-only edges
+  dashed and shared edges thicker, has a short centred title with the gene
+  symbol, and puts the legends below the plot.
 
 - `plot_component(colour_by = "direction")` draws one legend for colour and
   one for seed status instead of two legends both titled "Direction";
@@ -64,15 +61,11 @@ Version prepared for submission to Bioconductor.
 
 - New vignette, "Introduction to IsoNetAnalyzeR", analysing isoform switches
   between obese type 2 diabetic and lean adipose tissue (GEO GSE141432).
-  It credits Isabella Østerlund's network model and protein-identical map
-  and has an Acknowledgements section.
 - Example data: `gse141432_t2d_vs_lean_seeds.csv` (137 seeds of 65 genes)
   and the MSigDB Hallmark gene sets (`msigdb_hallmark_ensembl.rds`), with
   generating scripts in `inst/scripts/`.
 - `inst/PROVENANCE.md` describes how the network was derived from STRING
   physical interactions and attributes STRING's CC BY 4.0 licence.
-- The README explains how to install from GitHub until the package is on
-  Bioconductor.
 - Every exported function and class has runnable examples.
 - The help page for `run_network_diagnostics()` no longer truncates the
   description of the default sticky-node rule.
@@ -82,11 +75,9 @@ Version prepared for submission to Bioconductor.
 - `biocViews`, `URL` and `BugReports` added; ORCID iDs, copyright holders
   and the thesis supervisors listed in `Authors@R`; licence declared as
   `MIT + file LICENSE` with the full text in `LICENSE.md`.
-- Requires R 4.6.0 or later, the R version of Bioconductor devel.
+- Requires R 4.6.0 or later.
 - `msigdbr` moved to Suggests; `withr` added to Imports to draw the
   diagnostics plot subsample with a local seed.
-- Condition messages no longer build text with `paste()`; message text is
-  unchanged.
 
 # IsoNetAnalyzeR 0.6.5
 

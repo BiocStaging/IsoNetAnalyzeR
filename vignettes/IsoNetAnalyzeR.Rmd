@@ -68,11 +68,10 @@ div#TOC.tocify li.tocify-item span.header-section-number {
 A differential transcript usage (DTU) analysis reports isoforms whose share of
 their gene's expression changes between conditions. When the isoforms of a
 gene encode different proteins, such a switch can change which interaction
-partners the gene product can reach. IsoNetAnalyzeR makes that comparison
-concrete. For each gene, it takes the isoforms labelled **up** and the
-isoforms labelled **down**, expands each set into its neighbourhood in a
-predicted isoform-level interaction network (a *virtual pulldown*), and
-compares the two neighbourhoods.
+partners the gene product can reach. For each gene, IsoNetAnalyzeR takes the
+isoforms labelled **up** and the isoforms labelled **down**, expands each set
+into its neighbourhood in a predicted isoform-level interaction network (a
+*virtual pulldown*), and compares the two neighbourhoods.
 
 The package provides:
 
@@ -177,9 +176,9 @@ length(unique(seeds$gene_id))
 ```
 
 When preparing your own table, keep only the isoforms your study design
-selects, and label each by the sign of its usage change. The package imposes
-no maximum number of seeds per gene. A gene with seeds in only one direction
-is accepted; it simply has no comparison partner.
+selects, and label each by the sign of its usage change. A gene can have any
+number of seeds; a gene with seeds in only one direction is accepted but has
+nothing to be compared with.
 
 # Differential pulldown
 
@@ -353,8 +352,7 @@ head(ora[, c("component_id", "pathway", "overlap", "padj")], 8)
 default the difference in node count between the up and down neighbourhoods,
 and runs **fgsea**. With `r nrow(cgs)` genes the ranked list is short, so
 only small gene sets can be tested and power is low. We lower `minSize` for
-illustration. fgsea notes that it uses its simple permutation algorithm when
-`nperm` is set; that note is hidden here.
+illustration.
 
 ```{r gsea, warning = FALSE}
 set.seed(42)
@@ -490,10 +488,6 @@ Both neighbourhoods of a gene come from the same static network, so:
 - a `mixed` component only records that both seed labels are present;
 - a high-degree or high-betweenness node is a structural observation that
   needs biological validation.
-
-For reproducible work, save the gene set collection you used with its
-version, set the random seed before enrichment, and keep the seed table and
-its selection rules with the results. Sessions can be saved with `saveRDS()`.
 
 # Acknowledgements
 

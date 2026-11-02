@@ -2,11 +2,11 @@
 
 This document explains the transcript eligibility policy used by IsoNetAnalyzeR. For the analysis workflow, see the [user instructions](INSTRUCTIONS.md#network-eligibility-and-custom-networks).
 
-The default introduced in 0.5.5 is conservative for protein-interaction interpretation:
+The default is conservative for protein-interaction interpretation:
 
 ```r
 obj <- IsoNetAnalyzeR("protein_network", include_nmd = FALSE, include_nsd = FALSE)
-# Explicit opt-in for exploratory or legacy comparisons:
+# Keep both classes, for example for an exploratory comparison:
 all_transcripts <- IsoNetAnalyzeR("unfiltered", include_nmd = TRUE, include_nsd = TRUE)
 # The two flags are independent.
 annotation <- isonet_transcript_biotypes()
@@ -20,4 +20,4 @@ These options do not filter RNA count matrices, recompute isoform fractions, or 
 
 All remaining vertices are only eligible predictions, not experimentally validated proteins. Other biotypes require their own interpretation. Removing vertices also changes the denominator of the network's internal-edge fraction, so a previously excluded coding neighbour may cross the same cutoff. The inherited network cutoff was calibrated on the original network; reusing it in a filtered-network sensitivity run does not establish that it remains optimal.
 
-Existing saved sessions and their cached results are not retroactively filtered. Construct a new session from the original network and rerun analyses when changing policy. Do not try to restore excluded vertices merely by changing metadata on an already filtered graph. Historical versions through 0.5.0 retain their unfiltered defaults; releases from 0.5.5 onwards include the exclusions.
+To change the policy, create a new session and rerun the analyses; a saved session keeps the policy it was created with.

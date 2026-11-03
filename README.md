@@ -2,7 +2,6 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml/badge.svg?branch=main)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/IsoformAnalysisGroup/IsoNetAnalyzeR/graph/badge.svg)](https://app.codecov.io/gh/IsoformAnalysisGroup/IsoNetAnalyzeR)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 <!-- badges: end -->
 

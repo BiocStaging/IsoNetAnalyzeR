@@ -1,7 +1,10 @@
 # IsoNetAnalyzeR
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml/badge.svg?branch=main)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
+[![R CMD check on Linux](https://img.shields.io/github/check-runs/IsoformAnalysisGroup/IsoNetAnalyzeR/main?nameFilter=R-CMD-check%20%28ubuntu-latest%29&label=R%20CMD%20check%20Linux)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
+[![R CMD check on Windows](https://img.shields.io/github/check-runs/IsoformAnalysisGroup/IsoNetAnalyzeR/main?nameFilter=R-CMD-check%20%28windows-latest%29&label=R%20CMD%20check%20Windows)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
+[![R CMD check on macOS](https://img.shields.io/github/check-runs/IsoformAnalysisGroup/IsoNetAnalyzeR/main?nameFilter=R-CMD-check%20%28macos-latest%29&label=R%20CMD%20check%20macOS)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
+[![Bioconductor devel check](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/bioc-check.yaml/badge.svg?branch=main)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/bioc-check.yaml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 <!-- badges: end -->
 

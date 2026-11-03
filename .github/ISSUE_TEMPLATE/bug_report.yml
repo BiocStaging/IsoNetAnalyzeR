@@ -1,0 +1,26 @@
+name: Bug report
+description: Report an error, a wrong result or behaviour that differs from the documentation.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you ran, what you expected and what happened instead. Paste error and warning messages in full.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Code to reproduce the problem
+      description: A short example that others can run. If your own data can't be shared, try to reproduce the problem with the bundled network and the example data used in the vignette.
+      render: r
+    validations:
+      required: true
+  - type: textarea
+    id: session
+    attributes:
+      label: Output of sessionInfo()
+      render: text
+    validations:
+      required: true

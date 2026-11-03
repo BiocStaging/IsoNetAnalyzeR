@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions about using IsoNetAnalyzeR
+    url: https://support.bioconductor.org/
+    about: Ask on the Bioconductor support site and tag your post IsoNetAnalyzeR.

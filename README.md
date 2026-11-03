@@ -1,5 +1,11 @@
 # IsoNetAnalyzeR
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml/badge.svg?branch=main)](https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/IsoformAnalysisGroup/IsoNetAnalyzeR/graph/badge.svg)](https://app.codecov.io/gh/IsoformAnalysisGroup/IsoNetAnalyzeR)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+<!-- badges: end -->
+
 IsoNetAnalyzeR compares the predicted protein-interaction neighbourhoods of transcript isoforms. Given isoforms whose usage goes up and isoforms whose usage goes down, for example from a differential transcript usage analysis, it expands each set in an isoform-resolved predicted interaction network and compares the resulting neighbourhoods per gene and across genes. It also provides connected-component analysis, network diagnostics, plots and enrichment analysis.
 
 ## Installation

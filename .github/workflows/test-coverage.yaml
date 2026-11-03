@@ -40,7 +40,8 @@ jobs:
 
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          # Coverage is informational, so a failed upload doesn't fail the job.
+          fail_ci_if_error: false
           files: ./cobertura.xml
           plugins: noop
           disable_search: true

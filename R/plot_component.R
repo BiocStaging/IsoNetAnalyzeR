@@ -277,7 +277,7 @@ plot_component <- function(obj,
     ct_row    <- ca@component_table[ca@component_table$component_id == component_id, ]
     mixed_tag <- if (isTRUE(ct_row$mixed)) "  \u00b7  mixed" else ""
     title <- sprintf(
-      "Component %d  \u2014  %s / %s  (%s level%s)",
+      "Component %d: %s / %s  (%s level%s)",
       component_id, analysis, ca@label, level, mixed_tag
     )
   }
@@ -519,7 +519,7 @@ plot_component <- function(obj,
   shape_names <- c(seed = "Seed", neighbour = "Neighbour")
   size_vals   <- c(seed = node_size * 1.6, neighbour = node_size)
 
-  p <- ggraph::ggraph(g, layout = layout, ...) +
+  p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
     ggraph::geom_node_point(
       ggplot2::aes(colour = .data[["colour_role"]],
@@ -609,11 +609,11 @@ plot_component <- function(obj,
     high     = "#E69F00",   # orange   (up-dominated)
     midpoint = 0,
     limits   = c(-1, 1),
-    name     = "Dominance\n(up \u2192 down)",
+    name     = "Dominance\n(up to down)",
     guide    = ggplot2::guide_colorbar(order = 1)
   )
 
-  p <- ggraph::ggraph(g, layout = layout, ...) +
+  p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
     ggraph::geom_node_point(
       ggplot2::aes(colour = .data[["dominance"]]),

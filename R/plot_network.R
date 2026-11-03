@@ -290,7 +290,7 @@ setMethod(
   igraph::V(g)$is_seed <- igraph::V(g)$name %in% seed_vertices
   g <- .add_node_labels(g, node_labels)
 
-  p <- ggraph::ggraph(g, layout = layout, ...) +
+  p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
     .node_geom(level         = level,
                group_by_gene = group_by_gene,
@@ -571,6 +571,17 @@ setMethod(
   }
 
   ggraph::geom_node_point(size = node_size, colour = .default_colour)
+}
+
+
+#' Layout for ggraph(), avoiding the stress layout on two-node graphs
+#'
+#' graphlayouts' stress layout warns on graphs with exactly two vertices,
+#' although the layout it returns is a straight line; "linear" gives the same
+#' picture without the warning.
+#' @noRd
+.plot_layout <- function(g, layout) {
+  if (identical(layout, "stress") && igraph::vcount(g) == 2L) "linear" else layout
 }
 
 
@@ -1226,7 +1237,7 @@ setMethod(
     gene_cols    <- .gene_palette(length(unique_genes))
     names(gene_cols) <- unique_genes
 
-    p <- ggraph::ggraph(g, layout = layout, ...) +
+    p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
       ggraph::geom_edge_link(edge_aes, alpha = edge_alpha) +
       edge_scales +
       ggraph::geom_node_point(
@@ -1310,7 +1321,7 @@ setMethod(
       focal_seed = "Seed"
     )
 
-    p <- ggraph::ggraph(g, layout = layout, ...) +
+    p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
       ggraph::geom_edge_link(edge_aes, alpha = edge_alpha) +
       edge_scales +
       ggraph::geom_node_point(
@@ -1594,7 +1605,7 @@ setMethod(
 
     if (is.null(title))
       title <- sprintf(
-        "Cross-gene network  \u2014  %s  (%d gene(s), %s, %s level)",
+        "Cross-gene network: %s  (%d gene(s), %s, %s level)",
         object@label, length(genes), dir_label, level
       )
 
@@ -1759,7 +1770,7 @@ setMethod(
     source_levels <- c(real_genes, if (has_multi) "multi-gene")
     igraph::V(g)$source_gene <- factor(source_genes, levels = source_levels)
 
-    p <- ggraph::ggraph(g, layout = layout, ...) +
+    p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
       ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey60") +
       ggraph::geom_node_point(
         ggplot2::aes(
@@ -1830,7 +1841,7 @@ setMethod(
     )
   }
 
-  p <- ggraph::ggraph(g, layout = layout, ...) +
+  p <- ggraph::ggraph(g, layout = .plot_layout(g, layout), ...) +
     ggraph::geom_edge_link(alpha = edge_alpha, colour = "grey75") +
     ggraph::geom_node_point(
       ggplot2::aes(

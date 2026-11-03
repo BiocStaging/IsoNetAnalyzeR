@@ -48,7 +48,12 @@ Version prepared for submission to Bioconductor.
 - The `direction = "overlay"` plot of `plot_network()` draws down-only edges
   dashed and shared edges thicker, has a short centred title with the gene
   symbol, and puts the legends below the plot.
-
+- Plot titles, axis labels and legends use only characters that R's standard
+  PDF device can draw, so plots saved as PDF keep all their text. The
+  cross-gene boxplots label up-minus-down values "difference (nodes)" and
+  similar instead of using the Greek capital delta.
+- Plots of a neighbourhood with only two nodes no longer warn "data length
+  [3] is not a sub-multiple or multiple of the number of rows [2]".
 - `plot_component(colour_by = "direction")` draws one legend for colour and
   one for seed status instead of two legends both titled "Direction";
   equidistant neighbours are labelled "Equidistant".

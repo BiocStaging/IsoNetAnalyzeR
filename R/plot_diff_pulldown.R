@@ -570,16 +570,16 @@ plot_cross_gene_boxplot <- function(obj,
     delta_lab  <- sprintf("log10((%s+1)/(%s+1))", x_col, y_col)
   } else {
     df$delta__ <- df$x__ - df$y__
-    delta_lab  <- sprintf("%s \u2212 %s", x_col, y_col)
+    delta_lab  <- sprintf("%s - %s", x_col, y_col)
   }
 
   # Use short readable label for known metric pairs
   short_labels <- list(
-    "up_nodes-down_nodes"           = list(lin = "\u0394 nodes",      log = "log ratio (nodes)"),
-    "up_edges-down_edges"           = list(lin = "\u0394 edges",      log = "log ratio (edges)"),
-    "up_density-down_density"       = list(lin = "\u0394 density",    log = "log ratio (density)"),
-    "up_avg_degree-down_avg_degree" = list(lin = "\u0394 avg degree", log = "log ratio (avg degree)"),
-    "up_clustering-down_clustering" = list(lin = "\u0394 clustering", log = "log ratio (clustering)")
+    "up_nodes-down_nodes"           = list(lin = "difference (nodes)",      log = "log ratio (nodes)"),
+    "up_edges-down_edges"           = list(lin = "difference (edges)",      log = "log ratio (edges)"),
+    "up_density-down_density"       = list(lin = "difference (density)",    log = "log ratio (density)"),
+    "up_avg_degree-down_avg_degree" = list(lin = "difference (avg degree)", log = "log ratio (avg degree)"),
+    "up_clustering-down_clustering" = list(lin = "difference (clustering)", log = "log ratio (clustering)")
   )
   key <- paste0(x_col, "-", y_col)
   if (!is.null(short_labels[[key]])) {
@@ -671,16 +671,16 @@ plot_cross_gene_boxplot <- function(obj,
     delta_lab  <- sprintf("log10((%s+1)/(%s+1))", x_col, y_col)
   } else {
     df$delta__ <- df$x__ - df$y__
-    delta_lab  <- sprintf("%s \u2212 %s", x_col, y_col)
+    delta_lab  <- sprintf("%s - %s", x_col, y_col)
   }
 
   # Short readable y-axis labels for known metric pairs
   short_labels <- list(
-    "up_nodes-down_nodes"           = list(lin = "\u0394 nodes",      log = "log ratio (nodes)"),
-    "up_edges-down_edges"           = list(lin = "\u0394 edges",      log = "log ratio (edges)"),
-    "up_density-down_density"       = list(lin = "\u0394 density",    log = "log ratio (density)"),
-    "up_avg_degree-down_avg_degree" = list(lin = "\u0394 avg degree", log = "log ratio (avg degree)"),
-    "up_clustering-down_clustering" = list(lin = "\u0394 clustering", log = "log ratio (clustering)")
+    "up_nodes-down_nodes"           = list(lin = "difference (nodes)",      log = "log ratio (nodes)"),
+    "up_edges-down_edges"           = list(lin = "difference (edges)",      log = "log ratio (edges)"),
+    "up_density-down_density"       = list(lin = "difference (density)",    log = "log ratio (density)"),
+    "up_avg_degree-down_avg_degree" = list(lin = "difference (avg degree)", log = "log ratio (avg degree)"),
+    "up_clustering-down_clustering" = list(lin = "difference (clustering)", log = "log ratio (clustering)")
   )
   key <- paste0(x_col, "-", y_col)
   if (!is.null(short_labels[[key]])) {
@@ -705,7 +705,7 @@ plot_cross_gene_boxplot <- function(obj,
       "up_clustering-down_clustering" = "Clustering"
     )
     key <- paste0(x_col, "-", y_col)
-    pair_labels[[key]] %||% sprintf("%s \u2212 %s", x_col, y_col)
+    pair_labels[[key]] %||% sprintf("%s - %s", x_col, y_col)
   }
 
   base_theme <- if (panel_theme) {
@@ -861,7 +861,7 @@ plot_cross_gene_boxplot_overview <- function(obj,
     patchwork::plot_annotation(
       title    = title %||% sprintf("Cross-gene delta overview  [%s]", analysis),
       subtitle = paste0(
-        "Each panel: distribution of per-gene deltas (up \u2212 down).  ",
+        "Each panel: distribution of per-gene deltas (up - down).  ",
         "Orange = up > down.  Blue = down > up.  ",
         "Dashed line = no difference."
       ),

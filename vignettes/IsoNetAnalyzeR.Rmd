@@ -119,10 +119,13 @@ obj <- IsoNetAnalyzeR("GSE141432")
 obj
 ```
 
-New sessions exclude transcripts annotated (GENCODE v41) as
-nonsense-mediated decay (NMD) or non-stop decay (NSD) targets, both as seeds
-and as neighbours, because they are not expected to produce stable proteins.
-The exclusion is recorded in the session metadata:
+New sessions exclude transcripts annotated as nonsense-mediated decay (NMD)
+or non-stop decay (NSD) targets, both as seeds and as neighbours, because
+they are not expected to produce stable proteins. The transcript biotypes
+come from Ensembl release 107, the GENCODE v41 gene build of the network,
+which the session loads from AnnotationHub (record AH104864); AnnotationHub
+downloads it once and caches it. The exclusion is recorded in the session
+metadata:
 
 ```{r eligibility}
 eligibility <- get_metadata(obj, "network_biotype_filter")
@@ -131,7 +134,8 @@ unlist(eligibility[c("vertices_before", "excluded_nmd", "excluded_nsd",
 ```
 
 Set `include_nmd = TRUE` or `include_nsd = TRUE` when creating the session to
-keep either class. A different network can be supplied as an `igraph` object
+keep either class. Another annotation can be passed as an `EnsDb` object or a
+table through the `transcript_biotypes` argument. A different network can be supplied as an `igraph` object
 through the `network` argument (Section \@ref(isolated-and-unmapped-seeds)
 builds one).
 
@@ -147,8 +151,8 @@ unname(get_metadata(obj, "network_cutoff"))
 
 # Input: isoform seeds
 
-The input is a table with one row per seed isoform and three required
-columns:
+The input is a `data.frame` or S4Vectors `DataFrame` with one row per seed
+isoform and three required columns:
 
 | Column | Content |
 | --- | --- |
@@ -186,7 +190,7 @@ nothing to be compared with.
 `order` interaction steps and applies the neighbourhood cutoff. With
 `seed_padj_col`, it also checks retained support: after identifier
 resolution, eligibility filtering and mapping, every gene must still have
-seeds in both directions and at least one seed with an adjusted p-value at or
+seeds in both directions and at least one seed with an adjusted p-value
 below `seed_fdr`. Complementary seeds do not have to be individually
 significant.
 
@@ -212,10 +216,10 @@ table(support$reason)
 ```
 
 The cross-gene summary has one row per gene, with neighbourhood sizes and
-topology for each direction. Result tables are keyed by Ensembl gene ID;
-`isonet_gene_names()` returns the gene symbols of the bundled network for
-annotating them. Here are the genes with the largest difference in
-neighbourhood size:
+topology for each direction. Result tables are S4Vectors `DataFrame`s keyed
+by Ensembl gene ID; `isonet_gene_names()` returns the Ensembl 107 gene
+symbols for annotating them. Here are the genes with the largest difference
+in neighbourhood size:
 
 ```{r cross-gene}
 gene_names <- isonet_gene_names()
@@ -330,15 +334,16 @@ plot_component(obj, "t2d", "comp", component_id = largest_mixed,
 ## Over-representation in components
 
 `run_component_ora()` tests each component's genes against a gene set
-collection, with all genes in the network as the universe. Without a
-`pathways` argument it retrieves GO gene sets through **msigdbr**; for a
-reproducible analysis, pass a saved collection. Here we use the MSigDB
-Hallmark collection shipped with the package (50 gene sets, Ensembl IDs):
+collection, with all genes in the network as the universe. Gene sets can be a
+named list of Ensembl gene IDs or a GSEABase `GeneSetCollection`, whose gene
+symbols are mapped to Ensembl gene IDs. Without a `pathways` argument the GO
+gene sets of MSigDB release 2023.1 are fetched with the **msigdb** package.
+Here we use the MSigDB Hallmark collection (50 gene sets) from **msigdb**:
 
 ```{r ora}
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-attr(hallmark, "source")$db_version
+msigdb_hs <- msigdb::getMsigdb(org = "hs", id = "SYM", version = "2023.1")
+hallmark <- msigdb::subsetCollection(msigdb_hs, "h")
+hallmark
 obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
                          pathways = hallmark)
 ora <- get_ora_table(obj, "t2d", "comp", "hallmark", padj_cutoff = 0.05,

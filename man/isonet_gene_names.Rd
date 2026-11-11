@@ -2,18 +2,25 @@
 % Please edit documentation in R/transcript_biotypes.R
 \name{isonet_gene_names}
 \alias{isonet_gene_names}
-\title{Gene symbols of the bundled network}
+\title{Gene symbols for Ensembl gene IDs}
 \usage{
-isonet_gene_names()
+isonet_gene_names(edb = NULL)
+}
+\arguments{
+\item{edb}{An \code{EnsDb} object, or \code{NULL} (default) for the
+Ensembl 107 annotation from AnnotationHub.}
 }
 \value{
-A data frame with \code{gene_id} (Ensembl, without version) and
-\code{gene_name} columns.
+A \code{DataFrame} with \code{gene_id} (Ensembl, without version)
+and \code{gene_name} columns. \code{gene_name} is \code{NA} for genes
+without a symbol.
 }
 \description{
-Returns the GENCODE v41 gene name, usually the HGNC symbol, of every gene
-in the bundled network. Plots use it to label nodes, and it can annotate
-any result table keyed by Ensembl gene ID.
+Returns the gene name, usually the HGNC symbol, of every gene in an
+Ensembl annotation; by default Ensembl release 107 from AnnotationHub
+(record AH104864), as for \code{\link{isonet_transcript_biotypes}}.
+Plots use it to label nodes, and it can annotate any result table keyed
+by Ensembl gene ID.
 }
 \examples{
 gene_names <- isonet_gene_names()

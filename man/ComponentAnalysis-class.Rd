@@ -49,7 +49,8 @@ regulator, complex, pathway, or mechanism.
 \item{\code{parent_label}}{Character scalar.  Label of the parent
 \linkS4class{DifferentialPulldownAnalysis} run.}
 
-\item{\code{component_table}}{Data frame (Tier 1).  One row per retained connected
+\item{\code{component_table}}{\code{DataFrame} (Tier 1).  One row per retained
+connected
 component. Columns:
 \code{component_id}, \code{n_nodes}, \code{n_edges}, \code{density},
 \code{avg_degree}, \code{clustering},
@@ -58,20 +59,22 @@ component. Columns:
 \code{n_genes_up}, \code{n_genes_down},
 \code{mixed} (logical), \code{n_shared_nodes}, \code{shared_fraction}.}
 
-\item{\code{node_table}}{Data frame (Tier 1).  One row per node across all
+\item{\code{node_table}}{\code{DataFrame} (Tier 1).  One row per node across
+all
 retained components. Columns:
 \code{node}, \code{component_id}, \code{source_gene}, \code{is_seed},
 \code{seed_direction} (\code{"up"}/\code{"down"}/\code{"both"}/\code{NA}),
 \code{degree}.}
 
-\item{\code{topology_table}}{Data frame (Tier 2).  One row per retained component.
+\item{\code{topology_table}}{\code{DataFrame} (Tier 2).  One row per retained
+component.
 Augments \code{component_table} with:
 \code{component_id}, \code{diameter}, \code{radius},
 \code{degree_centralization},
 \code{topology_class} (\code{"clique-like"}, \code{"hub-spoke"}, or
 \code{"chain-like"} - see Details).}
 
-\item{\code{hub_table}}{Data frame (Tier 2).  One row per shared
+\item{\code{hub_table}}{\code{DataFrame} (Tier 2).  One row per shared
 (\code{source_gene == "multi-gene"}) node across all retained components,
 ranked by betweenness centrality within its component. Columns:
 \code{node}, \code{component_id}, \code{degree},

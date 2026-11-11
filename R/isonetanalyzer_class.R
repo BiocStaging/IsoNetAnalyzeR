@@ -7,6 +7,8 @@
 setOldClass("igraph")
 #' @importFrom methods is new setClass setGeneric setMethod setValidity validObject
 #' @importFrom rlang .data
+#' @importClassesFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame
 NULL
 
 # ==============================================================================
@@ -126,6 +128,10 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   (e.g. \code{"my_experiment"}).  Defaults to \code{"IsoNetAnalyzeR"}.
 #' @param network  An \code{igraph} object to use as the interaction network.
 #'   Pass \code{NULL} (the default) to load the package's built-in network.
+#'   Repeated edges between the same two transcripts are merged into one
+#'   (\code{interact} is 1 when any copy is 1; numeric attributes such as
+#'   \code{pi} are averaged) and self-loops are removed, because they would
+#'   inflate the degrees used by the neighbourhood cutoff.
 #' @param metadata Named list of additional metadata to attach to the session.
 #'   This is merged with any automatically populated fields
 #'   (\code{pi_threshold}, \code{network_cutoff}) - user-supplied values take
@@ -135,13 +141,21 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #' @param include_nsd Include non-stop decay transcripts. Default FALSE.
 #'   Exclusions apply to seeds and neighbours. Set both flags TRUE for an
 #'   unfiltered network.
-#' @param transcript_biotypes Optional data frame with isoform_id and
-#'   transcript_biotype columns, overriding vertex annotations and the pinned
-#'   GENCODE v41 table. Unknown vertex biotypes are an error when either decay
-#'   exclusion is enabled. Gene-level biotypes are not used.
+#' @param transcript_biotypes Optional transcript annotation: a
+#'   \code{data.frame} or \code{DataFrame} with \code{isoform_id} and
+#'   \code{transcript_biotype} columns, which overrides vertex annotations,
+#'   or an \code{EnsDb} object. When neither the network nor this argument
+#'   annotates every vertex and a decay exclusion is enabled, biotypes come
+#'   from Ensembl release 107 (the GENCODE v41 gene build of the bundled
+#'   network), loaded once per R session from AnnotationHub record AH104864
+#'   and cached on disk by AnnotationHub. Unknown vertex biotypes are an
+#'   error when either decay exclusion is enabled. Gene-level biotypes are
+#'   not used.
 #' @return An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
 #'   in metadata$network_biotype_filter. Create a new session to change the
-#'   policy.
+#'   policy. When biotypes come from an EnsDb, the network also gets a
+#'   \code{gene_name} vertex attribute with gene symbols, used for plot
+#'   labels.
 #'
 #' @examples
 #' # Session on the bundled network (NMD and NSD transcripts excluded)
@@ -214,8 +228,10 @@ IsoNetAnalyzeR <- function(name     = "IsoNetAnalyzeR",
     ))
   }
 
-  if (user_supplied_network)
+  if (user_supplied_network) {
     .validate_network_contract(network)
+    network <- .simplify_network(network)
+  }
 
   # User metadata wins on collision
   merged_meta <- utils::modifyList(auto_meta, metadata)
@@ -398,6 +414,62 @@ packageName <- function() "IsoNetAnalyzeR"
          call. = FALSE)
 
   invisible(TRUE)
+}
+
+#' Merge repeated edges and remove self-loops
+#'
+#' Neighbourhood cutoffs compare vertex degrees, which repeated edges and
+#' self-loops would inflate. One edge is kept per transcript pair:
+#' \code{interact} is 1 when any copy is 1, other numeric attributes are
+#' averaged and the rest keep their first value.
+#' @noRd
+.simplify_network <- function(network) {
+  if (igraph::is_simple(network)) return(network)
+  loops <- igraph::which_loop(network)
+  n_repeated <- sum(igraph::which_multiple(network) & !loops)
+  attrs <- igraph::edge_attr_names(network)
+  combine <- lapply(attrs, function(a) {
+    if (a == "interact") return(function(x) max(as.numeric(x)))
+    if (is.numeric(igraph::edge_attr(network, a))) "mean" else "first"
+  })
+  names(combine) <- attrs
+  network <- igraph::simplify(network, remove.multiple = TRUE,
+                              remove.loops = TRUE, edge.attr.comb = combine)
+  message(sprintf(
+    "Merged %s repeated edge(s) and removed %s self-loop(s) from the network.",
+    .fmt_int(n_repeated), .fmt_int(sum(loops))
+  ))
+  network
+}
+
+#' Coerce a tabular input to a data.frame
+#'
+#' Accepts a \code{data.frame} (including tibbles) or an S4Vectors
+#' \code{DataFrame}; column names are kept as they are.
+#' @noRd
+.as_data_frame <- function(x, arg) {
+  if (is(x, "DataFrame"))
+    return(as.data.frame(x, optional = TRUE))
+  if (is.data.frame(x))
+    return(as.data.frame(x, stringsAsFactors = FALSE))
+  stop(sprintf("`%s` must be a data.frame or DataFrame.", arg), call. = FALSE)
+}
+
+#' Is a tabular input (data.frame, tibble or DataFrame)?
+#' @noRd
+.is_table <- function(x) is.data.frame(x) || is(x, "DataFrame")
+
+#' Store a table as an S4Vectors DataFrame
+#' @noRd
+.as_DataFrame <- function(x) {
+  if (is(x, "DataFrame")) return(x)
+  S4Vectors::DataFrame(x, check.names = FALSE)
+}
+
+#' A stored DataFrame slot as a data.frame, for internal computation
+#' @noRd
+.df <- function(x) {
+  if (is(x, "DataFrame")) as.data.frame(x, optional = TRUE) else x
 }
 
 

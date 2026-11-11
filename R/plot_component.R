@@ -274,7 +274,8 @@ plot_component <- function(obj,
 
   # -- Auto-generate title -----------------------------------------------------
   if (is.null(title)) {
-    ct_row    <- ca@component_table[ca@component_table$component_id == component_id, ]
+    ct        <- .df(ca@component_table)
+    ct_row    <- ct[ct$component_id == component_id, ]
     mixed_tag <- if (isTRUE(ct_row$mixed)) "  \u00b7  mixed" else ""
     title <- sprintf(
       "Component %d: %s / %s  (%s level%s)",
@@ -288,7 +289,7 @@ plot_component <- function(obj,
       # Gene level: dominance score on a diverging scale
       .render_component_dominance_plot(
         g           = cg,
-        input_table = diff_result@input_table,
+        input_table = .df(diff_result@input_table),
         layout      = layout,
         node_size   = node_size,
         label_size  = label_size,

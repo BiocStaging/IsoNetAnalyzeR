@@ -90,7 +90,7 @@ utils::globalVariables(c(
 #' Panel A — Isoform degree distribution (isoform-level, top row)
 #' @noRd
 .panel_isoform_degree <- function(diag) {
-  df <- diag@isoform_degree_table
+  df <- .df(diag@isoform_degree_table)
   df <- df[df$degree > 0L, , drop = FALSE]   # exclude isolated
 
   ht <- .log_hist_table(df$degree, bins = 30L)
@@ -133,7 +133,7 @@ utils::globalVariables(c(
 #' Panel D — Gene degree distribution (gene-level, bottom row)
 #' @noRd
 .panel_gene_degree <- function(diag) {
-  df <- diag@gene_degree_table
+  df <- .df(diag@gene_degree_table)
   df <- df[df$degree > 0L, , drop = FALSE]   # exclude isolated, consistent with panel A
 
   ht <- .log_hist_table(df$degree, bins = 30L)
@@ -176,7 +176,7 @@ utils::globalVariables(c(
 #' Panel B — Connected component sizes (isoform-level, top row)
 #' @noRd
 .panel_components <- function(diag) {
-  df <- diag@component_table
+  df <- .df(diag@component_table)
 
   # Show top 20 components; collapse remainder into an "other" bar
   top_n  <- 20L
@@ -227,7 +227,7 @@ utils::globalVariables(c(
 #' Panel E — Isoforms per gene histogram (gene-level, bottom row)
 #' @noRd
 .panel_isoforms_per_gene <- function(diag) {
-  df <- diag@isoform_per_gene_table
+  df <- .df(diag@isoform_per_gene_table)
 
   counts <- as.data.frame(table(n_isoforms_total = df$n_isoforms_total),
                           stringsAsFactors = FALSE)
@@ -253,7 +253,7 @@ utils::globalVariables(c(
 #' Panel C — Clustering coefficient vs degree scatter (isoform-level, top row)
 #' @noRd
 .panel_clustering <- function(diag) {
-  df <- diag@clustering_table
+  df <- .df(diag@clustering_table)
   df <- df[df$degree > 0L, , drop = FALSE]
 
   # Downsample for large networks to keep rendering fast.
@@ -293,7 +293,7 @@ utils::globalVariables(c(
 #' Panel F — Gene connectivity status bar chart (categorical, bottom row)
 #' @noRd
 .panel_connectivity_status <- function(diag) {
-  df <- diag@isoform_per_gene_table
+  df <- .df(diag@isoform_per_gene_table)
 
   counts <- as.data.frame(table(df$connectivity_status),
                           stringsAsFactors = FALSE)

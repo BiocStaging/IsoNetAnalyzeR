@@ -31,7 +31,8 @@ input table, the run parameters, and cross-gene summary statistics.
 analysis run, used as the \code{label} argument in
 \code{get_analysis(obj, label)}.}
 
-\item{\code{input_table}}{Data frame. The validated long-format input table with
+\item{\code{input_table}}{\code{DataFrame}. The validated long-format input table
+with
 columns \code{gene_id}, \code{isoform_id}, \code{direction}
 (\code{"up"} / \code{"down"}). Protein-identical collisions have been
 collapsed to resolved representatives.}
@@ -39,7 +40,7 @@ collapsed to resolved representatives.}
 \item{\code{gene_results}}{Named list of \linkS4class{GeneDiffPulldown} objects,
 one per gene in \code{input_table}.  Names are gene IDs.}
 
-\item{\code{cross_gene_summary}}{Data frame with one row per gene summarising
+\item{\code{cross_gene_summary}}{\code{DataFrame} with one row per gene summarising
 up/down subgraph properties side by side.  Columns:
 \code{gene_id},
 \code{n_up_input}, \code{n_down_input} (cleaned distinct submitted

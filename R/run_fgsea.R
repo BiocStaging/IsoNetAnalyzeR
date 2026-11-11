@@ -63,20 +63,21 @@ NULL
 #'   \code{get_gsea_result(obj, analysis, gsea_label)}.
 #' @slot parent_label Character scalar.  Label of the parent
 #'   \linkS4class{DifferentialPulldownAnalysis} run.
-#' @slot result_table Data frame.  Output of \code{fgsea::fgsea()} with
+#' @slot result_table \code{DataFrame}.  Output of \code{fgsea::fgsea()} with
 #'   standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
 #'   \code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
 #'   Sorted by \code{padj} ascending.  Access via
 #'   \code{get_gsea_table(obj, analysis, gsea_label)}.
 #' @slot ranked_genes Named numeric vector.  The gene-level rank statistic
 #'   passed to fgsea, sorted descending.  Names are gene IDs matching the
-#'   pathway gene sets.  Access as a data frame via
+#'   pathway gene sets.  Access as a table via
 #'   \code{get_gsea_stats(obj, analysis, gsea_label)}.
 #' @slot rank_by      Character scalar.  The preset used (\code{rank_by}
 #'   argument), or \code{"custom"} when the user supplied \code{stats}
 #'   directly.
-#' @slot go_category  Character scalar.  GO subcollection(s) fetched from
-#'   msigdbr, or \code{NA} when a user-supplied pathway list was used.
+#' @slot go_category  Character scalar.  GO subcollection(s) and MSigDB
+#'   release fetched with the msigdb package, or \code{NA} when gene sets
+#'   were supplied.
 #' @slot params       Named list.  Run parameters: \code{minSize},
 #'   \code{maxSize}, \code{nperm}, \code{n_genes_ranked},
 #'   \code{n_genes_dropped_na}.
@@ -87,19 +88,27 @@ NULL
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
 #'                               package = "IsoNetAnalyzeR"))
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' # For speed, this example analyses only the seed genes found in Hallmark
-#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-#' # must be small.
-#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' # Six genes for speed; the vignette analyses all 65. With few ranked genes,
+#' # minSize must be small.
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 #' obj <- IsoNetAnalyzeR("example")
-#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
 #' set.seed(42)
-#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#' obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
 #'                  minSize = 3)
-#' get_gsea_result(obj, "t2d", "hallmark_gsea")
+#' get_gsea_result(obj, "t2d", "example_gsea")
 #'
 #' @exportClass FgseaResult
 setClass(
@@ -107,7 +116,7 @@ setClass(
   representation(
     label        = "character",
     parent_label = "character",
-    result_table = "data.frame",
+    result_table = "DataFrame",
     ranked_genes = "numeric",
     rank_by      = "character",
     go_category  = "character",
@@ -124,7 +133,7 @@ setClass(
 #' @describeIn FgseaResult Print a concise summary.
 #' @param object A \linkS4class{FgseaResult} object.
 setMethod("show", "FgseaResult", function(object) {
-  rt      <- object@result_table
+  rt      <- .df(object@result_table)
   n_sig   <- if (nrow(rt) > 0L) sum(rt$padj < 0.05, na.rm = TRUE) else 0L
   top_row <- if (nrow(rt) > 0L) rt[1L, ] else NULL
 
@@ -203,16 +212,20 @@ setMethod("show", "FgseaResult", function(object) {
 #'   }
 #' }
 #'
-#' @section GO pathways:
-#' When \code{pathways = NULL} (default), gene sets are fetched from MSigDB
-#' via \code{msigdbr} using category \code{"C5"} (GO gene sets).  The
-#' \code{go_category} argument selects the subcollection(s):
+#' @section Gene sets:
+#' \code{pathways} may be a named list of Ensembl gene ID vectors or a
+#' GSEABase \code{GeneSetCollection}, for example a collection from the
+#' msigdb package. Gene symbols in a \code{GeneSetCollection} are mapped to
+#' Ensembl gene IDs with the Ensembl 107 annotation
+#' (\code{\link{isonet_gene_names}}).
+#'
+#' When \code{pathways = NULL} (default), the GO gene sets of MSigDB
+#' release 2023.1 (collection C5) are fetched with the msigdb package from
+#' ExperimentHub. \code{go_category} selects the subcollection(s):
 #' \code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
 #' \code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
-#' Gene sets are keyed by Ensembl gene ID (\code{ensembl_gene}).
-#' For reproducible analyses, prefer a saved, versioned \code{pathways} list,
-#' set the random seed before this call, and record the list checksum and run
-#' parameters. Live pathway collections can change over time.
+#' fgsea estimates p-values by permutation, so set the random seed before
+#' this call.
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis   Character scalar.  Label of the
@@ -227,9 +240,9 @@ setMethod("show", "FgseaResult", function(object) {
 #' @param stats      Named numeric vector or \code{NULL}.  When supplied,
 #'   this vector is used directly as the fgsea rank statistic, bypassing
 #'   \code{rank_by}.  Names must be gene IDs.  Default \code{NULL}.
-#' @param pathways   Named list of character vectors (gene IDs per pathway),
-#'   or \code{NULL} (default) to fetch GO gene sets automatically via
-#'   \code{msigdbr}.
+#' @param pathways   Named list of character vectors (Ensembl gene IDs per
+#'   pathway), a \code{GeneSetCollection}, or \code{NULL} (default) to fetch
+#'   MSigDB GO gene sets with the msigdb package (see Gene sets).
 #' @param go_category Character scalar.  GO subcollection to fetch when
 #'   \code{pathways = NULL}.  One of \code{"GO:BP"}, \code{"GO:MF"},
 #'   \code{"GO:CC"}, or \code{"ALL"}.  Default \code{"GO:BP"}.
@@ -247,19 +260,27 @@ setMethod("show", "FgseaResult", function(object) {
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
 #'                               package = "IsoNetAnalyzeR"))
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' # For speed, this example analyses only the seed genes found in Hallmark
-#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-#' # must be small.
-#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' # Six genes for speed; the vignette analyses all 65. With few ranked genes,
+#' # minSize must be small.
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 #' obj <- IsoNetAnalyzeR("example")
-#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
 #' set.seed(42)
-#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#' obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
 #'                  minSize = 3)
-#' get_gsea_table(obj, "t2d", "hallmark_gsea")
+#' get_gsea_table(obj, "t2d", "example_gsea")
 #'
 #' # Custom ranking: a weighted node and edge difference per gene
 #' cgs <- get_cross_gene_summary(obj, "t2d")
@@ -269,7 +290,7 @@ setMethod("show", "FgseaResult", function(object) {
 #'   cgs$gene_id
 #' )
 #' obj <- run_fgsea(obj, "t2d", label = "weighted", stats = my_stats,
-#'                  pathways = hallmark, minSize = 3)
+#'                  pathways = gene_sets, minSize = 3)
 #'
 #' @export
 run_fgsea <- function(obj,
@@ -329,7 +350,7 @@ run_fgsea <- function(obj,
     rank_by <- match.arg(rank_by, names(.FGSEA_RANK_PRESETS))
     rank_label <- rank_by
 
-    cgs        <- diff_res@cross_gene_summary
+    cgs        <- .df(diff_res@cross_gene_summary)
     stats_vec  <- .compute_rank_preset(cgs, rank_by)
 
     message(sprintf(
@@ -358,15 +379,14 @@ run_fgsea <- function(obj,
   stats_vec <- sort(stats_vec, decreasing = TRUE)
 
   # -- Build / fetch pathways --------------------------------------------------
+  network_genes <- unique(igraph::V(obj@network)$gene)
   if (is.null(pathways)) {
-    pathways   <- .fetch_go_pathways(go_category)
-    go_cat_str <- go_category
+    pathways   <- .fetch_go_pathways(go_category, network_genes)
+    go_cat_str <- sprintf("%s (MSigDB %s)", go_category, .MSIGDB_VERSION)
   } else {
-    if (!is.list(pathways) || is.null(names(pathways)))
-      stop("`pathways` must be a named list of character vectors.", call. = FALSE)
+    pathways   <- .as_pathway_list(pathways, network_genes)
     go_cat_str <- NA_character_
-    message(sprintf("Using user-supplied pathway list (%d gene sets).",
-                    length(pathways)))
+    message(sprintf("Using user-supplied gene sets (%d).", length(pathways)))
   }
 
   # -- Run fgsea ---------------------------------------------------------------
@@ -398,7 +418,7 @@ run_fgsea <- function(obj,
     "FgseaResult",
     label        = label,
     parent_label = analysis,
-    result_table = as.data.frame(result_tbl),
+    result_table = .as_DataFrame(result_tbl),
     ranked_genes = stats_vec,
     rank_by      = rank_label,
     go_category  = go_cat_str,
@@ -470,54 +490,99 @@ run_fgsea <- function(obj,
 
 
 # ==============================================================================
-#  Internal: fetch GO pathways from msigdbr
+#  Internal: gene sets from MSigDB (msigdb package) or the user
 # ==============================================================================
 
-#' Fetch GO gene sets from MSigDB via msigdbr
+#' MSigDB release fetched when \code{pathways = NULL}
+#' @noRd
+.MSIGDB_VERSION <- "2023.1"
+
+#' Fetch GO gene sets from MSigDB via the msigdb package
 #'
-#' Downloads the C5 collection (GO gene sets) for Homo sapiens and returns a
-#' named list of Ensembl gene ID vectors, one entry per pathway.
+#' Loads the human MSigDB collection (gene symbols) from ExperimentHub,
+#' keeps the requested C5 GO subcollection(s) and maps the symbols to
+#' Ensembl gene IDs.
 #'
 #' @param go_category Character scalar. One of "GO:BP", "GO:MF", "GO:CC",
 #'   or "ALL".
+#' @param genes Character vector of Ensembl gene IDs that symbols may map to.
 #' @return Named list of character vectors (Ensembl gene IDs per pathway).
 #' @noRd
-.fetch_go_pathways <- function(go_category) {
+.fetch_go_pathways <- function(go_category, genes) {
 
-  if (!requireNamespace("msigdbr", quietly = TRUE))
-    stop("Package 'msigdbr' is required to fetch GO pathways automatically.\n",
-         "Install with:  install.packages('msigdbr')\n",
-         "Or supply your own pathway list via the `pathways` argument.",
-         call. = FALSE)
+  for (pkg in c("msigdb", "GSEABase"))
+    if (!requireNamespace(pkg, quietly = TRUE))
+      stop(sprintf("Package '%s' is required to fetch GO gene sets ", pkg),
+           "automatically. Install it with BiocManager::install('", pkg,
+           "'), or supply your own gene sets via the `pathways` argument.",
+           call. = FALSE)
 
-  message(sprintf("Fetching GO gene sets from MSigDB (C5, subcollection: %s) ...",
-                  go_category))
+  message(sprintf(
+    "Fetching GO gene sets (C5, %s) from MSigDB %s via the msigdb package ...",
+    go_category, .MSIGDB_VERSION
+  ))
+  gsc <- msigdb::getMsigdb(org = "hs", id = "SYM", version = .MSIGDB_VERSION)
 
-  if (go_category == "ALL") {
-    go_sets <- msigdbr::msigdbr(species = "Homo sapiens", collection = "C5")
-    # Restrict to GO subcollections only (exclude HPO)
-    go_sets <- go_sets[go_sets$gs_subcollection %in% c("GO:BP", "GO:MF", "GO:CC"), ]
-  } else {
-    go_sets <- msigdbr::msigdbr(
-      species       = "Homo sapiens",
-      collection    = "C5",
-      subcollection = go_category
-    )
-  }
+  subcollections <- if (go_category == "ALL")
+    c("GO:BP", "GO:MF", "GO:CC") else go_category
+  types <- lapply(gsc, GSEABase::collectionType)
+  category <- vapply(types, GSEABase::bcCategory, character(1L))
+  subcategory <- vapply(types, function(x) {
+    sub <- GSEABase::bcSubCategory(x)
+    if (length(sub)) sub else NA_character_
+  }, character(1L))
+  go_sets <- gsc[category == "c5" & subcategory %in% subcollections]
 
-  # Drop rows with missing Ensembl IDs
-  go_sets <- go_sets[!is.na(go_sets$ensembl_gene) &
-                       nchar(go_sets$ensembl_gene) > 0L, ]
-
-  if (nrow(go_sets) == 0L)
-    stop(sprintf(
-      "msigdbr returned no gene sets for subcollection '%s'. ",
-      go_category
-    ), call. = FALSE)
-
-  pathways <- split(go_sets$ensembl_gene, go_sets$gs_name)
+  pathways <- .as_pathway_list(go_sets, genes)
+  if (length(pathways) == 0L)
+    stop(sprintf("No GO gene sets were found for subcollection '%s'.",
+                 go_category), call. = FALSE)
 
   message(sprintf("  %d gene set(s) retrieved.", length(pathways)))
+  pathways
+}
+
+#' Gene sets as a named list of Ensembl gene IDs
+#'
+#' Accepts a named list of character vectors or a GSEABase
+#' \code{GeneSetCollection} whose gene IDs are Ensembl gene IDs or gene
+#' symbols. Symbols are mapped to Ensembl gene IDs with the Ensembl 107
+#' annotation (\code{isonet_gene_names()}), restricted to \code{genes} so
+#' that a symbol shared by alternative-haplotype genes maps to the network
+#' gene. Gene sets left empty are dropped.
+#'
+#' @param pathways Named list or \code{GeneSetCollection}.
+#' @param genes Character vector of Ensembl gene IDs present in the network.
+#' @return Named list of character vectors.
+#' @noRd
+.as_pathway_list <- function(pathways, genes) {
+  if (is(pathways, "GeneSetCollection")) {
+    if (!requireNamespace("GSEABase", quietly = TRUE))
+      stop("Package 'GSEABase' is required for GeneSetCollection input.",
+           call. = FALSE)
+    id_types <- unique(vapply(
+      lapply(pathways, GSEABase::geneIdType), function(x) class(x)[1L],
+      character(1L)
+    ))
+    ids <- GSEABase::geneIds(pathways)
+    if (identical(id_types, "SymbolIdentifier")) {
+      symbols <- isonet_gene_names()
+      symbols <- symbols[!is.na(symbols$gene_name) &
+                           symbols$gene_id %in% genes, ]
+      by_symbol <- split(symbols$gene_id, symbols$gene_name)
+      ids <- lapply(ids, function(x) unique(unlist(by_symbol[x],
+                                                   use.names = FALSE)))
+    } else if (!identical(id_types, "ENSEMBLIdentifier")) {
+      stop("GeneSetCollection gene IDs must be gene symbols or Ensembl gene ",
+           "IDs; found ", paste(id_types, collapse = ", "), ". Convert them ",
+           "with GSEABase::mapIdentifiers().", call. = FALSE)
+    }
+    ids <- ids[lengths(ids) > 0L]
+    return(ids)
+  }
+  if (!is.list(pathways) || is.null(names(pathways)))
+    stop("`pathways` must be a named list of character vectors or a ",
+         "GeneSetCollection.", call. = FALSE)
   pathways
 }
 
@@ -539,19 +604,27 @@ run_fgsea <- function(obj,
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
 #'                               package = "IsoNetAnalyzeR"))
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' # For speed, this example analyses only the seed genes found in Hallmark
-#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-#' # must be small.
-#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' # Six genes for speed; the vignette analyses all 65. With few ranked genes,
+#' # minSize must be small.
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 #' obj <- IsoNetAnalyzeR("example")
-#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
 #' set.seed(42)
-#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#' obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
 #'                  minSize = 3)
-#' get_gsea_result(obj, "t2d", "hallmark_gsea")
+#' get_gsea_result(obj, "t2d", "example_gsea")
 #'
 #' @export
 setGeneric("get_gsea_result",

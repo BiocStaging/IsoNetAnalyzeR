@@ -18,7 +18,8 @@ to see available labels.}
 inspect the result to see available component analysis labels.}
 }
 \value{
-A data frame with one row per retained component and the following
+A \code{DataFrame} with one row per retained component and the
+following
 columns (Tier-1 first, then Tier-2):
 \code{component_id}, \code{n_nodes}, \code{n_edges}, \code{density},
 \code{avg_degree}, \code{clustering}, \code{n_seeds},
@@ -32,7 +33,7 @@ Topology columns are \code{NA} for any component absent from
 metrics are undefined).
 }
 \description{
-Returns a single wide data frame with one row per retained connected
+Returns a single wide \code{DataFrame} with one row per retained connected
 component, combining all Tier-1 structural columns
 (\code{@component_table}) and all Tier-2 topological columns
 (\code{@topology_table}) side by side via a left-join on

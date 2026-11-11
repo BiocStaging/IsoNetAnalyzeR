@@ -1,3 +1,5 @@
+# Expected values follow from the design of the hand-built fixtures in
+# helper-fixtures.R.
 test_that("print_metadata lists every key with aligned values", {
   obj <- set_metadata(make_isolated_seed_fixture()$obj, "author", "Jane Doe")
   out <- cli::cli_fmt(print_metadata(obj))

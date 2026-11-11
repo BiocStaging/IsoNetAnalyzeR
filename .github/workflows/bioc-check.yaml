@@ -11,8 +11,17 @@ jobs:
   bioc-check:
     runs-on: ubuntu-latest
     container: bioconductor/bioconductor_docker:devel
+    env:
+      # Ensembl 107 annotation (AnnotationHub) and MSigDB (ExperimentHub)
+      ANNOTATION_HUB_CACHE: /tmp/hubs/AnnotationHub
+      EXPERIMENT_HUB_CACHE: /tmp/hubs/ExperimentHub
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/hubs
+          key: hubs-bioc-devel-AH104864-msigdb-2023.1
 
       - name: Install dependencies
         run: |

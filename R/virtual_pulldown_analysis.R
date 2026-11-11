@@ -99,7 +99,8 @@
 #' @param vp_list A named list of igraph objects, typically the output of
 #'   repeated calls to \code{\link{virtual_pulldown}}.
 #'
-#' @return A data frame with one row per subgraph and the following columns:
+#' @return A \code{DataFrame} with one row per subgraph and the following
+#'   columns:
 #' \describe{
 #'   \item{seed}{Comma-separated seed isoform name(s).}
 #'   \item{nodes}{Total number of vertices.}
@@ -124,7 +125,7 @@ summarize_subgraphs <- function(vp_list) {
     stop("`vp_list` must be a non-empty list of igraph objects.", call. = FALSE)
   }
 
-  do.call(rbind, lapply(names(vp_list), function(nm) {
+  .as_DataFrame(do.call(rbind, lapply(names(vp_list), function(nm) {
     g <- vp_list[[nm]]
 
     if (!inherits(g, "igraph")) {
@@ -151,7 +152,7 @@ summarize_subgraphs <- function(vp_list) {
       genes       = length(unique(igraph::V(g)$gene)),
       stringsAsFactors = FALSE
     )
-  }))
+  })))
 }
 
 
@@ -170,7 +171,8 @@ summarize_subgraphs <- function(vp_list) {
 #' @param graph An igraph object with a \code{pi} edge attribute (preserved
 #'   from the full network after \code{interact == 1} filtering).
 #'
-#' @return A data frame with one row per vertex and the following columns:
+#' @return A \code{DataFrame} with one row per vertex and the following
+#'   columns:
 #' \describe{
 #'   \item{isoform}{Vertex name (transcript ID).}
 #'   \item{is_seed}{Logical flag copied directly from the graph's
@@ -218,7 +220,7 @@ analyze_subgraph <- function(graph) {
     }
   })
 
-  data.frame(
+  .as_DataFrame(data.frame(
     isoform            = all_names,
     is_seed            = all_names %in% seed_names,
     degree             = igraph::degree(graph),
@@ -229,5 +231,5 @@ analyze_subgraph <- function(graph) {
     mean_pi            = vapply(pi_stats, `[[`, numeric(1), "mean_pi"),
     pi_entropy         = vapply(pi_stats, `[[`, numeric(1), "pi_entropy"),
     stringsAsFactors   = FALSE
-  )
+  ))
 }

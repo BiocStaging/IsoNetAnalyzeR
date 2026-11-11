@@ -25,7 +25,7 @@ NULL
 #' \linkS4class{IsoNetAnalyzeR} session object; retrieved with
 #' \code{\link{get_network_diagnostics}}.
 #'
-#' @slot network_stats     Data frame with one row summarising the three
+#' @slot network_stats     \code{DataFrame} with one row summarising the three
 #'   network views and global topology metrics.  Columns:
 #'   \describe{
 #'     \item{full_isoforms}{Total isoform nodes in the full network.}
@@ -54,23 +54,25 @@ NULL
 #'       isolated.}
 #'   }
 #'
-#' @slot isoform_degree_table  Data frame with one row per isoform in the
+#' @slot isoform_degree_table  \code{DataFrame} with one row per isoform in the
 #'   predicted subnetwork.  Columns: \code{isoform_id}, \code{gene_id},
 #'   \code{degree}.  Isoforms with zero predicted edges are included with
 #'   \code{degree = 0}.
 #'
-#' @slot gene_degree_table     Data frame with one row per gene in the
+#' @slot gene_degree_table     \code{DataFrame} with one row per gene in the
 #'   gene-level predicted network.  Columns: \code{gene_id}, \code{degree}.
 #'
-#' @slot component_table       Data frame with one row per connected component
+#' @slot component_table       \code{DataFrame} with one row per connected
+#'   component
 #'   in the predicted isoform subnetwork, sorted descending by size.  Columns:
 #'   \code{component_id}, \code{n_nodes}, \code{n_edges}.
 #'
-#' @slot clustering_table      Data frame with one row per isoform in the
+#' @slot clustering_table      \code{DataFrame} with one row per isoform in the
 #'   predicted subnetwork.  Columns: \code{isoform_id}, \code{gene_id},
 #'   \code{degree}, \code{clustering_coefficient}.
 #'
-#' @slot isoform_per_gene_table  Data frame with one row per gene present in
+#' @slot isoform_per_gene_table  \code{DataFrame} with one row per gene present
+#'   in
 #'   the full network.  Columns: \code{gene_id}, \code{n_isoforms_total}
 #'   (all isoforms for this gene in the full network),
 #'   \code{n_isoforms_connected} (isoforms with at least one predicted edge),
@@ -78,12 +80,12 @@ NULL
 #'   \code{connectivity_status} (character: \code{"all_connected"},
 #'   \code{"partial"}, or \code{"all_isolated"}).
 #'
-#' @slot sticky_isoform_table  Data frame with one row per sticky isoform
+#' @slot sticky_isoform_table  \code{DataFrame} with one row per sticky isoform
 #'   (degree above threshold).  Columns: \code{isoform_id}, \code{gene_id},
-#'   \code{degree}.  Empty data frame if no sticky isoforms found.
+#'   \code{degree}.  Empty if no sticky isoforms are found.
 #'
-#' @slot sticky_gene_table     Data frame with one row per sticky gene.
-#'   Columns: \code{gene_id}, \code{degree}.  Empty data frame if none found.
+#' @slot sticky_gene_table     \code{DataFrame} with one row per sticky gene.
+#'   Columns: \code{gene_id}, \code{degree}.  Empty if none are found.
 #'
 #' @slot sticky_method         Character scalar.  Threshold method used:
 #'   \code{"quantile"} or \code{"sd"}.
@@ -119,14 +121,14 @@ NULL
 setClass(
   "NetworkDiagnostics",
   representation(
-    network_stats            = "data.frame",
-    isoform_degree_table     = "data.frame",
-    gene_degree_table        = "data.frame",
-    component_table          = "data.frame",
-    clustering_table         = "data.frame",
-    isoform_per_gene_table   = "data.frame",
-    sticky_isoform_table     = "data.frame",
-    sticky_gene_table        = "data.frame",
+    network_stats            = "DataFrame",
+    isoform_degree_table     = "DataFrame",
+    gene_degree_table        = "DataFrame",
+    component_table          = "DataFrame",
+    clustering_table         = "DataFrame",
+    isoform_per_gene_table   = "DataFrame",
+    sticky_isoform_table     = "DataFrame",
+    sticky_gene_table        = "DataFrame",
     sticky_method            = "character",
     sticky_cutoff            = "numeric",
     sticky_isoform_threshold = "numeric",
@@ -194,7 +196,7 @@ setValidity("NetworkDiagnostics", function(object) {
 #' @describeIn NetworkDiagnostics Print a concise diagnostics summary.
 #' @param object A \linkS4class{NetworkDiagnostics} object.
 setMethod("show", "NetworkDiagnostics", function(object) {
-  s <- object@network_stats
+  s <- .df(object@network_stats)
 
   cli::cli_rule("NetworkDiagnostics")
   .cli_aligned("Created    : {format(object@created_at, '%Y-%m-%d %H:%M:%S')}")

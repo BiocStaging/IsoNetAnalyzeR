@@ -27,12 +27,14 @@
 #' @slot down_graph    An \code{igraph} object. Virtual pulldown subgraph seeded
 #'   from \code{down_isoforms}, or \code{NULL} when no down-labelled isoforms
 #'   were present in the network.
-#' @slot up_stats      Data frame. Per-node statistics for \code{up_graph}
-#'   (output of \code{\link{analyze_subgraph}}), or a zero-row data frame when
+#' @slot up_stats      \code{DataFrame}. Per-node statistics for \code{up_graph}
+#'   (output of \code{\link{analyze_subgraph}}), or a zero-row \code{DataFrame}
+#'   when
 #'   \code{up_graph} is \code{NULL}.
-#' @slot down_stats    Data frame. Per-node statistics for \code{down_graph},
-#'   or a zero-row data frame when \code{down_graph} is \code{NULL}.
-#' @slot graph_summary Data frame with one row per direction (\code{"up"},
+#' @slot down_stats    \code{DataFrame}. Per-node statistics for
+#'   \code{down_graph},
+#'   or a zero-row \code{DataFrame} when \code{down_graph} is \code{NULL}.
+#' @slot graph_summary \code{DataFrame} with one row per direction (\code{"up"},
 #'   \code{"down"}) summarising network-level properties: nodes, edges,
 #'   density, avg_degree, clustering, starness, genes.  Rows are \code{NA}
 #'   when the corresponding graph is absent.
@@ -64,9 +66,9 @@ setClass(
     down_isoforms = "character",
     up_graph      = "ANY",          # igraph or NULL
     down_graph    = "ANY",          # igraph or NULL
-    up_stats      = "data.frame",
-    down_stats    = "data.frame",
-    graph_summary = "data.frame",
+    up_stats      = "DataFrame",
+    down_stats    = "DataFrame",
+    graph_summary = "DataFrame",
     gene_summary  = "list"
   )
 )
@@ -141,9 +143,9 @@ setValidity("GeneDiffPulldown", function(object) {
     down_isoforms = as.character(down_isoforms),
     up_graph      = up_graph,
     down_graph    = down_graph,
-    up_stats      = up_stats,
-    down_stats    = down_stats,
-    graph_summary = graph_summary,
+    up_stats      = .as_DataFrame(up_stats),
+    down_stats    = .as_DataFrame(down_stats),
+    graph_summary = .as_DataFrame(graph_summary),
     gene_summary  = gene_summary
   )
 

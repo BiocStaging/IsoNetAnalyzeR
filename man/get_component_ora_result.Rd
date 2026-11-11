@@ -42,11 +42,18 @@ obj <- run_differential_pulldown(
   order = 1, confirm = FALSE, verbose = FALSE
 )
 obj <- run_component_analysis(obj, "t2d", label = "comp")
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-                         pathways = hallmark)
-ora <- get_component_ora_result(obj, "t2d", "comp", "hallmark")
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
+obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+                         pathways = gene_sets, minSize = 2)
+ora <- get_component_ora_result(obj, "t2d", "comp", "example")
 ora
 
 }

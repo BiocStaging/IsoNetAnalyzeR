@@ -1,13 +1,19 @@
 ## reduce_network.R
-## Derive the bundled interaction-only network (IsoNetAnalyzeR >= 0.99.0)
-## from the full scored network shipped in IsoNetAnalyzeR 0.6.5.
+## Derive the bundled interaction-only network from the full scored network
+## shipped in IsoNetAnalyzeR 0.6.5.
 ##
 ## The 0.6.5 R/sysdata.rda stored every scored isoform pair (2,853,266 edges),
 ## but all analysis code first restricts the graph to predicted interaction
-## edges (interact == 1). This script keeps those 158,458 edges and all
-## 58,164 vertices, so isoforms without a predicted interaction remain
-## mapped-isolated rather than becoming unmapped. Vertex order, vertex and
-## edge attributes, the neighbourhood cutoff and the pi threshold are kept.
+## edges (interact == 1). This script keeps those edges and all 58,164
+## vertices, so isoforms without a predicted interaction remain
+## mapped-isolated rather than becoming unmapped.
+##
+## The source table lists six transcript pairs twice, with slightly
+## different pi, and five transcripts paired with themselves. Each repeated
+## pair becomes one edge carrying the mean pi of its copies, and the
+## self-pairs are removed, giving a simple graph of 158,447 edges. Every
+## other edge keeps its position and attributes. Vertex order, vertex
+## attributes, the neighbourhood cutoff and the pi threshold are kept.
 ##
 ## Usage, from the package root:
 ##   Rscript inst/scripts/reduce_network.R <0.6.5 sysdata.rda> R/sysdata.rda
@@ -38,7 +44,16 @@ load(input, envir = full)
 g <- full$.network_data
 
 keep <- which(igraph::edge_attr(g, "interact") == 1L)
-.network_data <- igraph::subgraph_from_edges(g, keep, delete.vertices = FALSE)
+predicted <- igraph::subgraph_from_edges(g, keep, delete.vertices = FALSE)
+
+el <- igraph::as_edgelist(predicted, names = FALSE)
+pair <- paste(pmin(el[, 1L], el[, 2L]), pmax(el[, 1L], el[, 2L]))
+self_pair <- el[, 1L] == el[, 2L]
+repeated <- duplicated(pair)
+igraph::E(predicted)$pi <- stats::ave(igraph::E(predicted)$pi, pair,
+                                      FUN = mean)
+.network_data <- igraph::delete_edges(predicted,
+                                      which(repeated | self_pair))
 .network_cutoff <- full$.network_cutoff
 .pi_threshold <- full$.pi_threshold
 
@@ -46,7 +61,10 @@ stopifnot(
     identical(igraph::V(.network_data)$name, igraph::V(g)$name),
     identical(igraph::V(.network_data)$gene, igraph::V(g)$gene),
     all(igraph::E(.network_data)$interact == 1L),
-    igraph::ecount(.network_data) == length(keep)
+    igraph::is_simple(.network_data),
+    sum(repeated & !self_pair) == 6L, sum(self_pair) == 5L,
+    igraph::ecount(.network_data) ==
+        length(unique(pair[!self_pair]))
 )
 
 save(.network_data, .network_cutoff, .pi_threshold,
@@ -54,6 +72,8 @@ save(.network_data, .network_cutoff, .pi_threshold,
 
 cat(sprintf("Input  : %d vertices, %d edges, SHA-256 %s\n",
             igraph::vcount(g), igraph::ecount(g), expected_input))
+cat(sprintf("Predicted interaction edges: %d (%d repeated pairs merged, %d self-pairs removed)\n",
+            length(keep), sum(repeated & !self_pair), sum(self_pair)))
 cat(sprintf("Output : %d vertices, %d edges, SHA-256 %s\n",
             igraph::vcount(.network_data), igraph::ecount(.network_data),
             sha256(output)))

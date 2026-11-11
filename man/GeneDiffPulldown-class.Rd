@@ -44,14 +44,16 @@ present in the network.}
 from \code{down_isoforms}, or \code{NULL} when no down-labelled isoforms
 were present in the network.}
 
-\item{\code{up_stats}}{Data frame. Per-node statistics for \code{up_graph}
-(output of \code{\link{analyze_subgraph}}), or a zero-row data frame when
+\item{\code{up_stats}}{\code{DataFrame}. Per-node statistics for \code{up_graph}
+(output of \code{\link{analyze_subgraph}}), or a zero-row \code{DataFrame}
+when
 \code{up_graph} is \code{NULL}.}
 
-\item{\code{down_stats}}{Data frame. Per-node statistics for \code{down_graph},
-or a zero-row data frame when \code{down_graph} is \code{NULL}.}
+\item{\code{down_stats}}{\code{DataFrame}. Per-node statistics for
+\code{down_graph},
+or a zero-row \code{DataFrame} when \code{down_graph} is \code{NULL}.}
 
-\item{\code{graph_summary}}{Data frame with one row per direction (\code{"up"},
+\item{\code{graph_summary}}{\code{DataFrame} with one row per direction (\code{"up"},
 \code{"down"}) summarising network-level properties: nodes, edges,
 density, avg_degree, clustering, starness, genes.  Rows are \code{NA}
 when the corresponding graph is absent.}

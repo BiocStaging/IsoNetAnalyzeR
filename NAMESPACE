@@ -53,14 +53,20 @@ exportClasses(GeneDiffPulldown)
 exportClasses(IsoNetAnalyzeR)
 exportClasses(NetworkDiagnostics)
 exportClasses(VirtualPulldownLookup)
-importFrom(methods,is)
-importFrom(methods,new)
-importFrom(methods,setClass)
-importFrom(methods,setGeneric)
-importFrom(methods,setMethod)
-importFrom(methods,setValidity)
-importFrom(methods,validObject)
+importClassesFrom(S4Vectors,DataFrame)
+importFrom(S4Vectors,DataFrame)
+importFrom(methods,
+  is,
+  new,
+  setClass,
+  setGeneric,
+  setMethod,
+  setValidity,
+  validObject
+)
 importFrom(rlang,.data)
-importFrom(stats,p.adjust)
-importFrom(stats,setNames)
+importFrom(stats,
+  p.adjust,
+  setNames
+)
 importFrom(utils,head)

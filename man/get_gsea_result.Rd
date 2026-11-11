@@ -32,18 +32,26 @@ Retrieve a stored GSEA result from a differential pulldown analysis
 \examples{
 seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
                               package = "IsoNetAnalyzeR"))
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-# For speed, this example analyses only the seed genes found in Hallmark
-# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-# must be small.
-in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+# Six genes for speed; the vignette analyses all 65. With few ranked genes,
+# minSize must be small.
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 obj <- IsoNetAnalyzeR("example")
-obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-                                 order = 1, confirm = FALSE, verbose = FALSE)
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
 set.seed(42)
-obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
                  minSize = 3)
-get_gsea_result(obj, "t2d", "hallmark_gsea")
+get_gsea_result(obj, "t2d", "example_gsea")
 
 }

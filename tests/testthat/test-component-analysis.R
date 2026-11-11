@@ -1,3 +1,5 @@
+# Gene results are built by hand so that the expected component counts can
+# be read off the graphs below.
 make_gene_result <- function(gene_id, up_isoforms, down_isoforms) {
   empty_graph <- igraph::make_empty_graph(directed = FALSE)
   methods::new(
@@ -7,9 +9,9 @@ make_gene_result <- function(gene_id, up_isoforms, down_isoforms) {
     down_isoforms = down_isoforms,
     up_graph = empty_graph,
     down_graph = empty_graph,
-    up_stats = data.frame(),
-    down_stats = data.frame(),
-    graph_summary = data.frame(),
+    up_stats = S4Vectors::DataFrame(),
+    down_stats = S4Vectors::DataFrame(),
+    graph_summary = S4Vectors::DataFrame(),
     gene_summary = list()
   )
 }

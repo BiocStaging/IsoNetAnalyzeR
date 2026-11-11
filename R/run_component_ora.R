@@ -49,7 +49,7 @@ NULL
 #'   \linkS4class{ComponentAnalysis}.
 #' @slot grandparent_label  Character scalar.  Label of the parent
 #'   \linkS4class{DifferentialPulldownAnalysis}.
-#' @slot result_table       Data frame.  One row per (component, pathway)
+#' @slot result_table       \code{DataFrame}.  One row per (component, pathway)
 #'   combination.  Columns:
 #'   \code{component_id} (integer),
 #'   \code{pathway} (character),
@@ -84,11 +84,18 @@ NULL
 #'   order = 1, confirm = FALSE, verbose = FALSE
 #' )
 #' obj <- run_component_analysis(obj, "t2d", label = "comp")
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-#'                          pathways = hallmark)
-#' get_component_ora_result(obj, "t2d", "comp", "hallmark")
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+#'                          pathways = gene_sets, minSize = 2)
+#' get_component_ora_result(obj, "t2d", "comp", "example")
 #'
 #' @exportClass ComponentOraResult
 setClass(
@@ -97,7 +104,7 @@ setClass(
     label             = "character",
     parent_label      = "character",
     grandparent_label = "character",
-    result_table      = "data.frame",
+    result_table      = "DataFrame",
     universe          = "character",
     nodes_used        = "character",
     go_category       = "character",
@@ -114,7 +121,7 @@ setClass(
 #' @describeIn ComponentOraResult Print a concise summary.
 #' @param object A \linkS4class{ComponentOraResult} object.
 setMethod("show", "ComponentOraResult", function(object) {
-  rt <- object@result_table
+  rt <- .df(object@result_table)
 
   n_comp_tested <- object@params$n_components_tested
   n_comp_skip   <- object@params$n_components_skipped
@@ -190,9 +197,13 @@ setMethod("show", "ComponentOraResult", function(object) {
 #' network.  You can override this with the \code{universe} argument.
 #'
 #' @section GO pathways:
-#' When \code{pathways = NULL} (default), gene sets are fetched from MSigDB
-#' via \code{msigdbr} using category \code{"C5"} (GO gene sets).
-#' \code{go_category} selects the subcollection:
+#' \code{pathways} may be a named list of Ensembl gene ID vectors or a
+#' GSEABase \code{GeneSetCollection}, for example from the msigdb package;
+#' gene symbols are mapped to Ensembl gene IDs with the Ensembl 107
+#' annotation (\code{\link{isonet_gene_names}}). When \code{pathways = NULL}
+#' (default), the GO gene sets of MSigDB release 2023.1 (collection C5) are
+#' fetched with the msigdb package from ExperimentHub. \code{go_category}
+#' selects the subcollection:
 #' \describe{
 #'   \item{\code{"GO:BP"}}{Biological process - \emph{what} the proteins do.
 #'     Most informative for isoform-switch interpretation. \strong{Default.}}
@@ -224,8 +235,8 @@ setMethod("show", "ComponentOraResult", function(object) {
 #'   stored; retrieve it afterwards with
 #'   \code{get_component_ora_result(obj, analysis, component_analysis, label)}.
 #' @param pathways           Named list of character vectors (Ensembl gene IDs
-#'   per pathway), or \code{NULL} (default) to fetch GO gene sets
-#'   automatically via \code{msigdbr}.
+#'   per pathway), a \code{GeneSetCollection}, or \code{NULL} (default) to
+#'   fetch MSigDB GO gene sets with the msigdb package.
 #' @param go_category        Character scalar.  GO subcollection to fetch when
 #'   \code{pathways = NULL}.  One of \code{"GO:BP"}, \code{"GO:MF"},
 #'   \code{"GO:CC"}, or \code{"ALL"}.  Default \code{"GO:BP"}.
@@ -254,14 +265,21 @@ setMethod("show", "ComponentOraResult", function(object) {
 #'   order = 1, confirm = FALSE, verbose = FALSE
 #' )
 #' obj <- run_component_analysis(obj, "t2d", label = "comp")
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-#'                          pathways = hallmark)
-#' get_component_ora_result(obj, "t2d", "comp", "hallmark")
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+#'                          pathways = gene_sets, minSize = 2)
+#' get_component_ora_result(obj, "t2d", "comp", "example")
 #'
 #' # Most significant gene set per component
-#' get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 1)
+#' get_ora_table(obj, "t2d", "comp", "example", top_n = 1)
 #'
 #' @export
 run_component_ora <- function(obj,
@@ -325,15 +343,14 @@ run_component_ora <- function(obj,
   }
 
   # -- Fetch / validate pathways -----------------------------------------------
+  network_genes <- unique(igraph::V(obj@network)$gene)
   if (is.null(pathways)) {
-    pathways   <- .fetch_go_pathways(go_category)   # reuse helper from run_fgsea.R
-    go_cat_str <- go_category
+    pathways   <- .fetch_go_pathways(go_category, network_genes)
+    go_cat_str <- sprintf("%s (MSigDB %s)", go_category, .MSIGDB_VERSION)
   } else {
-    if (!is.list(pathways) || is.null(names(pathways)))
-      stop("`pathways` must be a named list of character vectors.", call. = FALSE)
+    pathways   <- .as_pathway_list(pathways, network_genes)
     go_cat_str <- NA_character_
-    message(sprintf("Using user-supplied pathway list (%d gene set(s)).",
-                    length(pathways)))
+    message(sprintf("Using user-supplied gene sets (%d).", length(pathways)))
   }
 
   # -- Extract gene sets per component -----------------------------------------
@@ -342,7 +359,7 @@ run_component_ora <- function(obj,
   ))
 
   component_genes <- .extract_component_genes(
-    node_table  = ca@node_table,
+    node_table  = .df(ca@node_table),
     iso_to_gene = iso_to_gene,
     nodes       = nodes
   )
@@ -443,7 +460,7 @@ run_component_ora <- function(obj,
     label             = label,
     parent_label      = component_analysis,
     grandparent_label = analysis,
-    result_table      = result_tbl,
+    result_table      = .as_DataFrame(result_tbl),
     universe          = universe,
     nodes_used        = nodes,
     go_category       = go_cat_str,
@@ -608,11 +625,18 @@ run_component_ora <- function(obj,
 #'   order = 1, confirm = FALSE, verbose = FALSE
 #' )
 #' obj <- run_component_analysis(obj, "t2d", label = "comp")
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-#'                          pathways = hallmark)
-#' ora <- get_component_ora_result(obj, "t2d", "comp", "hallmark")
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+#'                          pathways = gene_sets, minSize = 2)
+#' ora <- get_component_ora_result(obj, "t2d", "comp", "example")
 #' ora
 #'
 #' @export

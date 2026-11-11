@@ -1,3 +1,5 @@
+# Expected values follow from the design of the hand-built fixtures in
+# helper-fixtures.R.
 test_that("isolated and unmapped seeds are distinguished end to end", {
   fixture <- make_isolated_seed_fixture()
   suppressWarnings(
@@ -28,6 +30,9 @@ test_that("isolated and unmapped seeds are distinguished end to end", {
   obj <- run_component_analysis(
     obj, "test", "iso_components", direction = "both", level = "isoform"
   )
+  # Isoform level: G1's two seeds and their shared neighbour, and one
+  # component for each isolated G3 seed. Gene level: G1-G2, and G3 alone
+  # with both seeds.
   iso_overview <- get_component_overview(obj, "test", "iso_components")
   expect_equal(nrow(iso_overview), 3L)
   expect_true(any(iso_overview$n_nodes == 1L & iso_overview$n_edges == 0L))
@@ -76,11 +81,11 @@ test_that("isolated seed plots and serialization remain valid", {
     p_isolated_up <- expect_no_warning(
       suppressMessages(plot_network(isolated, direction = "up"))
     )
-    expect_s3_class(p_isolated_up, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_isolated_up))
     p_isolated_overlay <- expect_no_warning(
       suppressMessages(plot_network(isolated, direction = "overlay"))
     )
-    expect_s3_class(p_isolated_overlay, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_isolated_overlay))
 
     singleton_id <- get_component_overview(
       obj, "test", "gene_components"
@@ -93,7 +98,7 @@ test_that("isolated seed plots and serialization remain valid", {
         colour_by = "direction"
       ))
     )
-    expect_s3_class(p_component, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_component))
 
     obj <- run_component_analysis(
       obj, "test", "gene_edges_only",
@@ -105,7 +110,7 @@ test_that("isolated seed plots and serialization remain valid", {
         colour_by = "direction"
       ))
     )
-    expect_s3_class(p_filtered_component, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_filtered_component))
     expect_setequal(as.character(p_filtered_component$data$name), c("G1", "G2"))
 
     obj <- lookup_virtual_pulldown(
@@ -117,7 +122,7 @@ test_that("isolated seed plots and serialization remain valid", {
     p_lookup <- expect_no_warning(
       suppressMessages(plot_network(get_lookup(obj, "isolated_lookup")))
     )
-    expect_s3_class(p_lookup, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_lookup))
 
     path <- tempfile(fileext = ".rds")
     saveRDS(obj, path)
@@ -129,7 +134,7 @@ test_that("isolated seed plots and serialization remain valid", {
     p_restored_lookup <- expect_no_warning(
       suppressMessages(plot_network(get_lookup(restored, "isolated_lookup")))
     )
-    expect_s3_class(p_restored_lookup, "ggplot")
+    expect_true(ggplot2::is_ggplot(p_restored_lookup))
   })
 
   expect_false(any(file.exists(default_plot_paths)))
@@ -153,6 +158,7 @@ test_that("overlay plots colour focal seeds independently from neighbourhood sta
     expect_true(any(seed_rows))
     expect_true(all(as.character(p$data$node_fill[seed_rows]) == "focal_seed"))
     expect_true(all(as.character(p$data$node_fill[!seed_rows]) == "shared"))
+    # Okabe-Ito reddish purple for focal seeds, blue for shared neighbours
     built_nodes <- ggplot2::ggplot_build(p)$data[[2L]]
     expect_equal(built_nodes$fill[seed_rows], rep("#CC79A7", sum(seed_rows)))
     expect_equal(built_nodes$fill[!seed_rows], "#0072B2")
@@ -171,6 +177,7 @@ test_that("plot graph filtering preserves isolated seeds without warnings", {
     )
   )
 
+  # Only the pi 0.9 edge passes the 0.85 threshold; the isolated seed stays
   expect_equal(igraph::ecount(filtered), 1L)
   expect_setequal(
     igraph::V(filtered)$name,

@@ -32,7 +32,7 @@ source(system.file("examples", "full_workflow.R", package = "IsoNetAnalyzeR"))
 
 ## Prepare your input
 
-Supply a data frame, CSV file, or Excel file with these columns:
+Supply a `data.frame` or S4Vectors `DataFrame`, a CSV file, or an Excel file with these columns:
 
 | Column | Required values |
 | --- | --- |
@@ -133,16 +133,16 @@ obj <- IsoNetAnalyzeR("include_nmd", include_nmd = TRUE)
 obj <- IsoNetAnalyzeR("include_both", include_nmd = TRUE, include_nsd = TRUE)
 ```
 
-The flags are independent. The exclusion audit is returned by `get_metadata(obj, "network_biotype_filter")`, and `isonet_transcript_biotypes()` returns the packaged transcript annotation. These options affect the network, not upstream RNA count matrices or statistical tests. Construct a new session and rerun analyses when changing this policy; saved graphs are not retroactively rebuilt.
+The flags are independent. The exclusion audit is returned by `get_metadata(obj, "network_biotype_filter")`, and `isonet_transcript_biotypes()` returns the transcript annotation: Ensembl release 107, the GENCODE v41 gene build of the bundled network, which sessions load from AnnotationHub (record AH104864) and AnnotationHub caches after the first download. These options affect the network, not upstream RNA count matrices or statistical tests. Construct a new session and rerun analyses when changing this policy; saved graphs are not retroactively rebuilt.
 
-A custom network must be an undirected `igraph` with unique vertex `name` values, non-missing vertex `gene` values, and a binary edge `interact` attribute. When either exclusion is enabled, provide known transcript biotypes through the vertex `transcript_biotype` attribute or the constructor's annotation table for IDs not covered by the packaged annotation. See `?IsoNetAnalyzeR` and the synthetic example for a complete custom network.
+A custom network must be an undirected `igraph` with unique vertex `name` values, non-missing vertex `gene` values, and a binary edge `interact` attribute. When either exclusion is enabled, transcripts without a vertex `transcript_biotype` attribute or an entry in the constructor's `transcript_biotypes` argument (a table or an `EnsDb`) are annotated from Ensembl 107. Repeated edges between two transcripts are merged and self-loops removed when the session is created. See `?IsoNetAnalyzeR` and the synthetic example for a complete custom network.
 
 ## Further analyses
 
 - Use `run_component_analysis()` and `get_component_overview()` to summarize connected components across genes.
 - Use `lookup_virtual_pulldown()` for a selected transcript neighbourhood.
 - Use `run_network_diagnostics()` for coverage, isolation, and degree summaries.
-- Use `run_fgsea()` or `run_component_ora()` for enrichment; set a random seed first, because `run_fgsea()` uses random permutations.
+- Use `run_fgsea()` or `run_component_ora()` for enrichment; set a random seed first, because `run_fgsea()` uses random permutations. Gene sets can be a named list of Ensembl gene IDs or a GSEABase `GeneSetCollection`, such as the MSigDB collections of the msigdb package.
 - Use `aggregate_duplicate_counts()` before statistical fitting if your study aggregates protein-identical transcripts. Refit the statistical models after aggregation; do not reuse adjusted p-values from the original fit.
 
 Function details and additional examples are available through `help(package = "IsoNetAnalyzeR")` and the installed vignette. In the cross-gene summary, `n_edges_gained` and `n_edges_lost` count the edges unique to the up-seed and down-seed neighbourhoods.

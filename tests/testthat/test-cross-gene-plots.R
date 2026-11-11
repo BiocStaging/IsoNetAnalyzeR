@@ -1,14 +1,15 @@
+# The multi-gene fixture (helper-fixtures.R) has six genes.
 test_that("cross-gene scatter plots draw one point per gene", {
   fx <- make_multi_gene_fixture()
   p <- plot_cross_gene_scatter(fx$obj, "a", "up_nodes", "down_nodes")
-  expect_s3_class(p, "ggplot")
+  expect_true(ggplot2::is_ggplot(p))
   expect_identical(nrow(p$data), 6L)
 
   p_log <- plot_cross_gene_scatter(
     fx$obj, "a", "up_edges", "down_edges", x_axis_log = TRUE,
     y_axis_log = TRUE, label = c("delta", "x"), label_n = 3L, title = "Edges"
   )
-  expect_s3_class(p_log, "ggplot")
+  expect_true(ggplot2::is_ggplot(p_log))
   with_temp_plot_device({
     expect_no_warning(print(p))
     expect_no_warning(print(p_log))
@@ -26,7 +27,7 @@ test_that("cross-gene boxplots and overviews draw", {
     plot_cross_gene_boxplot_overview(fx$obj, "a", log_ratio = TRUE)
   )
   for (p in plots)
-    expect_true(inherits(p, "ggplot") || inherits(p, "patchwork"))
+    expect_true(ggplot2::is_ggplot(p) || inherits(p, "patchwork"))
   with_temp_plot_device(for (p in plots) expect_no_warning(print(p)))
 })
 

@@ -27,7 +27,7 @@ retrieve it afterwards with \code{get_analysis(obj, label)}.}
 \item{input}{One of:
 \itemize{
 \item A character scalar - path to a CSV or Excel file.
-\item A data frame already loaded into R.
+\item A \code{data.frame} or S4Vectors \code{DataFrame}.
 }}
 
 \item{order}{Integer scalar. Number of BFS hops for the virtual pulldown.}
@@ -77,7 +77,8 @@ adds a \linkS4class{DifferentialPulldownAnalysis} object to the
 }
 \section{Input table format}{
 
-A CSV, Excel (\code{.xlsx} / \code{.xls}), or already-loaded data frame in
+A CSV, Excel (\code{.xlsx} / \code{.xls}), \code{data.frame} or
+\code{DataFrame} in
 \strong{long format} with exactly the following columns (any order):
 \describe{
 \item{gene_id}{Gene identifier (e.g. Ensembl gene ID or gene symbol).}

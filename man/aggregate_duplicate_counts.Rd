@@ -12,11 +12,12 @@ aggregate_duplicate_counts(
 )
 }
 \arguments{
-\item{x}{A numeric matrix/data frame of raw counts, or a single-assay
-\code{SummarizedExperiment}.}
+\item{x}{A numeric matrix, \code{data.frame} or \code{DataFrame} of raw
+counts, or a single-assay \code{SummarizedExperiment}.}
 
-\item{feature_data}{Optional data frame aligned to matrix rows, containing
-at least \code{gene_id} and \code{isoform_id}. When omitted, identifiers
+\item{feature_data}{Optional \code{data.frame} or \code{DataFrame} aligned
+to count rows, containing at least \code{gene_id} and
+\code{isoform_id}. When omitted, identifiers
 are parsed from ENST or \code{gene:ENST} row names.}
 
 \item{assay}{Assay name used for a \code{SummarizedExperiment}; defaults to

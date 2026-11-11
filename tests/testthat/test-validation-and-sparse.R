@@ -1,3 +1,5 @@
+# Expected values follow from the design of the hand-built fixtures in
+# helper-fixtures.R.
 test_that("differential pulldown rejects malformed public inputs", {
   fixture <- make_isolated_seed_fixture()
 
@@ -53,6 +55,7 @@ test_that("decay defaults filter seeds and neighbours with independent opt-ins",
     "decay", graph, metadata = list(network_cutoff = 0),
     include_nmd = nmd, include_nsd = nsd
   )
+  # tx_neighbour is NSD and tx_isolated_up NMD; both edges touch tx_neighbour
   obj <- make()
   expect_false(any(c("tx_neighbour", "tx_isolated_up") %in% igraph::V(obj@network)$name))
   expect_equal(igraph::ecount(obj@network), 0L)
@@ -110,6 +113,9 @@ test_that("decay-excluded aliases cannot bypass eligibility by duplicate remappi
 test_that("retained support requires a significant mapped seed and both directions", {
   fixture <- make_isolated_seed_fixture()
   input <- fixture$input
+  # G1 keeps a significant mapped seed (q 0.01) in both directions; G3's
+  # mapped seeds are not significant; G_missing has no mapped seed. Seeds are
+  # significant when q < seed_fdr, so q = 0.05 retains no gene.
   input$q <- c(.01, NA, .2, .3, .001, .001)
   # A significant but unmapped G3 transcript cannot support its mapped pair.
   input <- rbind(input, data.frame(gene_id = "G3", isoform_id = "missing_driver",
@@ -207,7 +213,7 @@ test_that("fully unmapped and single-direction inputs remain typed and reportabl
     direction = "both", level = "gene"
   )
   overview <- get_component_overview(obj, "unmapped", "empty_components")
-  expect_s3_class(overview, "data.frame")
+  expect_s4_class(overview, "DataFrame")
   expect_equal(nrow(overview), 0L)
   expect_true(all(c(
     "component_id", "n_nodes", "n_edges", "n_genes_up", "n_genes_down",
@@ -225,7 +231,7 @@ test_that("fully unmapped and single-direction inputs remain typed and reportabl
     confirm = FALSE, verbose = FALSE
   )
   result <- get_gene_result(obj, "up_only", "G1")
-  expect_s3_class(result@up_stats, "data.frame")
+  expect_s4_class(result@up_stats, "DataFrame")
   expect_null(result@down_graph)
   expect_equal(nrow(result@down_stats), 0L)
 })

@@ -1,3 +1,7 @@
+# Gene G1's up and down seeds share one neighbour (tx_neighbour), so each
+# neighbourhood has 2 nodes and 1 edge. G3's seeds are in the network without
+# edges (one-node neighbourhoods); G_missing's seeds are not in the network
+# (no neighbourhood); tx_other is an unconnected non-seed transcript.
 make_isolated_seed_fixture <- function() {
   vertices <- data.frame(
     name = c("tx_up", "tx_down", "tx_neighbour", "tx_isolated_up",
@@ -80,5 +84,5 @@ make_multi_gene_fixture <- function() {
     neighbour_set = c("N1", "N2", "N3"),
     mixed_set = c("GA", "GB", "GD", "N4")
   )
-  list(obj = obj, pathways = pathways)
+  list(obj = obj, pathways = pathways, seeds = seeds)
 }

@@ -32,6 +32,18 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      # Ensembl 107 annotation (AnnotationHub) and MSigDB (ExperimentHub)
+      - name: Set hub cache directories
+        shell: bash
+        run: |
+          echo "ANNOTATION_HUB_CACHE=${{ runner.temp }}/hubs/AnnotationHub" >> "$GITHUB_ENV"
+          echo "EXPERIMENT_HUB_CACHE=${{ runner.temp }}/hubs/ExperimentHub" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/hubs
+          key: hubs-${{ runner.os }}-AH104864-msigdb-2023.1
+
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true

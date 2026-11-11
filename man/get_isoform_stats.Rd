@@ -20,14 +20,15 @@ get_isoform_stats(obj, analysis, gene_id)
 was used in the input table).}
 }
 \value{
-A data frame with one row per isoform per direction and columns:
+A \code{DataFrame} with one row per isoform per direction and
+columns:
 \code{direction}, \code{isoform}, \code{is_seed}, \code{degree},
 \code{clustering}, \code{distance_from_seed}, \code{mean_pi},
 \code{pi_entropy}.
 }
 \description{
 Merges the per-node statistics from the up- and down-labelled subgraphs of
-a single gene into one long-format data frame, with a \code{direction}
+a single gene into one long-format \code{DataFrame}, with a \code{direction}
 column (\code{"up"} / \code{"down"}) identifying the condition.  A
 \code{is_seed} column flags isoforms that were supplied as seeds, using the
 explicit seed annotation stored by \code{analyze_subgraph()}.

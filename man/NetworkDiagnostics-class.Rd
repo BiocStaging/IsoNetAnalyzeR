@@ -29,7 +29,7 @@ interaction network.  Stored in the \code{@network_diagnostics} slot of an
 \section{Slots}{
 
 \describe{
-\item{\code{network_stats}}{Data frame with one row summarising the three
+\item{\code{network_stats}}{\code{DataFrame} with one row summarising the three
 network views and global topology metrics.  Columns:
 \describe{
 \item{full_isoforms}{Total isoform nodes in the full network.}
@@ -58,23 +58,25 @@ component.}
 isolated.}
 }}
 
-\item{\code{isoform_degree_table}}{Data frame with one row per isoform in the
+\item{\code{isoform_degree_table}}{\code{DataFrame} with one row per isoform in the
 predicted subnetwork.  Columns: \code{isoform_id}, \code{gene_id},
 \code{degree}.  Isoforms with zero predicted edges are included with
 \code{degree = 0}.}
 
-\item{\code{gene_degree_table}}{Data frame with one row per gene in the
+\item{\code{gene_degree_table}}{\code{DataFrame} with one row per gene in the
 gene-level predicted network.  Columns: \code{gene_id}, \code{degree}.}
 
-\item{\code{component_table}}{Data frame with one row per connected component
+\item{\code{component_table}}{\code{DataFrame} with one row per connected
+component
 in the predicted isoform subnetwork, sorted descending by size.  Columns:
 \code{component_id}, \code{n_nodes}, \code{n_edges}.}
 
-\item{\code{clustering_table}}{Data frame with one row per isoform in the
+\item{\code{clustering_table}}{\code{DataFrame} with one row per isoform in the
 predicted subnetwork.  Columns: \code{isoform_id}, \code{gene_id},
 \code{degree}, \code{clustering_coefficient}.}
 
-\item{\code{isoform_per_gene_table}}{Data frame with one row per gene present in
+\item{\code{isoform_per_gene_table}}{\code{DataFrame} with one row per gene present
+in
 the full network.  Columns: \code{gene_id}, \code{n_isoforms_total}
 (all isoforms for this gene in the full network),
 \code{n_isoforms_connected} (isoforms with at least one predicted edge),
@@ -82,12 +84,12 @@ the full network.  Columns: \code{gene_id}, \code{n_isoforms_total}
 \code{connectivity_status} (character: \code{"all_connected"},
 \code{"partial"}, or \code{"all_isolated"}).}
 
-\item{\code{sticky_isoform_table}}{Data frame with one row per sticky isoform
+\item{\code{sticky_isoform_table}}{\code{DataFrame} with one row per sticky isoform
 (degree above threshold).  Columns: \code{isoform_id}, \code{gene_id},
-\code{degree}.  Empty data frame if no sticky isoforms found.}
+\code{degree}.  Empty if no sticky isoforms are found.}
 
-\item{\code{sticky_gene_table}}{Data frame with one row per sticky gene.
-Columns: \code{gene_id}, \code{degree}.  Empty data frame if none found.}
+\item{\code{sticky_gene_table}}{\code{DataFrame} with one row per sticky gene.
+Columns: \code{gene_id}, \code{degree}.  Empty if none are found.}
 
 \item{\code{sticky_method}}{Character scalar.  Threshold method used:
 \code{"quantile"} or \code{"sd"}.}

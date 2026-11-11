@@ -32,7 +32,7 @@ NULL
 #' Get the GSEA result table from a differential pulldown analysis
 #'
 #' Returns the \code{fgsea::fgsea()} result table stored in a
-#' \linkS4class{FgseaResult} object as a plain data frame, with an optional
+#' \linkS4class{FgseaResult} object as a \code{DataFrame}, with an optional
 #' significance filter.
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
@@ -44,29 +44,37 @@ NULL
 #'   with \code{padj <= padj_cutoff} are returned.  Default \code{NULL}
 #'   (return all pathways).
 #'
-#' @return A data frame with columns \code{pathway}, \code{pval},
+#' @return A \code{DataFrame} with columns \code{pathway}, \code{pval},
 #'   \code{padj}, \code{ES}, \code{NES}, \code{nMoreExtreme}, \code{size},
 #'   \code{leadingEdge}, sorted by \code{padj} ascending.
 #'
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
 #'                               package = "IsoNetAnalyzeR"))
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' # For speed, this example analyses only the seed genes found in Hallmark
-#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-#' # must be small.
-#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' # Six genes for speed; the vignette analyses all 65. With few ranked genes,
+#' # minSize must be small.
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 #' obj <- IsoNetAnalyzeR("example")
-#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
 #' set.seed(42)
-#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#' obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
 #'                  minSize = 3)
 #'
 #' # All tested gene sets, and those passing an adjusted p-value cutoff
-#' get_gsea_table(obj, "t2d", "hallmark_gsea")
-#' get_gsea_table(obj, "t2d", "hallmark_gsea", padj_cutoff = 0.05)
+#' get_gsea_table(obj, "t2d", "example_gsea")
+#' get_gsea_table(obj, "t2d", "example_gsea", padj_cutoff = 0.05)
 #'
 #' @export
 setGeneric("get_gsea_table",
@@ -84,11 +92,11 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 
             # -- Retrieve result -----------------------------------------------
             res <- get_gsea_result(obj, analysis, gsea_label)
-            tbl <- res@result_table
+            tbl <- .df(res@result_table)
 
             if (nrow(tbl) == 0L) {
               message("GSEA result table is empty.")
-              return(tbl)
+              return(.as_DataFrame(tbl))
             }
 
             # -- Apply filter --------------------------------------------------
@@ -103,7 +111,7 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
             }
 
             rownames(tbl) <- NULL
-            tbl
+            .as_DataFrame(tbl)
           })
 
 
@@ -111,10 +119,10 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 #  get_gsea_stats
 # ==============================================================================
 
-#' Get the ranked gene statistic from a GSEA result as a data frame
+#' Get the ranked gene statistic from a GSEA result as a table
 #'
 #' Returns the named numeric vector of rank statistics that was passed to
-#' \code{fgsea::fgsea()} as a two-column data frame, making it easy to inspect
+#' \code{fgsea::fgsea()} as a \code{DataFrame}, making it easy to inspect
 #' which genes drove the enrichment, join with other tables, or plot a ranking
 #' barcode.
 #'
@@ -124,7 +132,7 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 #' @param gsea_label Character scalar.  Label of the
 #'   \linkS4class{FgseaResult}.
 #'
-#' @return A data frame with columns:
+#' @return A \code{DataFrame} with columns:
 #'   \describe{
 #'     \item{\code{gene_id}}{Gene identifier (names from the ranked vector).}
 #'     \item{\code{stat}}{Rank statistic value (e.g. delta_nodes).}
@@ -135,21 +143,29 @@ setMethod("get_gsea_table", "IsoNetAnalyzeR",
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
 #'                               package = "IsoNetAnalyzeR"))
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' # For speed, this example analyses only the seed genes found in Hallmark
-#' # sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-#' # must be small.
-#' in_hallmark <- seeds$gene_id %in% unlist(hallmark)
+#' # Six genes for speed; the vignette analyses all 65. With few ranked genes,
+#' # minSize must be small.
+#' genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 #' obj <- IsoNetAnalyzeR("example")
-#' obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-#'                                  order = 1, confirm = FALSE, verbose = FALSE)
+#' obj <- run_differential_pulldown(
+#'   obj, "t2d", seeds[seeds$gene_name %in% genes, ],
+#'   order = 1, confirm = FALSE, verbose = FALSE
+#' )
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
 #' set.seed(42)
-#' obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+#' obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
 #'                  minSize = 3)
 #'
 #' # The ranked statistic used by fgsea, highest first
-#' head(get_gsea_stats(obj, "t2d", "hallmark_gsea"))
+#' head(get_gsea_stats(obj, "t2d", "example_gsea"))
 #'
 #' @export
 setGeneric("get_gsea_stats",
@@ -163,12 +179,12 @@ setMethod("get_gsea_stats", "IsoNetAnalyzeR",
             res       <- get_gsea_result(obj, analysis, gsea_label)
             stats_vec <- res@ranked_genes   # already sorted descending
 
-            data.frame(
+            .as_DataFrame(data.frame(
               gene_id = names(stats_vec),
               stat    = unname(stats_vec),
               rank    = seq_along(stats_vec),
               stringsAsFactors = FALSE
-            )
+            ))
           })
 
 
@@ -179,7 +195,7 @@ setMethod("get_gsea_stats", "IsoNetAnalyzeR",
 #' Get the ORA result table from a component analysis
 #'
 #' Returns the \code{fgsea::fora()} result table stored in a
-#' \linkS4class{ComponentOraResult} object as a plain data frame.  Results
+#' \linkS4class{ComponentOraResult} object as a \code{DataFrame}.  Results
 #' can be filtered by component, significance threshold, and/or restricted to
 #' the top \emph{N} terms per component.  All filters compose — they are
 #' applied in the order: \code{component_id} → \code{padj_cutoff} →
@@ -203,7 +219,7 @@ setMethod("get_gsea_stats", "IsoNetAnalyzeR",
 #'   ascending, ties broken by \code{pval}) are returned.  Applied after
 #'   \code{padj_cutoff}.  Default \code{NULL} (all terms).
 #'
-#' @return A data frame with columns \code{component_id}, \code{pathway},
+#' @return A \code{DataFrame} with columns \code{component_id}, \code{pathway},
 #'   \code{pval}, \code{padj}, \code{overlap}, \code{pathway_size},
 #'   \code{n_genes_tested}, \code{overlap_genes}.  Sorted by
 #'   \code{component_id} then \code{padj} ascending.
@@ -218,16 +234,23 @@ setMethod("get_gsea_stats", "IsoNetAnalyzeR",
 #'   order = 1, confirm = FALSE, verbose = FALSE
 #' )
 #' obj <- run_component_analysis(obj, "t2d", label = "comp")
-#' hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-#'                                 package = "IsoNetAnalyzeR"))
-#' obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-#'                          pathways = hallmark)
+#' # Two small gene sets of gene symbols, for illustration. MSigDB collections
+#' # are available as GeneSetCollections from the msigdb package; see the
+#' # vignette.
+#' gene_sets <- GSEABase::GeneSetCollection(list(
+#'   GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+#'                     geneIdType = GSEABase::SymbolIdentifier()),
+#'   GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+#'                     geneIdType = GSEABase::SymbolIdentifier())
+#' ))
+#' obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+#'                          pathways = gene_sets, minSize = 2)
 #'
 #' # Top two gene sets per component
-#' get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 2)
+#' get_ora_table(obj, "t2d", "comp", "example", top_n = 2)
 #'
 #' # Significant gene sets of component 1
-#' get_ora_table(obj, "t2d", "comp", "hallmark", component_id = 1,
+#' get_ora_table(obj, "t2d", "comp", "example", component_id = 1,
 #'               padj_cutoff = 0.05)
 #'
 #' @export
@@ -263,11 +286,11 @@ setMethod("get_ora_table", "IsoNetAnalyzeR",
             # -- Retrieve result table -----------------------------------------
             ora <- get_component_ora_result(obj, analysis, component_analysis,
                                             ora_label)
-            tbl <- ora@result_table
+            tbl <- .df(ora@result_table)
 
             if (nrow(tbl) == 0L) {
               message("ORA result table is empty.")
-              return(tbl)
+              return(.as_DataFrame(tbl))
             }
 
             # -- Filter 1: component_id ----------------------------------------
@@ -293,7 +316,7 @@ setMethod("get_ora_table", "IsoNetAnalyzeR",
                 message(sprintf(
                   "No terms with padj <= %.4g after filtering.", padj_cutoff
                 ))
-                return(tbl)
+                return(.as_DataFrame(tbl))
               }
             }
 
@@ -309,5 +332,5 @@ setMethod("get_ora_table", "IsoNetAnalyzeR",
             }
 
             rownames(tbl) <- NULL
-            tbl
+            .as_DataFrame(tbl)
           })

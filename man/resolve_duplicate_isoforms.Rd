@@ -13,7 +13,8 @@ resolve_duplicate_isoforms(
 )
 }
 \arguments{
-\item{x}{Character vector or data frame containing transcript identifiers.}
+\item{x}{Character vector, \code{data.frame} or \code{DataFrame}
+containing transcript identifiers.}
 
 \item{network}{Optional igraph used to validate whether each mapping is
 applicable.}
@@ -21,15 +22,16 @@ applicable.}
 \item{isoform_col}{Name of the transcript-ID column when \code{x} is a data
 frame.}
 
-\item{gene_col}{Name of the gene-ID column when \code{x} is a data frame.}
+\item{gene_col}{Name of the gene-ID column when \code{x} is a table.}
 
 \item{duplicate_map}{Optional map with the schema returned by
 \code{isonet_duplicate_map()}; primarily useful for validated custom maps
 and tests.}
 }
 \value{
-The same broad type as \code{x}, with resolved identifiers and a
-\code{dedup_audit} attribute.
+The same type as \code{x}, with resolved identifiers and the
+resolution audit: a \code{dedup_audit} attribute, or
+\code{S4Vectors::metadata(x)$dedup_audit} for a \code{DataFrame}.
 }
 \description{
 Remaps redundant Ensembl transcript identifiers to their kept protein

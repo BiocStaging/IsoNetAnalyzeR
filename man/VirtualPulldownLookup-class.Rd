@@ -35,7 +35,7 @@ anchors in a single pulldown.}
 
 \item{\code{subgraph}}{An \code{igraph} object representing the pulldown subnetwork.}
 
-\item{\code{node_stats}}{Data frame. Per-node statistics for the subgraph
+\item{\code{node_stats}}{\code{DataFrame}. Per-node statistics for the subgraph
 (output of \code{\link{analyze_subgraph}}).}
 
 \item{\code{cutoff}}{Numeric scalar. The internal-edge fraction cutoff used

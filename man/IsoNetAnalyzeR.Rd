@@ -18,7 +18,11 @@ IsoNetAnalyzeR(
 (e.g. \code{"my_experiment"}).  Defaults to \code{"IsoNetAnalyzeR"}.}
 
 \item{network}{An \code{igraph} object to use as the interaction network.
-Pass \code{NULL} (the default) to load the package's built-in network.}
+Pass \code{NULL} (the default) to load the package's built-in network.
+Repeated edges between the same two transcripts are merged into one
+(\code{interact} is 1 when any copy is 1; numeric attributes such as
+\code{pi} are averaged) and self-loops are removed, because they would
+inflate the degrees used by the neighbourhood cutoff.}
 
 \item{metadata}{Named list of additional metadata to attach to the session.
 This is merged with any automatically populated fields
@@ -31,15 +35,23 @@ precedence on name collision.}
 Exclusions apply to seeds and neighbours. Set both flags TRUE for an
 unfiltered network.}
 
-\item{transcript_biotypes}{Optional data frame with isoform_id and
-transcript_biotype columns, overriding vertex annotations and the pinned
-GENCODE v41 table. Unknown vertex biotypes are an error when either decay
-exclusion is enabled. Gene-level biotypes are not used.}
+\item{transcript_biotypes}{Optional transcript annotation: a
+\code{data.frame} or \code{DataFrame} with \code{isoform_id} and
+\code{transcript_biotype} columns, which overrides vertex annotations,
+or an \code{EnsDb} object. When neither the network nor this argument
+annotates every vertex and a decay exclusion is enabled, biotypes come
+from Ensembl release 107 (the GENCODE v41 gene build of the bundled
+network), loaded once per R session from AnnotationHub record AH104864
+and cached on disk by AnnotationHub. Unknown vertex biotypes are an
+error when either decay exclusion is enabled. Gene-level biotypes are
+not used.}
 }
 \value{
 An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
 in metadata$network_biotype_filter. Create a new session to change the
-policy.
+policy. When biotypes come from an EnsDb, the network also gets a
+\code{gene_name} vertex attribute with gene symbols, used for plot
+labels.
 }
 \description{
 Initialises an \linkS4class{IsoNetAnalyzeR} object. When no \code{network}

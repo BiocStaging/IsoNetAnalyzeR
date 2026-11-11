@@ -324,7 +324,7 @@ plot_cross_gene_scatter <- function(obj,
   label    <- match.arg(label, c("delta", "x", "y"), several.ok = TRUE)
 
   p <- .build_cross_gene_scatter(
-    cgs          = diff_res@cross_gene_summary,
+    cgs          = .df(diff_res@cross_gene_summary),
     analysis     = analysis,
     x_col        = x_col,
     y_col        = y_col,
@@ -416,7 +416,7 @@ plot_cross_gene_overview <- function(obj,
                                      title      = NULL) {
   .check_diff_plot_pkgs(c("ggrepel", "patchwork"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
-  cgs      <- diff_res@cross_gene_summary
+  cgs      <- .df(diff_res@cross_gene_summary)
   label    <- match.arg(label, c("delta", "x", "y"), several.ok = TRUE)
 
   # Panel definitions: list(x_col, y_col, x_log, y_log, x_offset, y_offset)
@@ -543,7 +543,7 @@ plot_cross_gene_boxplot <- function(obj,
                                     title     = NULL) {
   .check_diff_plot_pkgs(c("ggrepel"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
-  cgs      <- diff_res@cross_gene_summary
+  cgs      <- .df(diff_res@cross_gene_summary)
 
   label <- match.arg(label, c("delta", "up", "down"), several.ok = TRUE)
 
@@ -826,7 +826,7 @@ plot_cross_gene_boxplot_overview <- function(obj,
                                              title     = NULL) {
   .check_diff_plot_pkgs(c("ggrepel", "patchwork"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
-  cgs      <- diff_res@cross_gene_summary
+  cgs      <- .df(diff_res@cross_gene_summary)
   label    <- match.arg(label, c("delta", "up", "down"), several.ok = TRUE)
 
   panels <- list(

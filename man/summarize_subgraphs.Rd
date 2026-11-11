@@ -11,7 +11,8 @@ summarize_subgraphs(vp_list)
 repeated calls to \code{\link{virtual_pulldown}}.}
 }
 \value{
-A data frame with one row per subgraph and the following columns:
+A \code{DataFrame} with one row per subgraph and the following
+columns:
 \describe{
 \item{seed}{Comma-separated seed isoform name(s).}
 \item{nodes}{Total number of vertices.}

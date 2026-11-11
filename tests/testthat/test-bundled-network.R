@@ -1,8 +1,17 @@
+# Expected values were fixed outside the package: network counts from the
+# 0.6.5 network file, biotype counts from the Ensembl 107 annotation, the
+# example seed table, and the CLTCL1 neighbourhood sizes of the study.
+# inst/validation/test_ground_truth.R recomputes all of them without package
+# code, including the CLTCL1 and APAF1 neighbourhoods with a plain igraph
+# implementation of the documented pulldown.
 test_that("bundled network keeps every vertex and only predicted interactions", {
+  # 58,164 transcripts; 158,458 interact == 1 rows of the 0.6.5 network, less
+  # 6 repeated pairs and 5 self-pairs (inst/scripts/reduce_network.R)
   ns <- asNamespace("IsoNetAnalyzeR")
   g <- get(".network_data", envir = ns)
   expect_equal(igraph::vcount(g), 58164L)
-  expect_equal(igraph::ecount(g), 158458L)
+  expect_equal(igraph::ecount(g), 158447L)
+  expect_true(igraph::is_simple(g))
   expect_true(all(igraph::E(g)$interact == 1L))
   expect_setequal(igraph::edge_attr_names(g), c("pi", "interact"))
   expect_setequal(igraph::vertex_attr_names(g), c("name", "gene"))
@@ -38,6 +47,37 @@ test_that("CLTCL1 example reproduces the published neighbourhood sizes", {
   expect_equal(igraph::ecount(get_pulldown_graph(gr, "down")), 33L)
 })
 
+test_that("repeated source pairs are merged and self-pairs removed", {
+  g <- get(".network_data", envir = asNamespace("IsoNetAnalyzeR"))
+  # PRPF18-PRPF8 was listed twice in the source table, with pi 0.5911 and
+  # 0.5594
+  e <- igraph::get_edge_ids(g, c("ENST00000378572", "ENST00000304992"))
+  expect_equal(igraph::E(g)$pi[e], mean(c(0.5911, 0.5594)))
+  expect_false(any(igraph::which_loop(g)))
+})
+
+test_that("APAF1 neighbourhoods match the simplified network", {
+  # In the 0.99.0 network the DIABLO transcript ENST00000464942 entered the
+  # up-labelled APAF1 neighbourhood only because its repeated edges and its
+  # self-pair inflated the degrees behind frac_internal. Expected sizes are
+  # recomputed without package code in inst/validation/test_ground_truth.R.
+  seeds <- utils::read.csv(system.file(
+    "extdata", "gse141432_t2d_vs_lean_seeds.csv", package = "IsoNetAnalyzeR"
+  ))
+  obj <- suppressMessages(IsoNetAnalyzeR("apaf1"))
+  obj <- suppressMessages(run_differential_pulldown(
+    obj, "t2d", seeds[seeds$gene_name == "APAF1", ], order = 1,
+    confirm = FALSE, verbose = FALSE,
+    seed_padj_col = "within_gene_padj", seed_fdr = 0.05
+  ))
+  gr <- get_gene_result(obj, "t2d", "ENSG00000120868")
+  up <- get_pulldown_graph(gr, "up")
+  down <- get_pulldown_graph(gr, "down")
+  expect_false("ENST00000464942" %in% igraph::V(up)$name)
+  expect_equal(c(igraph::vcount(up), igraph::ecount(up)), c(3, 2))
+  expect_equal(c(igraph::vcount(down), igraph::ecount(down)), c(9, 11))
+})
+
 test_that("metadata, network and pulldown-graph accessors", {
   fixture <- make_isolated_seed_fixture()
   obj <- set_metadata(fixture$obj, "note", "pilot")
@@ -49,6 +89,7 @@ test_that("metadata, network and pulldown-graph accessors", {
   expect_error(get_metadata(list(), "note"), "IsoNetAnalyzeR object")
 
   expect_s3_class(get_network(obj), "igraph")
+  # The isolated-seed fixture has six transcripts
   expect_equal(igraph::vcount(get_network(obj)), 6L)
   expect_error(get_network(list()), "IsoNetAnalyzeR object")
 
@@ -70,14 +111,26 @@ test_that("metadata, network and pulldown-graph accessors", {
   expect_null(get_pulldown_graph(missing, "down"))
 })
 
-test_that("biotype table is cached without global assignment", {
+test_that("transcript biotypes come from Ensembl 107 and are cached", {
   first <- isonet_transcript_biotypes()
   expect_identical(isonet_transcript_biotypes(), first)
-  expect_equal(nrow(first), 250161L)
+  expect_s4_class(first, "DataFrame")
+  expect_named(first, c("isoform_id", "transcript_biotype"))
+  # Every network transcript is annotated; the counts are those of the
+  # GENCODE v41 table the network was built with (inst/PROVENANCE.md)
+  g <- get(".network_data", envir = asNamespace("IsoNetAnalyzeR"))
+  biotype <- first$transcript_biotype[match(igraph::V(g)$name,
+                                            first$isoform_id)]
+  expect_false(anyNA(biotype))
+  expect_equal(as.vector(table(biotype)[c("protein_coding",
+                                          "nonsense_mediated_decay",
+                                          "non_stop_decay")]),
+               c(46433L, 11662L, 69L))
 })
 
 test_that("gene symbols cover the bundled network", {
   gene_names <- isonet_gene_names()
+  expect_s4_class(gene_names, "DataFrame")
   expect_named(gene_names, c("gene_id", "gene_name"))
   expect_false(anyDuplicated(gene_names$gene_id) > 0L)
   g <- get(".network_data", envir = asNamespace("IsoNetAnalyzeR"))
@@ -130,7 +183,7 @@ test_that("printed summaries keep their column alignment", {
                    "Up : 5 and more")
   obj <- suppressMessages(IsoNetAnalyzeR("printing"))
   out <- cli::cli_fmt(show(obj))
-  expect_true(any(grepl("Network     : 46,433 transcripts, 146,267 edges",
+  expect_true(any(grepl("Network     : 46,433 transcripts, 146,256 edges",
                         out, fixed = TRUE)))
 })
 

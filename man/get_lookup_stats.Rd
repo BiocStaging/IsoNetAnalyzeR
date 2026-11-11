@@ -17,15 +17,15 @@ get_lookup_stats(obj, label)
 available labels.}
 }
 \value{
-A data frame with one row per node in the subgraph and columns
+A \code{DataFrame} with one row per node in the subgraph and columns
 produced by \code{\link{analyze_subgraph}}: \code{isoform},
 \code{is_seed}, \code{degree}, \code{clustering},
 \code{distance_from_seed}, \code{mean_pi}, \code{pi_entropy}.
 }
 \description{
-Returns the \code{node_stats} data frame stored in a
+Returns the \code{node_stats} \code{DataFrame} stored in a
 \linkS4class{VirtualPulldownLookup} object directly, without having to
-unpack the S4 slot manually.  The data frame contains one row per node in
+unpack the S4 slot manually.  It contains one row per node in
 the pulldown subgraph and is the output of \code{\link{analyze_subgraph}}.
 }
 \section{Methods (by class)}{

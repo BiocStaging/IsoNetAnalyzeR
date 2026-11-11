@@ -1,3 +1,5 @@
+# Expected values follow from the design of the hand-built fixtures in
+# helper-fixtures.R.
 test_that("coverage has three states, warns diagnostically, and persists", {
   fixture <- make_isolated_seed_fixture()
   obj <- suppressWarnings(run_differential_pulldown(
@@ -5,6 +7,8 @@ test_that("coverage has three states, warns diagnostically, and persists", {
     confirm = FALSE, verbose = FALSE
   ))
 
+  # Two seeds with edges (G1), two in the network without edges (G3) and
+  # two absent (G_missing)
   coverage <- obj@metadata$analysis_network_coverage$coverage
   expect_named(coverage, c("overall", "by_direction", "genes",
                            "warning_threshold"))
@@ -35,6 +39,8 @@ test_that("coverage has three states, warns diagnostically, and persists", {
       invokeRestart("muffleWarning")
     }
   )
+  # 1 of 11 seeds is mapped: one warning for the overall rate and one for
+  # the only direction, "up"
   expect_true(any(grepl("annotation-release|identifier-type", coverage_warnings)))
   expect_length(coverage_warnings, 2L)
 })
@@ -176,6 +182,8 @@ test_that("all-isolated custom networks work throughout", {
   obj <- IsoNetAnalyzeR(
     "all-isolated", g, metadata = list(network_cutoff = 0)
   )
+  # Two transcripts and no edges: a one-node pulldown, no components, and
+  # no degree distribution to set a sticky threshold from
   pulled <- virtual_pulldown(obj, "iso_a", order = 1)
   expect_equal(igraph::vcount(pulled), 1L)
   expect_equal(igraph::ecount(pulled), 0L)
@@ -221,7 +229,7 @@ test_that("plots can be assigned and saved without a default device file", {
   ))
   expect_true(visible_plot$visible)
   p <- visible_plot$value
-  expect_s3_class(p, "ggplot")
+  expect_true(ggplot2::is_ggplot(p))
   output <- tempfile(fileext = ".pdf")
   expect_no_error(ggplot2::ggsave(output, plot = p, width = 4, height = 3))
   expect_true(file.exists(output))

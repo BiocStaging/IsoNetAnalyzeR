@@ -24,7 +24,8 @@ as tiebreaker), so \code{component_id = 1} is always the largest
 component.}
 }
 \value{
-A data frame with one row per node in the requested component and
+A \code{DataFrame} with one row per node in the requested component
+and
 the following columns:
 \code{node}, \code{component_id}, \code{source_gene}, \code{is_seed},
 \code{seed_direction}, \code{degree},
@@ -35,7 +36,7 @@ Rows are sorted by \code{betweenness_norm} descending (hub nodes first),
 with \code{NA}s at the end.
 }
 \description{
-Returns a single data frame with one row per node in the requested
+Returns a single \code{DataFrame} with one row per node in the requested
 component, combining the Tier-1 node membership columns
 (\code{@node_table}) with the Tier-2 hub betweenness columns
 (\code{@hub_table}) via a left-join on \code{node} and

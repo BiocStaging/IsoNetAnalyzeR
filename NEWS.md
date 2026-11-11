@@ -1,3 +1,35 @@
+# IsoNetAnalyzeR 0.99.1
+
+## Bundled network
+
+- The source table lists six transcript pairs twice and five transcripts
+  paired with themselves. These entries counted twice in the vertex degrees
+  behind the neighbourhood cutoff and changed the pulldowns that reached
+  them; in the GSE141432 example, the up-labelled APAF1 neighbourhood
+  included a DIABLO transcript only because of them. Each repeated pair is
+  now one edge with the mean `pi` of its copies, and the self-pairs are
+  removed (158,447 edges). Supplied networks are simplified the same way
+  when a session is created.
+
+## Bioconductor classes and resources
+
+- Result tables are S4Vectors `DataFrame`s, both in the object slots and as
+  returned by the accessors. Table inputs can be a `data.frame` or a
+  `DataFrame`.
+- Transcript biotypes and gene symbols come from Ensembl release 107, the
+  GENCODE v41 gene build of the bundled network, through AnnotationHub
+  record AH104864, instead of tables shipped with the package. Decay
+  exclusion is unchanged. `isonet_transcript_biotypes()` and
+  `isonet_gene_names()` accept an `EnsDb` and return `DataFrame`s, and the
+  `transcript_biotypes` argument of `IsoNetAnalyzeR()` accepts an `EnsDb`.
+- Gene sets can be a GSEABase `GeneSetCollection`; gene symbols are mapped
+  to Ensembl gene IDs. Without `pathways`, `run_fgsea()` and
+  `run_component_ora()` fetch the MSigDB 2023.1 GO gene sets with the msigdb
+  package instead of msigdbr. The examples and the vignette take the MSigDB
+  Hallmark collection from msigdb instead of a file shipped with the package.
+- `isonet_duplicate_map()` returns a `DataFrame`, with the build provenance
+  in `metadata()`.
+
 # IsoNetAnalyzeR 0.99.0
 
 Version prepared for submission to Bioconductor.

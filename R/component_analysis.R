@@ -42,7 +42,8 @@ NULL
 #' @slot parent_label     Character scalar.  Label of the parent
 #'   \linkS4class{DifferentialPulldownAnalysis} run.
 #'
-#' @slot component_table  Data frame (Tier 1).  One row per retained connected
+#' @slot component_table  \code{DataFrame} (Tier 1).  One row per retained
+#'   connected
 #'   component. Columns:
 #'   \code{component_id}, \code{n_nodes}, \code{n_edges}, \code{density},
 #'   \code{avg_degree}, \code{clustering},
@@ -51,20 +52,22 @@ NULL
 #'   \code{n_genes_up}, \code{n_genes_down},
 #'   \code{mixed} (logical), \code{n_shared_nodes}, \code{shared_fraction}.
 #'
-#' @slot node_table       Data frame (Tier 1).  One row per node across all
+#' @slot node_table       \code{DataFrame} (Tier 1).  One row per node across
+#'   all
 #'   retained components. Columns:
 #'   \code{node}, \code{component_id}, \code{source_gene}, \code{is_seed},
 #'   \code{seed_direction} (\code{"up"}/\code{"down"}/\code{"both"}/\code{NA}),
 #'   \code{degree}.
 #'
-#' @slot topology_table   Data frame (Tier 2).  One row per retained component.
+#' @slot topology_table   \code{DataFrame} (Tier 2).  One row per retained
+#'   component.
 #'   Augments \code{component_table} with:
 #'   \code{component_id}, \code{diameter}, \code{radius},
 #'   \code{degree_centralization},
 #'   \code{topology_class} (\code{"clique-like"}, \code{"hub-spoke"}, or
 #'   \code{"chain-like"} - see Details).
 #'
-#' @slot hub_table        Data frame (Tier 2).  One row per shared
+#' @slot hub_table        \code{DataFrame} (Tier 2).  One row per shared
 #'   (\code{source_gene == "multi-gene"}) node across all retained components,
 #'   ranked by betweenness centrality within its component. Columns:
 #'   \code{node}, \code{component_id}, \code{degree},
@@ -116,11 +119,11 @@ setClass(
     label            = "character",
     parent_label     = "character",
     # Tier 1
-    component_table  = "data.frame",
-    node_table       = "data.frame",
+    component_table  = "DataFrame",
+    node_table       = "DataFrame",
     # Tier 2
-    topology_table   = "data.frame",
-    hub_table        = "data.frame",
+    topology_table   = "DataFrame",
+    hub_table        = "DataFrame",
     # Params
     direction        = "character",
     level            = "character",
@@ -165,9 +168,9 @@ setValidity("ComponentAnalysis", function(object) {
 #' @describeIn ComponentAnalysis Print a concise summary.
 #' @param object A \linkS4class{ComponentAnalysis} object.
 setMethod("show", "ComponentAnalysis", function(object) {
-  ct <- object@component_table
-  tt <- object@topology_table
-  ht <- object@hub_table
+  ct <- .df(object@component_table)
+  tt <- .df(object@topology_table)
+  ht <- .df(object@hub_table)
 
   n_comp  <- nrow(ct)
   n_mixed <- if (n_comp > 0L) sum(ct$mixed, na.rm = TRUE) else 0L
@@ -439,10 +442,10 @@ run_component_analysis <- function(obj,
     "ComponentAnalysis",
     label           = as.character(label),
     parent_label    = as.character(analysis),
-    component_table = component_table,
-    node_table      = node_table,
-    topology_table  = topology_table,
-    hub_table       = hub_table,
+    component_table = .as_DataFrame(component_table),
+    node_table      = .as_DataFrame(node_table),
+    topology_table  = .as_DataFrame(topology_table),
+    hub_table       = .as_DataFrame(hub_table),
     direction       = direction,
     level           = level,
     genes           = if (is.null(genes)) character(0) else as.character(genes),
@@ -875,7 +878,7 @@ run_component_analysis <- function(obj,
 
 #' Get a merged per-component overview table from a ComponentAnalysis result
 #'
-#' Returns a single wide data frame with one row per retained connected
+#' Returns a single wide \code{DataFrame} with one row per retained connected
 #' component, combining all Tier-1 structural columns
 #' (\code{@@component_table}) and all Tier-2 topological columns
 #' (\code{@@topology_table}) side by side via a left-join on
@@ -896,7 +899,8 @@ run_component_analysis <- function(obj,
 #'   \linkS4class{ComponentAnalysis}; use \code{list_analyses(obj)} then
 #'   inspect the result to see available component analysis labels.
 #'
-#' @return A data frame with one row per retained component and the following
+#' @return A \code{DataFrame} with one row per retained component and the
+#'   following
 #'   columns (Tier-1 first, then Tier-2):
 #'   \code{component_id}, \code{n_nodes}, \code{n_edges}, \code{density},
 #'   \code{avg_degree}, \code{clustering}, \code{n_seeds},
@@ -930,12 +934,12 @@ get_component_overview <- function(obj, analysis, component_analysis) {
 
   ca <- .resolve_component_analysis(obj, analysis, component_analysis)
 
-  ct <- ca@component_table
-  tt <- ca@topology_table
+  ct <- .df(ca@component_table)
+  tt <- .df(ca@topology_table)
 
   if (nrow(ct) == 0L) {
     message("Component table is empty - no components were retained.")
-    return(ct)
+    return(.as_DataFrame(ct))
   }
 
   # Left-join: every component row is kept; topology columns are NA when absent
@@ -948,7 +952,7 @@ get_component_overview <- function(obj, analysis, component_analysis) {
   result <- result[order(result$component_id), ]
   rownames(result) <- NULL
 
-  result
+  .as_DataFrame(result)
 }
 
 
@@ -958,7 +962,7 @@ get_component_overview <- function(obj, analysis, component_analysis) {
 
 #' Get a merged per-node table for a single connected component
 #'
-#' Returns a single data frame with one row per node in the requested
+#' Returns a single \code{DataFrame} with one row per node in the requested
 #' component, combining the Tier-1 node membership columns
 #' (\code{@@node_table}) with the Tier-2 hub betweenness columns
 #' (\code{@@hub_table}) via a left-join on \code{node} and
@@ -983,7 +987,8 @@ get_component_overview <- function(obj, analysis, component_analysis) {
 #'   as tiebreaker), so \code{component_id = 1} is always the largest
 #'   component.
 #'
-#' @return A data frame with one row per node in the requested component and
+#' @return A \code{DataFrame} with one row per node in the requested component
+#'   and
 #'   the following columns:
 #'   \code{node}, \code{component_id}, \code{source_gene}, \code{is_seed},
 #'   \code{seed_direction}, \code{degree},
@@ -1028,17 +1033,17 @@ get_component <- function(obj, analysis, component_analysis, component_id) {
     ), call. = FALSE)
 
   # -- Subset node_table to this component ------------------------------------
-  nt <- ca@node_table[ca@node_table$component_id == component_id, ,
-                      drop = FALSE]
+  nt <- .df(ca@node_table)
+  nt <- nt[nt$component_id == component_id, , drop = FALSE]
 
   if (nrow(nt) == 0L) {
     message(sprintf("No nodes found for component_id %d.", component_id))
-    return(nt)
+    return(.as_DataFrame(nt))
   }
 
   # -- Subset hub_table to this component ------------------------------------
-  ht <- ca@hub_table[ca@hub_table$component_id == component_id, ,
-                     drop = FALSE]
+  ht <- .df(ca@hub_table)
+  ht <- ht[ht$component_id == component_id, , drop = FALSE]
 
   # Keep only the hub-specific columns for the join (drop degree - already in nt)
   hub_cols <- c("node", "component_id", "betweenness", "betweenness_norm",
@@ -1063,5 +1068,5 @@ get_component <- function(obj, analysis, component_analysis, component_id) {
   result <- rbind(hub_rows, other)
   rownames(result) <- NULL
 
-  result
+  .as_DataFrame(result)
 }

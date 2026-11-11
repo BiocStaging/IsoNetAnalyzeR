@@ -51,14 +51,14 @@ ascending, ties broken by \code{pval}) are returned.  Applied after
 \code{padj_cutoff}.  Default \code{NULL} (all terms).}
 }
 \value{
-A data frame with columns \code{component_id}, \code{pathway},
+A \code{DataFrame} with columns \code{component_id}, \code{pathway},
 \code{pval}, \code{padj}, \code{overlap}, \code{pathway_size},
 \code{n_genes_tested}, \code{overlap_genes}.  Sorted by
 \code{component_id} then \code{padj} ascending.
 }
 \description{
 Returns the \code{fgsea::fora()} result table stored in a
-\linkS4class{ComponentOraResult} object as a plain data frame.  Results
+\linkS4class{ComponentOraResult} object as a \code{DataFrame}.  Results
 can be filtered by component, significance threshold, and/or restricted to
 the top \emph{N} terms per component.  All filters compose — they are
 applied in the order: \code{component_id} → \code{padj_cutoff} →
@@ -79,16 +79,23 @@ obj <- run_differential_pulldown(
   order = 1, confirm = FALSE, verbose = FALSE
 )
 obj <- run_component_analysis(obj, "t2d", label = "comp")
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-                         pathways = hallmark)
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
+obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+                         pathways = gene_sets, minSize = 2)
 
 # Top two gene sets per component
-get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 2)
+get_ora_table(obj, "t2d", "comp", "example", top_n = 2)
 
 # Significant gene sets of component 1
-get_ora_table(obj, "t2d", "comp", "hallmark", component_id = 1,
+get_ora_table(obj, "t2d", "comp", "example", component_id = 1,
               padj_cutoff = 0.05)
 
 }

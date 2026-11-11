@@ -11,7 +11,8 @@ analyze_subgraph(graph)
 from the full network after \code{interact == 1} filtering).}
 }
 \value{
-A data frame with one row per vertex and the following columns:
+A \code{DataFrame} with one row per vertex and the following
+columns:
 \describe{
 \item{isoform}{Vertex name (transcript ID).}
 \item{is_seed}{Logical flag copied directly from the graph's

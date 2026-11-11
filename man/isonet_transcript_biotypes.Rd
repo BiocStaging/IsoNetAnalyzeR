@@ -4,14 +4,23 @@
 \alias{isonet_transcript_biotypes}
 \title{Transcript biotypes used for protein-network eligibility}
 \usage{
-isonet_transcript_biotypes()
+isonet_transcript_biotypes(edb = NULL)
+}
+\arguments{
+\item{edb}{An \code{EnsDb} object, or \code{NULL} (default) for the
+Ensembl 107 annotation from AnnotationHub.}
 }
 \value{
-A data frame with \code{isoform_id} and \code{transcript_biotype} columns.
+A \code{DataFrame} with \code{isoform_id} and
+\code{transcript_biotype} columns.
 }
 \description{
-Returns pinned GENCODE v41 transcript annotation. These transcript biotypes
-are not gene-level coding labels or evidence of stable protein production.
+Returns the transcript biotype of every transcript in an Ensembl
+annotation. By default this is Ensembl release 107, the gene build of
+GENCODE v41 used by the bundled network, loaded from AnnotationHub
+(record AH104864) and cached for the R session. These transcript
+biotypes are not gene-level coding labels or evidence of stable protein
+production.
 }
 \examples{
 biotypes <- isonet_transcript_biotypes()

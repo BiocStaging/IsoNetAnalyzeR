@@ -31,8 +31,8 @@ stored; retrieve it afterwards with
 \code{get_component_ora_result(obj, analysis, component_analysis, label)}.}
 
 \item{pathways}{Named list of character vectors (Ensembl gene IDs
-per pathway), or \code{NULL} (default) to fetch GO gene sets
-automatically via \code{msigdbr}.}
+per pathway), a \code{GeneSetCollection}, or \code{NULL} (default) to
+fetch MSigDB GO gene sets with the msigdb package.}
 
 \item{go_category}{Character scalar.  GO subcollection to fetch when
 \code{pathways = NULL}.  One of \code{"GO:BP"}, \code{"GO:MF"},
@@ -84,9 +84,13 @@ network.  You can override this with the \code{universe} argument.
 
 \section{GO pathways}{
 
-When \code{pathways = NULL} (default), gene sets are fetched from MSigDB
-via \code{msigdbr} using category \code{"C5"} (GO gene sets).
-\code{go_category} selects the subcollection:
+\code{pathways} may be a named list of Ensembl gene ID vectors or a
+GSEABase \code{GeneSetCollection}, for example from the msigdb package;
+gene symbols are mapped to Ensembl gene IDs with the Ensembl 107
+annotation (\code{\link{isonet_gene_names}}). When \code{pathways = NULL}
+(default), the GO gene sets of MSigDB release 2023.1 (collection C5) are
+fetched with the msigdb package from ExperimentHub. \code{go_category}
+selects the subcollection:
 \describe{
 \item{\code{"GO:BP"}}{Biological process - \emph{what} the proteins do.
 Most informative for isoform-switch interpretation. \strong{Default.}}
@@ -122,13 +126,20 @@ obj <- run_differential_pulldown(
   order = 1, confirm = FALSE, verbose = FALSE
 )
 obj <- run_component_analysis(obj, "t2d", label = "comp")
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-obj <- run_component_ora(obj, "t2d", "comp", label = "hallmark",
-                         pathways = hallmark)
-get_component_ora_result(obj, "t2d", "comp", "hallmark")
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
+obj <- run_component_ora(obj, "t2d", "comp", label = "example",
+                         pathways = gene_sets, minSize = 2)
+get_component_ora_result(obj, "t2d", "comp", "example")
 
 # Most significant gene set per component
-get_ora_table(obj, "t2d", "comp", "hallmark", top_n = 1)
+get_ora_table(obj, "t2d", "comp", "example", top_n = 1)
 
 }

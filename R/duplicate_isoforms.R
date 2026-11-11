@@ -11,6 +11,7 @@
     "kept_ENSG", "redundant_ENSG", "kept_ENSP", "kept_ENST",
     "redundant_ENSP", "redundant_ENST", "network_applicable"
   )
+  if (.is_table(map)) map <- .as_data_frame(map, "duplicate_map")
   if (!is.data.frame(map) || !all(required %in% names(map))) {
     stop(
       "`duplicate_map` must contain: ", paste(required, collapse = ", "),
@@ -80,9 +81,9 @@
 #' @param refresh Logical; reread the packaged CSV instead of using the
 #'   package-local cache.
 #'
-#' @return A data frame with kept/redundant ENSG, ENSP, and ENST identifiers
-#'   and a \code{network_applicable} flag. Build provenance is attached as the
-#'   \code{provenance} attribute.
+#' @return A \code{DataFrame} with kept/redundant ENSG, ENSP, and ENST
+#'   identifiers and a \code{network_applicable} flag. Build provenance is in
+#'   \code{S4Vectors::metadata(map)$provenance}.
 #' @examples
 #' map <- isonet_duplicate_map()
 #' head(map[, c("kept_ENST", "redundant_ENST", "network_applicable")])
@@ -93,7 +94,10 @@ isonet_duplicate_map <- function(refresh = FALSE) {
   if (!is.logical(refresh) || length(refresh) != 1L || is.na(refresh)) {
     stop("`refresh` must be a single non-NA logical value.", call. = FALSE)
   }
-  .read_duplicate_map(refresh = refresh)
+  map <- .read_duplicate_map(refresh = refresh)
+  out <- .as_DataFrame(map)
+  S4Vectors::metadata(out)$provenance <- attr(map, "provenance")
+  out
 }
 
 .network_resolution_context <- function(network) {
@@ -123,7 +127,7 @@ isonet_duplicate_map <- function(refresh = FALSE) {
     }
   }
   map <- .validate_duplicate_map(
-    if (is.null(duplicate_map)) isonet_duplicate_map() else duplicate_map
+    if (is.null(duplicate_map)) .read_duplicate_map() else duplicate_map
   )
   context <- .network_resolution_context(network)
   normalized <- .normalize_transcript_ids(ids)
@@ -223,18 +227,20 @@ isonet_duplicate_map <- function(refresh = FALSE) {
 #' representative. With a network supplied, a mapping is applied only when it
 #' is compatible with that graph. Identifiers absent from the map are retained.
 #'
-#' @param x Character vector or data frame containing transcript identifiers.
+#' @param x Character vector, \code{data.frame} or \code{DataFrame}
+#'   containing transcript identifiers.
 #' @param network Optional igraph used to validate whether each mapping is
 #'   applicable.
 #' @param isoform_col Name of the transcript-ID column when \code{x} is a data
 #'   frame.
-#' @param gene_col Name of the gene-ID column when \code{x} is a data frame.
+#' @param gene_col Name of the gene-ID column when \code{x} is a table.
 #' @param duplicate_map Optional map with the schema returned by
 #'   \code{isonet_duplicate_map()}; primarily useful for validated custom maps
 #'   and tests.
 #'
-#' @return The same broad type as \code{x}, with resolved identifiers and a
-#'   \code{dedup_audit} attribute.
+#' @return The same type as \code{x}, with resolved identifiers and the
+#'   resolution audit: a \code{dedup_audit} attribute, or
+#'   \code{S4Vectors::metadata(x)$dedup_audit} for a \code{DataFrame}.
 #' @examples
 #' obj <- IsoNetAnalyzeR("example")
 #' map <- isonet_duplicate_map()
@@ -259,8 +265,9 @@ resolve_duplicate_isoforms <- function(
     attr(out, "dedup_audit") <- audit
     return(out)
   }
-  if (!is.data.frame(x)) {
-    stop("`x` must be a character vector or data frame.", call. = FALSE)
+  if (!.is_table(x)) {
+    stop("`x` must be a character vector, data.frame or DataFrame.",
+         call. = FALSE)
   }
   if (!all(c(isoform_col, gene_col) %in% names(x))) {
     stop("The requested isoform and gene columns are not both present.",
@@ -272,7 +279,11 @@ resolve_duplicate_isoforms <- function(
   )
   out <- x
   out[[isoform_col]] <- audit$resolved_id
-  attr(out, "dedup_audit") <- audit
+  if (is(out, "DataFrame")) {
+    S4Vectors::metadata(out)$dedup_audit <- audit
+  } else {
+    attr(out, "dedup_audit") <- audit
+  }
   out
 }
 
@@ -298,7 +309,7 @@ resolve_duplicate_isoforms <- function(
     stop("Counts must have unique, non-blank row names.", call. = FALSE)
   }
   if (!is.null(feature_data)) {
-    feature_data <- as.data.frame(feature_data, stringsAsFactors = FALSE)
+    feature_data <- .as_data_frame(feature_data, "feature_data")
     if (nrow(feature_data) != nrow(counts) ||
         !all(c("gene_id", "isoform_id") %in% names(feature_data))) {
       stop(
@@ -334,7 +345,8 @@ resolve_duplicate_isoforms <- function(
 }
 
 .aggregate_duplicate_matrix <- function(counts, feature_data, map) {
-  original_class <- if (is.data.frame(counts)) "data.frame" else "matrix"
+  original_class <- if (is(counts, "DataFrame")) "DataFrame" else
+    if (is.data.frame(counts)) "data.frame" else "matrix"
   matrix_counts <- as.matrix(counts)
   if (!is.numeric(matrix_counts) || anyNA(matrix_counts) ||
       any(!is.finite(matrix_counts)) || any(matrix_counts < 0) ||
@@ -402,9 +414,10 @@ resolve_duplicate_isoforms <- function(
     }
     storage.mode(aggregated) <- "integer"
   }
-  output_object <- if (identical(original_class, "data.frame")) {
-    as.data.frame(aggregated, check.names = FALSE)
-  } else aggregated
+  output_object <- switch(original_class,
+    data.frame = as.data.frame(aggregated, check.names = FALSE),
+    DataFrame = S4Vectors::DataFrame(aggregated, check.names = FALSE),
+    aggregated)
   resolution <- rep("unchanged", length(ids))
   resolution[!is.na(kept) & is.na(red) & ids != normalized] <-
     "version_normalized"
@@ -444,10 +457,11 @@ resolve_duplicate_isoforms <- function(
 #' protein-identical group. This transformation must be performed before
 #' differential expression or transcript-usage model fitting.
 #'
-#' @param x A numeric matrix/data frame of raw counts, or a single-assay
-#'   \code{SummarizedExperiment}.
-#' @param feature_data Optional data frame aligned to matrix rows, containing
-#'   at least \code{gene_id} and \code{isoform_id}. When omitted, identifiers
+#' @param x A numeric matrix, \code{data.frame} or \code{DataFrame} of raw
+#'   counts, or a single-assay \code{SummarizedExperiment}.
+#' @param feature_data Optional \code{data.frame} or \code{DataFrame} aligned
+#'   to count rows, containing at least \code{gene_id} and
+#'   \code{isoform_id}. When omitted, identifiers
 #'   are parsed from ENST or \code{gene:ENST} row names.
 #' @param assay Assay name used for a \code{SummarizedExperiment}; defaults to
 #'   \code{"counts"}.
@@ -477,7 +491,7 @@ resolve_duplicate_isoforms <- function(
 aggregate_duplicate_counts <- function(
     x, feature_data = NULL, assay = "counts", duplicate_map = NULL) {
   map <- .validate_duplicate_map(
-    if (is.null(duplicate_map)) isonet_duplicate_map() else duplicate_map
+    if (is.null(duplicate_map)) .read_duplicate_map() else duplicate_map
   )
   is_se <- inherits(x, "SummarizedExperiment")
   if (is_se) {
@@ -519,8 +533,9 @@ aggregate_duplicate_counts <- function(
     )
     result$object <- rebuilt
   } else {
-    if (!is.matrix(x) && !is.data.frame(x)) {
-      stop("`x` must be a matrix, data frame, or SummarizedExperiment.",
+    if (!is.matrix(x) && !.is_table(x)) {
+      stop("`x` must be a matrix, data.frame, DataFrame or ",
+           "SummarizedExperiment.",
            call. = FALSE)
     }
     result <- .aggregate_duplicate_matrix(x, feature_data, map)

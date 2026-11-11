@@ -16,12 +16,12 @@ get_cross_gene_summary(obj, analysis)
 \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.}
 }
 \value{
-A data frame with one row per gene. See
+A \code{DataFrame} with one row per gene. See
 \linkS4class{DifferentialPulldownAnalysis} for a full description of
 columns.
 }
 \description{
-Returns the wide-format summary data frame with one row per gene,
+Returns the wide-format summary \code{DataFrame} with one row per gene,
 containing subgraph topology metrics for both the up- and down-labelled
 conditions side by side.
 }

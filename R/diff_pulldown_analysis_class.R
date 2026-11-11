@@ -21,13 +21,14 @@ NULL
 #' @slot label        Character scalar. A user-supplied label for this
 #'   analysis run, used as the \code{label} argument in
 #'   \code{get_analysis(obj, label)}.
-#' @slot input_table  Data frame. The validated long-format input table with
+#' @slot input_table  \code{DataFrame}. The validated long-format input table
+#'   with
 #'   columns \code{gene_id}, \code{isoform_id}, \code{direction}
 #'   (\code{"up"} / \code{"down"}). Protein-identical collisions have been
 #'   collapsed to resolved representatives.
 #' @slot gene_results Named list of \linkS4class{GeneDiffPulldown} objects,
 #'   one per gene in \code{input_table}.  Names are gene IDs.
-#' @slot cross_gene_summary Data frame with one row per gene summarising
+#' @slot cross_gene_summary \code{DataFrame} with one row per gene summarising
 #'   up/down subgraph properties side by side.  Columns:
 #'   \code{gene_id},
 #'   \code{n_up_input}, \code{n_down_input} (cleaned distinct submitted
@@ -94,9 +95,9 @@ setClass(
   "DifferentialPulldownAnalysis",
   representation(
     label               = "character",
-    input_table         = "data.frame",
+    input_table         = "DataFrame",
     gene_results        = "list",
-    cross_gene_summary  = "data.frame",
+    cross_gene_summary  = "DataFrame",
     gsea_results        = "list",
     component_analyses  = "list",
     order               = "integer",
@@ -198,9 +199,9 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
   obj <- new(
     "DifferentialPulldownAnalysis",
     label              = as.character(label),
-    input_table        = input_table,
+    input_table        = .as_DataFrame(input_table),
     gene_results       = gene_results,
-    cross_gene_summary = cross_gene_summary,
+    cross_gene_summary = .as_DataFrame(cross_gene_summary),
     gsea_results       = list(),
     component_analyses = list(),
     order              = as.integer(order),
@@ -234,7 +235,7 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
 
   do.call(rbind, lapply(gene_results, function(gr) {
     gs  <- gr@gene_summary
-    gdf <- gr@graph_summary
+    gdf <- .df(gr@graph_summary)
 
     up_row   <- gdf[gdf$direction == "up",   , drop = FALSE]
     down_row <- gdf[gdf$direction == "down", , drop = FALSE]
@@ -311,8 +312,8 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
       )
     }
 
-    up_pi   <- .agg_seed_pi(gr@up_stats)
-    down_pi <- .agg_seed_pi(gr@down_stats)
+    up_pi   <- .agg_seed_pi(.df(gr@up_stats))
+    down_pi <- .agg_seed_pi(.df(gr@down_stats))
 
     data.frame(
       gene_id          = gr@gene_id,
@@ -440,7 +441,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 
 #' Get the cross-gene summary table from a differential pulldown analysis
 #'
-#' Returns the wide-format summary data frame with one row per gene,
+#' Returns the wide-format summary \code{DataFrame} with one row per gene,
 #' containing subgraph topology metrics for both the up- and down-labelled
 #' conditions side by side.
 #'
@@ -448,7 +449,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
 #' @param analysis Character scalar. Label of the
 #'   \linkS4class{DifferentialPulldownAnalysis}; use \code{list_analyses(obj)} to see available labels.
 #'
-#' @return A data frame with one row per gene. See
+#' @return A \code{DataFrame} with one row per gene. See
 #'   \linkS4class{DifferentialPulldownAnalysis} for a full description of
 #'   columns.
 #'
@@ -532,7 +533,7 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' pulldown analysis
 #'
 #' Merges the per-node statistics from the up- and down-labelled subgraphs of
-#' a single gene into one long-format data frame, with a \code{direction}
+#' a single gene into one long-format \code{DataFrame}, with a \code{direction}
 #' column (\code{"up"} / \code{"down"}) identifying the condition.  A
 #' \code{is_seed} column flags isoforms that were supplied as seeds, using the
 #' explicit seed annotation stored by \code{analyze_subgraph()}.
@@ -546,7 +547,8 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' @param gene_id  Character scalar. Ensembl gene ID (or whichever identifier
 #'   was used in the input table).
 #'
-#' @return A data frame with one row per isoform per direction and columns:
+#' @return A \code{DataFrame} with one row per isoform per direction and
+#'   columns:
 #'   \code{direction}, \code{isoform}, \code{is_seed}, \code{degree},
 #'   \code{clustering}, \code{distance_from_seed}, \code{mean_pi},
 #'   \code{pi_entropy}.
@@ -586,8 +588,8 @@ setMethod("get_isoform_stats", "IsoNetAnalyzeR",
                      "mean_pi", "pi_entropy")]
             }
 
-            up_df   <- .prep(gr@up_stats,   "up")
-            down_df <- .prep(gr@down_stats, "down")
+            up_df   <- .prep(.df(gr@up_stats),   "up")
+            down_df <- .prep(.df(gr@down_stats), "down")
 
             result <- do.call(rbind, list(up_df, down_df))
 
@@ -598,5 +600,5 @@ setMethod("get_isoform_stats", "IsoNetAnalyzeR",
               ), call. = FALSE)
 
             rownames(result) <- NULL
-            result
+            .as_DataFrame(result)
           })

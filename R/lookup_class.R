@@ -20,7 +20,7 @@
 #'   anchors in a single pulldown.
 #' @slot level      Character scalar. Either \code{"isoform"} or \code{"gene"}.
 #' @slot subgraph   An \code{igraph} object representing the pulldown subnetwork.
-#' @slot node_stats Data frame. Per-node statistics for the subgraph
+#' @slot node_stats \code{DataFrame}. Per-node statistics for the subgraph
 #'   (output of \code{\link{analyze_subgraph}}).
 #' @slot cutoff     Numeric scalar. The internal-edge fraction cutoff used
 #'   for this look-up. Stored explicitly so it is always visible on the object
@@ -44,7 +44,7 @@ setClass(
     seed       = "character",
     level      = "character",
     subgraph   = "ANY",        # igraph
-    node_stats = "data.frame",
+    node_stats = "DataFrame",
     cutoff     = "numeric",
     params     = "list",
     created_at = "POSIXct"
@@ -104,7 +104,7 @@ setValidity("VirtualPulldownLookup", function(object) {
     seed       = as.character(seed),
     level      = as.character(level),
     subgraph   = subgraph,
-    node_stats = node_stats,
+    node_stats = .as_DataFrame(node_stats),
     cutoff     = as.numeric(cutoff),
     params     = params,
     created_at = Sys.time()
@@ -150,9 +150,9 @@ setMethod("show", "VirtualPulldownLookup", function(object) {
 
 #' Get the per-node statistics from a virtual pulldown look-up
 #'
-#' Returns the \code{node_stats} data frame stored in a
+#' Returns the \code{node_stats} \code{DataFrame} stored in a
 #' \linkS4class{VirtualPulldownLookup} object directly, without having to
-#' unpack the S4 slot manually.  The data frame contains one row per node in
+#' unpack the S4 slot manually.  It contains one row per node in
 #' the pulldown subgraph and is the output of \code{\link{analyze_subgraph}}.
 #'
 #' @param obj   An \linkS4class{IsoNetAnalyzeR} session object.
@@ -160,7 +160,7 @@ setMethod("show", "VirtualPulldownLookup", function(object) {
 #'   \linkS4class{VirtualPulldownLookup}; use \code{list_lookups(obj)} to see
 #'   available labels.
 #'
-#' @return A data frame with one row per node in the subgraph and columns
+#' @return A \code{DataFrame} with one row per node in the subgraph and columns
 #'   produced by \code{\link{analyze_subgraph}}: \code{isoform},
 #'   \code{is_seed}, \code{degree}, \code{clustering},
 #'   \code{distance_from_seed}, \code{mean_pi}, \code{pi_entropy}.

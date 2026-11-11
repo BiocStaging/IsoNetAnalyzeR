@@ -1,3 +1,7 @@
+# Map dimensions are those recorded when the map was built (inst/PROVENANCE.md)
+# and are recounted from the CSV in inst/validation/test_ground_truth.R.
+# Resolution and count-aggregation cases use single map rows whose outcome
+# follows from the map entry.
 make_duplicate_fixture <- function() {
   map <- isonet_duplicate_map()
   row <- map[which(map$network_applicable)[1L], , drop = FALSE]
@@ -33,7 +37,8 @@ test_that("packaged duplicate map has reviewed dimensions and provenance", {
   expect_equal(sum(map$network_applicable), 10592L)
   expect_equal(sum(!map$network_applicable), 6038L)
   expect_false(any(map$redundant_ENST %in% map$kept_ENST))
-  provenance <- attr(map, "provenance")
+  expect_s4_class(map, "DataFrame")
+  provenance <- S4Vectors::metadata(map)$provenance
   expect_identical(
     provenance$source_sha256,
     "cfe6fb57ed06c7231b9c77d7246b148be3cfdb1ac6aad4f9895cc422efaa36f5"
@@ -108,6 +113,8 @@ test_that("differential resolution preserves submitted and resolved counts", {
     fixture$obj, "same", input, order = 1L, cutoff = 0,
     confirm = FALSE, verbose = FALSE
   ))
+  # The redundant up seed resolves to the kept up seed and collapses with it:
+  # three submitted rows, one up and one down representative
   analysis <- get_analysis(obj, "same")
   expect_equal(nrow(analysis@input_table), 2L)
   expect_true("extra" %in% names(analysis@input_table))
@@ -128,6 +135,7 @@ test_that("differential resolution preserves submitted and resolved counts", {
   component_gene <- igraph::set_vertex_attr(
     component_gene, "name", value = row$kept_ENSG
   )
+  # Dominance is (up - down) / (up + down) = (1 - 1) / 2
   score <- IsoNetAnalyzeR:::.compute_dominance_scores(
     component_gene, analysis@input_table
   )
@@ -200,6 +208,8 @@ test_that("base count aggregation preserves arithmetic and metadata", {
     symbol = c("kept metadata", "redundant metadata", "other"),
     row.names = rn, stringsAsFactors = FALSE
   )
+  # Filled by column: sample_a is 1, 2, 7 and sample_b 3, 4, 8 for the kept,
+  # redundant and unrelated rows, so the kept row becomes 3 and 7
   result <- aggregate_duplicate_counts(counts, feature_data)
   expect_s3_class(result, "DuplicateCountAggregation")
   expect_equal(nrow(result$object), 2L)

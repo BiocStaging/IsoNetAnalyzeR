@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.99.0
+Version: 0.99.1
 Authors@R: c(
     person("Dimitrios S.", "Kanakoglou",
            email = "dimkan@dtu.dk", role = c("aut", "cre"),
@@ -23,9 +23,11 @@ Description: Compares predicted protein-interaction neighbourhoods of
     connected-component analysis, network diagnostics, plots, and
     over-representation and gene set enrichment analysis of neighbourhood
     statistics. Protein-identical transcripts are resolved to shared
-    representatives, and annotated nonsense-mediated and non-stop decay
-    transcripts are excluded by default. Statistical testing of isoform usage
-    remains upstream of the package.
+    representatives, and nonsense-mediated and non-stop decay transcripts,
+    annotated from Ensembl through AnnotationHub, are excluded by default.
+    Results are S4Vectors DataFrames, and gene sets can be GSEABase
+    collections such as those of the msigdb package. Statistical testing of
+    isoform usage remains upstream of the package.
 License: MIT + file LICENSE
 URL: https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR
 BugReports: https://github.com/IsoformAnalysisGroup/IsoNetAnalyzeR/issues
@@ -42,7 +44,7 @@ Imports:
     cli,
     stats,
     utils,
-    ggplot2,
+    ggplot2 (>= 3.5.2),
     ggraph,
     patchwork,
     rlang,
@@ -51,16 +53,19 @@ Imports:
     future.apply,
     ggrepel,
     progressr,
-    withr
+    withr,
+    S4Vectors,
+    AnnotationHub,
+    ensembldb
 Suggests:
     BiocStyle,
     knitr,
     rmarkdown,
-    msigdbr,
+    msigdb,
+    GSEABase,
     colorspace,
     readxl,
     SummarizedExperiment,
-    S4Vectors,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
@@ -87,4 +92,4 @@ Collate:
     'transcript_biotypes.R'
     'virtual_pulldown.R'
     'virtual_pulldown_analysis.R'
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.1

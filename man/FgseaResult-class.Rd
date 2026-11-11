@@ -36,7 +36,7 @@ object can be stored per user-supplied label inside a
 \item{\code{parent_label}}{Character scalar.  Label of the parent
 \linkS4class{DifferentialPulldownAnalysis} run.}
 
-\item{\code{result_table}}{Data frame.  Output of \code{fgsea::fgsea()} with
+\item{\code{result_table}}{\code{DataFrame}.  Output of \code{fgsea::fgsea()} with
 standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
 \code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
 Sorted by \code{padj} ascending.  Access via
@@ -44,15 +44,16 @@ Sorted by \code{padj} ascending.  Access via
 
 \item{\code{ranked_genes}}{Named numeric vector.  The gene-level rank statistic
 passed to fgsea, sorted descending.  Names are gene IDs matching the
-pathway gene sets.  Access as a data frame via
+pathway gene sets.  Access as a table via
 \code{get_gsea_stats(obj, analysis, gsea_label)}.}
 
 \item{\code{rank_by}}{Character scalar.  The preset used (\code{rank_by}
 argument), or \code{"custom"} when the user supplied \code{stats}
 directly.}
 
-\item{\code{go_category}}{Character scalar.  GO subcollection(s) fetched from
-msigdbr, or \code{NA} when a user-supplied pathway list was used.}
+\item{\code{go_category}}{Character scalar.  GO subcollection(s) and MSigDB
+release fetched with the msigdb package, or \code{NA} when gene sets
+were supplied.}
 
 \item{\code{params}}{Named list.  Run parameters: \code{minSize},
 \code{maxSize}, \code{nperm}, \code{n_genes_ranked},
@@ -64,18 +65,26 @@ msigdbr, or \code{NA} when a user-supplied pathway list was used.}
 \examples{
 seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
                               package = "IsoNetAnalyzeR"))
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-# For speed, this example analyses only the seed genes found in Hallmark
-# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-# must be small.
-in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+# Six genes for speed; the vignette analyses all 65. With few ranked genes,
+# minSize must be small.
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 obj <- IsoNetAnalyzeR("example")
-obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-                                 order = 1, confirm = FALSE, verbose = FALSE)
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
 set.seed(42)
-obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
                  minSize = 3)
-get_gsea_result(obj, "t2d", "hallmark_gsea")
+get_gsea_result(obj, "t2d", "example_gsea")
 
 }

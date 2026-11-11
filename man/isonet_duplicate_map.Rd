@@ -11,9 +11,9 @@ isonet_duplicate_map(refresh = FALSE)
 package-local cache.}
 }
 \value{
-A data frame with kept/redundant ENSG, ENSP, and ENST identifiers
-and a \code{network_applicable} flag. Build provenance is attached as the
-\code{provenance} attribute.
+A \code{DataFrame} with kept/redundant ENSG, ENSP, and ENST
+identifiers and a \code{network_applicable} flag. Build provenance is in
+\code{S4Vectors::metadata(map)$provenance}.
 }
 \description{
 Returns the transcriptome-wide annotation used by IsoNetAnalyzeR to map

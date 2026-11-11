@@ -37,9 +37,9 @@ Default \code{"delta_nodes"}.}
 this vector is used directly as the fgsea rank statistic, bypassing
 \code{rank_by}.  Names must be gene IDs.  Default \code{NULL}.}
 
-\item{pathways}{Named list of character vectors (gene IDs per pathway),
-or \code{NULL} (default) to fetch GO gene sets automatically via
-\code{msigdbr}.}
+\item{pathways}{Named list of character vectors (Ensembl gene IDs per
+pathway), a \code{GeneSetCollection}, or \code{NULL} (default) to fetch
+MSigDB GO gene sets with the msigdb package (see Gene sets).}
 
 \item{go_category}{Character scalar.  GO subcollection to fetch when
 \code{pathways = NULL}.  One of \code{"GO:BP"}, \code{"GO:MF"},
@@ -112,35 +112,47 @@ logic and \code{rank_by} is ignored.  Useful for complex custom rankings:
 }
 }
 
-\section{GO pathways}{
+\section{Gene sets}{
 
-When \code{pathways = NULL} (default), gene sets are fetched from MSigDB
-via \code{msigdbr} using category \code{"C5"} (GO gene sets).  The
-\code{go_category} argument selects the subcollection(s):
+\code{pathways} may be a named list of Ensembl gene ID vectors or a
+GSEABase \code{GeneSetCollection}, for example a collection from the
+msigdb package. Gene symbols in a \code{GeneSetCollection} are mapped to
+Ensembl gene IDs with the Ensembl 107 annotation
+(\code{\link{isonet_gene_names}}).
+
+When \code{pathways = NULL} (default), the GO gene sets of MSigDB
+release 2023.1 (collection C5) are fetched with the msigdb package from
+ExperimentHub. \code{go_category} selects the subcollection(s):
 \code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
 \code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
-Gene sets are keyed by Ensembl gene ID (\code{ensembl_gene}).
-For reproducible analyses, prefer a saved, versioned \code{pathways} list,
-set the random seed before this call, and record the list checksum and run
-parameters. Live pathway collections can change over time.
+fgsea estimates p-values by permutation, so set the random seed before
+this call.
 }
 
 \examples{
 seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",
                               package = "IsoNetAnalyzeR"))
-hallmark <- readRDS(system.file("extdata", "msigdb_hallmark_ensembl.rds",
-                                package = "IsoNetAnalyzeR"))
-# For speed, this example analyses only the seed genes found in Hallmark
-# sets; the vignette ranks all 65 genes. With few ranked genes, minSize
-# must be small.
-in_hallmark <- seeds$gene_id \%in\% unlist(hallmark)
+# Six genes for speed; the vignette analyses all 65. With few ranked genes,
+# minSize must be small.
+genes <- c("CLTCL1", "WAS", "VAV1", "HLA-DMA", "ICOS", "PRKACB")
 obj <- IsoNetAnalyzeR("example")
-obj <- run_differential_pulldown(obj, "t2d", seeds[in_hallmark, ],
-                                 order = 1, confirm = FALSE, verbose = FALSE)
+obj <- run_differential_pulldown(
+  obj, "t2d", seeds[seeds$gene_name \%in\% genes, ],
+  order = 1, confirm = FALSE, verbose = FALSE
+)
+# Two small gene sets of gene symbols, for illustration. MSigDB collections
+# are available as GeneSetCollections from the msigdb package; see the
+# vignette.
+gene_sets <- GSEABase::GeneSetCollection(list(
+  GSEABase::GeneSet(c("WAS", "VAV1", "ICOS"), setName = "set_A",
+                    geneIdType = GSEABase::SymbolIdentifier()),
+  GSEABase::GeneSet(c("CLTCL1", "PRKACB", "HLA-DMA"), setName = "set_B",
+                    geneIdType = GSEABase::SymbolIdentifier())
+))
 set.seed(42)
-obj <- run_fgsea(obj, "t2d", label = "hallmark_gsea", pathways = hallmark,
+obj <- run_fgsea(obj, "t2d", label = "example_gsea", pathways = gene_sets,
                  minSize = 3)
-get_gsea_table(obj, "t2d", "hallmark_gsea")
+get_gsea_table(obj, "t2d", "example_gsea")
 
 # Custom ranking: a weighted node and edge difference per gene
 cgs <- get_cross_gene_summary(obj, "t2d")
@@ -150,6 +162,6 @@ my_stats <- setNames(
   cgs$gene_id
 )
 obj <- run_fgsea(obj, "t2d", label = "weighted", stats = my_stats,
-                 pathways = hallmark, minSize = 3)
+                 pathways = gene_sets, minSize = 3)
 
 }

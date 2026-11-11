@@ -24,7 +24,8 @@ NULL
 #' \linkS4class{IsoNetAnalyzeR} session object.
 #'
 #' @section Input table format:
-#' A CSV, Excel (\code{.xlsx} / \code{.xls}), or already-loaded data frame in
+#' A CSV, Excel (\code{.xlsx} / \code{.xls}), \code{data.frame} or
+#'   \code{DataFrame} in
 #' \strong{long format} with exactly the following columns (any order):
 #' \describe{
 #'   \item{gene_id}{Gene identifier (e.g. Ensembl gene ID or gene symbol).}
@@ -96,7 +97,7 @@ NULL
 #' @param input    One of:
 #'   \itemize{
 #'     \item A character scalar - path to a CSV or Excel file.
-#'     \item A data frame already loaded into R.
+#'     \item A \code{data.frame} or S4Vectors \code{DataFrame}.
 #'   }
 #' @param order    Integer scalar. Number of BFS hops for the virtual pulldown.
 #' @param cutoff   Numeric scalar in \[0, 1\]. Internal-edge fraction cutoff.
@@ -656,17 +657,18 @@ run_differential_pulldown <- function(obj,
 }
 
 #' Load the differential input from a file path or data frame
-#' @param input Character scalar (file path) or data frame.
+#' @param input Character scalar (file path), data.frame or DataFrame.
 #' @return data.frame.
 #' @noRd
 .load_diff_input <- function(input) {
 
-  if (is.data.frame(input))
-    return(input)
+  if (.is_table(input))
+    return(.as_data_frame(input, "input"))
 
   if (!is.character(input) || length(input) != 1L)
     stop(
-      "`input` must be a file path (character scalar) or a data frame.",
+      "`input` must be a file path (character scalar), a data.frame or a ",
+      "DataFrame.",
       call. = FALSE
     )
 

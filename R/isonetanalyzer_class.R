@@ -9,6 +9,7 @@ setOldClass("igraph")
 #' @importFrom rlang .data
 #' @importClassesFrom S4Vectors DataFrame
 #' @importFrom S4Vectors DataFrame
+#' @importFrom patchwork plot_annotation
 NULL
 
 # ==============================================================================
@@ -130,7 +131,8 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #'   Pass \code{NULL} (the default) to load the package's built-in network.
 #'   Repeated edges between the same two transcripts are merged into one
 #'   (\code{interact} is 1 when any copy is 1; numeric attributes such as
-#'   \code{pi} are averaged) and self-loops are removed, because they would
+#'   \code{pi} are averaged over the predicted copies, or over all copies
+#'   when none is predicted) and self-loops are removed, because they would
 #'   inflate the degrees used by the neighbourhood cutoff.
 #' @param metadata Named list of additional metadata to attach to the session.
 #'   This is merged with any automatically populated fields
@@ -144,13 +146,23 @@ setValidity("IsoNetAnalyzeR", function(object) {
 #' @param transcript_biotypes Optional transcript annotation: a
 #'   \code{data.frame} or \code{DataFrame} with \code{isoform_id} and
 #'   \code{transcript_biotype} columns, which overrides vertex annotations,
-#'   or an \code{EnsDb} object. When neither the network nor this argument
-#'   annotates every vertex and a decay exclusion is enabled, biotypes come
-#'   from Ensembl release 107 (the GENCODE v41 gene build of the bundled
-#'   network), loaded once per R session from AnnotationHub record AH104864
-#'   and cached on disk by AnnotationHub. Unknown vertex biotypes are an
-#'   error when either decay exclusion is enabled. Gene-level biotypes are
-#'   not used.
+#'   or an \code{EnsDb} object. A network with Ensembl transcript IDs
+#'   (\code{ENST}) is always annotated from Ensembl release 107 (the GENCODE
+#'   v41 gene build of the bundled network), loaded once per R session from
+#'   AnnotationHub record AH104864 and cached on disk by AnnotationHub, or
+#'   from the \code{EnsDb} given here; a \code{transcript_biotype} vertex
+#'   attribute and a table override it for their transcripts. The full
+#'   annotation is needed so that seeds outside the network that are decay
+#'   transcripts are excluded too. If it cannot be loaded (for example
+#'   offline), a session is still created when both \code{include_nmd} and
+#'   \code{include_nsd} are \code{TRUE} (without biotypes and gene symbols),
+#'   or when every vertex has a biotype from the attribute or table (with a
+#'   warning that decay transcripts outside the network cannot be blocked).
+#'   Networks without Ensembl transcript IDs do not load the annotation
+#'   when the session is created; gene-symbol labels of Ensembl gene IDs in
+#'   plots and printed summaries can still load it.
+#'   Unknown vertex biotypes are an error when either decay exclusion is
+#'   enabled. Gene-level biotypes are not used.
 #' @return An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored
 #'   in metadata$network_biotype_filter. Create a new session to change the
 #'   policy. When biotypes come from an EnsDb, the network also gets a
@@ -358,6 +370,15 @@ setMethod("show", "IsoNetAnalyzeR", function(object) {
 #' @noRd
 packageName <- function() "IsoNetAnalyzeR"
 
+#' Remove an Ensembl version suffix (ENST00000621271.4 -> ENST00000621271)
+#' @noRd
+.strip_version <- function(x) sub("\\.[0-9]+$", "", as.character(x))
+
+#' A gene ID for matching: cut at the first dot, so that GENCODE's
+#' ENSG00000002586.20_PAR_Y matches ENSG00000002586 too
+#' @noRd
+.strip_gene_version <- function(x) sub("\\..*$", "", as.character(x))
+
 #' Validate a positive whole-number scalar
 #' @noRd
 .validate_positive_integer <- function(x, arg) {
@@ -421,12 +442,20 @@ packageName <- function() "IsoNetAnalyzeR"
 #' Neighbourhood cutoffs compare vertex degrees, which repeated edges and
 #' self-loops would inflate. One edge is kept per transcript pair:
 #' \code{interact} is 1 when any copy is 1, other numeric attributes are
-#' averaged and the rest keep their first value.
+#' averaged and the rest keep their first value. A pair with a predicted copy
+#' keeps only its predicted copies, so its \code{pi} is the mean of those,
+#' as in inst/scripts/reduce_network.R.
 #' @noRd
 .simplify_network <- function(network) {
   if (igraph::is_simple(network)) return(network)
   loops <- igraph::which_loop(network)
   n_repeated <- sum(igraph::which_multiple(network) & !loops)
+  ends <- igraph::as_edgelist(network, names = FALSE)
+  pair <- paste(pmin(ends[, 1L], ends[, 2L]), pmax(ends[, 1L], ends[, 2L]))
+  predicted <- as.numeric(igraph::edge_attr(network, "interact")) == 1
+  network <- igraph::delete_edges(
+    network, which(!predicted & pair %in% pair[predicted])
+  )
   attrs <- igraph::edge_attr_names(network)
   combine <- lapply(attrs, function(a) {
     if (a == "interact") return(function(x) max(as.numeric(x)))

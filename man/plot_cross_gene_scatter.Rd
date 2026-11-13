@@ -50,8 +50,9 @@ Default \code{10}.  Set \code{0} to suppress all labels.}
 
 \item{label}{Character vector.  One or more of \code{"delta"}
 (genes furthest from the identity diagonal), \code{"x"} (highest
-X values), \code{"y"} (highest Y values).  Strategies are unioned, so
-\code{c("delta", "x")} labels both.  Default \code{"delta"}.}
+X values), \code{"y"} (highest Y values).  With several strategies,
+their top genes are labelled in turn, so \code{c("delta", "x")} labels
+both.  Default \code{"delta"}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 }

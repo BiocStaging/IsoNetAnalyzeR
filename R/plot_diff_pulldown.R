@@ -23,19 +23,6 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #  Internal helpers
 # ==============================================================================
 
-#' Check that ggplot2 and required extension packages are available
-#' @noRd
-.check_diff_plot_pkgs <- function(extra = character()) {
-  required <- c("ggplot2", extra)
-  for (pkg in required) {
-    if (!requireNamespace(pkg, quietly = TRUE))
-      stop(sprintf(
-        "Package '%s' is required. Install with: install.packages('%s').",
-        pkg, pkg
-      ), call. = FALSE)
-  }
-}
-
 #' Shared ggplot2 theme for differential pulldown plots
 #' @noRd
 .diff_plot_theme <- function() {
@@ -55,10 +42,11 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
     )
 }
 
-#' CVD-safe direction colours (Okabe-Ito)
+#' CVD-safe direction colours (Okabe-Ito), used by every plot
 #' @noRd
-.col_up   <- "#E69F00"   # orange  - up condition
-.col_down <- "#56B4E9"   # sky blue - down condition
+.col_up   <- "#009E73"   # green  - up-labelled seeds
+.col_down <- "#D55E00"   # orange - down-labelled seeds
+.col_tie  <- "#999999"   # grey   - no up/down difference
 
 #' Validate that a DifferentialPulldownAnalysis object has usable data
 #' @noRd
@@ -77,17 +65,18 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 
 #' Internal: select genes to label from a data frame
 #'
-#' Collects candidates from each requested strategy, then trims to the top
-#' \code{label_n} overall ranked by absolute delta.  This guarantees a hard
-#' maximum of \code{label_n} labels regardless of how many strategies are
-#' requested.
+#' Takes the requested strategies' top genes in turn, in the order given in
+#' \code{label} (each strategy's best, then each one's second best, ...),
+#' drops repeats and keeps the first
+#' \code{label_n}, so every strategy is represented and there are never more
+#' than \code{label_n} labels.
 #'
 #' Scatter strategies: \code{"delta"} (furthest from diagonal),
 #' \code{"x"} (highest x value), \code{"y"} (highest y value).
 #'
 #' Boxplot strategies: \code{"delta"} (largest absolute delta),
-#' \code{"up"} (largest positive delta - most orange),
-#' \code{"down"} (largest negative delta - most blue).
+#' \code{"up"} (largest positive delta - green points; positive only),
+#' \code{"down"} (largest negative delta - orange points; negative only).
 #'
 #' @param df       Data frame with columns \code{gene_id}, \code{x__},
 #'   \code{y__}, \code{delta__}.
@@ -98,37 +87,17 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 .select_labels <- function(df, label, label_n) {
   if (label_n <= 0L || length(label) == 0L) return(character(0))
 
-  # Collect candidate gene IDs from each strategy using a generous pool
-  # (up to 2x label_n per strategy) then trim the union to label_n overall
-  pool_n <- max(label_n * 2L, 10L)
-  ids <- character(0)
-
-  # Scatter strategies
-  if ("delta" %in% label)
-    ids <- union(ids, df$gene_id[
-      rank(-abs(df$delta__), ties.method = "first") <= pool_n])
-  if ("x" %in% label)
-    ids <- union(ids, df$gene_id[
-      rank(-df$x__, ties.method = "first") <= pool_n])
-  if ("y" %in% label)
-    ids <- union(ids, df$gene_id[
-      rank(-df$y__, ties.method = "first") <= pool_n])
-
-  # Boxplot strategies
-  if ("up" %in% label)
-    ids <- union(ids, df$gene_id[
-      rank(-df$delta__, ties.method = "first") <= pool_n])
-  if ("down" %in% label)
-    ids <- union(ids, df$gene_id[
-      rank(df$delta__, ties.method = "first") <= pool_n])
-
-  if (length(ids) == 0L) return(character(0))
-
-  # Trim to label_n by ranking candidates on absolute delta as tiebreaker
-  candidates <- df[df$gene_id %in% ids, ]
-  top <- candidates$gene_id[
-    rank(-abs(candidates$delta__), ties.method = "first") <= label_n]
-  top
+  # Higher score = labelled first; NA = not a candidate ("up" takes only
+  # positive and "down" only negative deltas)
+  d <- df$delta__
+  score <- list(delta = abs(d), x = df$x__, y = df$y__,
+                up = replace(d, d <= 0, NA), down = replace(-d, d >= 0, NA))
+  top <- lapply(score[intersect(label, names(score))], function(x)
+    utils::head(df$gene_id[order(-x, na.last = NA)], label_n))
+  # Round robin over the strategies: every one's first gene, then second, ...
+  turn <- unlist(lapply(top, seq_along), use.names = FALSE)
+  ids <- unlist(top, use.names = FALSE)[order(turn)]
+  utils::head(unique(ids), label_n)
 }
 
 
@@ -291,8 +260,9 @@ utils::globalVariables(c("group", "delta__", "label__", "x__", "y__"))
 #'   Default \code{10}.  Set \code{0} to suppress all labels.
 #' @param label     Character vector.  One or more of \code{"delta"}
 #'   (genes furthest from the identity diagonal), \code{"x"} (highest
-#'   X values), \code{"y"} (highest Y values).  Strategies are unioned, so
-#'   \code{c("delta", "x")} labels both.  Default \code{"delta"}.
+#'   X values), \code{"y"} (highest Y values).  With several strategies,
+#'   their top genes are labelled in turn, so \code{c("delta", "x")} labels
+#'   both.  Default \code{"delta"}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{ggplot} object, invisibly.
@@ -319,7 +289,6 @@ plot_cross_gene_scatter <- function(obj,
                                     label_n      = 10L,
                                     label        = "delta",
                                     title        = NULL) {
-  .check_diff_plot_pkgs(c("ggrepel"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
   label    <- match.arg(label, c("delta", "x", "y"), several.ok = TRUE)
 
@@ -414,7 +383,6 @@ plot_cross_gene_overview <- function(obj,
                                      label_n    = 0L,
                                      label      = "delta",
                                      title      = NULL) {
-  .check_diff_plot_pkgs(c("ggrepel", "patchwork"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
   cgs      <- .df(diff_res@cross_gene_summary)
   label    <- match.arg(label, c("delta", "x", "y"), several.ok = TRUE)
@@ -488,8 +456,8 @@ plot_cross_gene_overview <- function(obj,
 #' log10 fold-change \code{log10(x_col / y_col)} when \code{log_ratio = TRUE})
 #' and displays the distribution as a boxplot with individual gene points
 #' overlaid as a jitter strip.  A horizontal reference line at zero marks no
-#' difference between the two columns.  Orange points have a positive delta
-#' (x_col > y_col); blue have a negative delta.
+#' difference between the two columns.  Green points have a positive delta
+#' (x_col > y_col), orange a negative one and grey none.
 #'
 #' @section Log-ratio mode:
 #' When \code{log_ratio = TRUE} the plotted value is
@@ -515,9 +483,10 @@ plot_cross_gene_overview <- function(obj,
 #' @param label_n   Integer.  Maximum total genes to label across all strategies.
 #'   Default \code{10}.  Set \code{0} to suppress all labels.
 #' @param label     Character vector.  One or more of \code{"delta"}
-#'   (largest absolute delta), \code{"up"} (largest positive delta, orange
-#'   points), \code{"down"} (largest negative delta,
-#'   largest negative delta, blue points).  Default \code{"delta"}.
+#'   (largest absolute delta), \code{"up"} (largest positive delta, green
+#'   points), \code{"down"} (largest negative delta, orange points).  With
+#'   several strategies, their top genes are labelled in turn.
+#'   Default \code{"delta"}.
 #' @param title     Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{ggplot} object, invisibly.
@@ -541,7 +510,6 @@ plot_cross_gene_boxplot <- function(obj,
                                     label_n   = 10L,
                                     label     = "delta",
                                     title     = NULL) {
-  .check_diff_plot_pkgs(c("ggrepel"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
   cgs      <- .df(diff_res@cross_gene_summary)
 
@@ -592,7 +560,8 @@ plot_cross_gene_boxplot <- function(obj,
                        NA_character_)
 
   df$group  <- ""
-  pt_colour <- ifelse(df$delta__ > 0, .col_up, .col_down)
+  pt_colour <- ifelse(df$delta__ > 0, .col_up,
+                      ifelse(df$delta__ < 0, .col_down, .col_tie))
 
   zero_label <- if (log_ratio) "ratio = 1 (no change)" else "no difference"
 
@@ -623,8 +592,9 @@ plot_cross_gene_boxplot <- function(obj,
       title    = title %||% sprintf(
         "%s  [%s]", delta_lab, analysis),
       subtitle = paste0(
-        "Orange = ", x_col, " > ", y_col, ".  ",
-        "Blue = ", x_col, " < ", y_col, ".  ",
+        "Green = ", x_col, " > ", y_col, ".  ",
+        "Orange = ", x_col, " < ", y_col, ".  ",
+        "Grey = equal.  ",
         "Dashed line = ", zero_label, "."
       ),
       x       = NULL,
@@ -693,7 +663,8 @@ plot_cross_gene_boxplot <- function(obj,
                        NA_character_)
 
   df$group  <- ""
-  pt_colour <- ifelse(df$delta__ > 0, .col_up, .col_down)
+  pt_colour <- ifelse(df$delta__ > 0, .col_up,
+                      ifelse(df$delta__ < 0, .col_down, .col_tie))
 
   # Short auto-titles for overview panels
   auto_title <- if (!is.null(title)) title else {
@@ -800,9 +771,10 @@ plot_cross_gene_boxplot <- function(obj,
 #'   map to 0 (no change) and no genes are dropped.
 #' @param label_n    Integer.  Maximum total genes to label per panel.  Default \code{0}.
 #' @param label      Character vector.  One or more of \code{"delta"}
-#'   (largest absolute delta), \code{"up"} (largest positive delta, orange
-#'   points), \code{"down"} (largest negative delta,
-#'   largest negative delta, blue points).  Default \code{"delta"}.
+#'   (largest absolute delta), \code{"up"} (largest positive delta, green
+#'   points), \code{"down"} (largest negative delta, orange points).  With
+#'   several strategies, their top genes are labelled in turn.
+#'   Default \code{"delta"}.
 #' @param title      Character scalar or \code{NULL} (auto-generated).
 #'
 #' @return A \code{patchwork} object, invisibly.
@@ -824,7 +796,6 @@ plot_cross_gene_boxplot_overview <- function(obj,
                                              label_n   = 0L,
                                              label     = "delta",
                                              title     = NULL) {
-  .check_diff_plot_pkgs(c("ggrepel", "patchwork"))
   diff_res <- .resolve_diff_analysis(obj, analysis)
   cgs      <- .df(diff_res@cross_gene_summary)
   label    <- match.arg(label, c("delta", "up", "down"), several.ok = TRUE)
@@ -862,7 +833,7 @@ plot_cross_gene_boxplot_overview <- function(obj,
       title    = title %||% sprintf("Cross-gene delta overview  [%s]", analysis),
       subtitle = paste0(
         "Each panel: distribution of per-gene deltas (up - down).  ",
-        "Orange = up > down.  Blue = down > up.  ",
+        "Green = up > down.  Orange = up < down.  Grey = equal.  ",
         "Dashed line = no difference."
       ),
       theme = ggplot2::theme(

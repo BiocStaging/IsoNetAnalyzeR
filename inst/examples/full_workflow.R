@@ -12,8 +12,7 @@ edges <- data.frame(
   from = c("tx_A_up", "tx_A_down"),
   to = c("tx_B", "tx_B"),
   interact = c(1L, 1L),
-  pi = c(0.90, 0.75),
-  pi_score = c(0.90, 0.75)
+  pi = c(0.90, 0.75)
 )
 
 vertices$transcript_biotype <- "protein_coding"
@@ -92,7 +91,7 @@ p_overlay <- plot_network(
 # set.seed(2026)
 # obj <- run_fgsea(
 #   obj, "synthetic", "frozen_gsea", pathways = pathways,
-#   rank_by = "delta_nodes", minSize = 10, maxSize = 500, nperm = 10000
+#   rank_by = "delta_nodes", minSize = 10, maxSize = 500
 # )
 
 # Save the complete session for reproducibility.

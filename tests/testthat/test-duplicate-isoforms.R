@@ -3,6 +3,8 @@
 # Resolution and count-aggregation cases use single map rows whose outcome
 # follows from the map entry.
 make_duplicate_fixture <- function() {
+  # The network has an Ensembl transcript ID, so the session loads Ensembl 107
+  skip_if_no_ensembl()
   map <- isonet_duplicate_map()
   row <- map[which(map$network_applicable)[1L], , drop = FALSE]
   vertices <- data.frame(
@@ -15,7 +17,6 @@ make_duplicate_fixture <- function() {
     to = c("other_up", "other_up", "other_down"),
     interact = 1L,
     pi = c(0.9, 0.8, 0.7),
-    pi_score = c(0.9, 0.8, 0.7),
     stringsAsFactors = FALSE
   )
   vertices$transcript_biotype <- "protein_coding"
@@ -123,6 +124,9 @@ test_that("differential resolution preserves submitted and resolved counts", {
   expect_equal(overview$n_down_input, 1L)
   expect_equal(overview$n_up_resolved, 1L)
   expect_equal(overview$n_down_resolved, 1L)
+  # The one up and one down representative are both in the network: 1 / 1
+  expect_equal(overview$pct_up_found, 100)
+  expect_equal(overview$pct_down_found, 100)
   stored <- obj@metadata$analysis_duplicate_resolution$same
   expect_equal(nrow(stored$submitted_table), 3L)
   expect_equal(sum(stored$audit$action == "collapsed_same_direction"), 1L)
@@ -194,8 +198,8 @@ test_that("resolve_duplicates FALSE retains 0.4.0 identifier behavior", {
 })
 
 test_that("base count aggregation preserves arithmetic and metadata", {
-  fixture <- make_duplicate_fixture()
-  row <- fixture$row
+  map <- isonet_duplicate_map()
+  row <- map[which(map$network_applicable)[1L], , drop = FALSE]
   ids <- c(row$kept_ENST, row$redundant_ENST, "unrelated")
   genes <- c(row$kept_ENSG, row$kept_ENSG, "G_OTHER")
   rn <- paste(genes, ids, sep = ":")
@@ -255,4 +259,143 @@ test_that("aggregation creates an absent kept row and supports one-assay SE", {
       summary$n_rows_removed,
     0L
   )
+})
+
+test_that("count aggregation reports the map provenance", {
+  # The packaged map's provenance, as returned by isonet_duplicate_map()
+  map <- isonet_duplicate_map()
+  counts <- matrix(1L, nrow = 1L, dimnames = list(map$kept_ENST[1], "s1"))
+  provenance <- aggregate_duplicate_counts(counts)$map_provenance
+  expect_identical(provenance, S4Vectors::metadata(map)$provenance)
+  expect_identical(
+    aggregate_duplicate_counts(counts, duplicate_map = map)$map_provenance,
+    provenance
+  )
+})
+
+test_that("SummarizedExperiment rows are identified like matrix rows", {
+  skip_if_not_installed("SummarizedExperiment")
+  map <- isonet_duplicate_map()
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1])
+  counts <- matrix(c(10L, 4L, 2L, 1L), nrow = 2L, byrow = TRUE,
+                   dimnames = list(ids, c("s1", "s2")))
+  # The redundant row is added to its representative: 10 + 2 and 4 + 1
+  expected <- matrix(c(12L, 5L), nrow = 1L,
+                     dimnames = list(map$kept_ENST[1], c("s1", "s2")))
+  assay_of <- function(x)
+    SummarizedExperiment::assay(aggregate_duplicate_counts(x)$object)
+
+  # No rowData: identifiers come from the row names, as for a matrix
+  se <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts))
+  expect_identical(assay_of(se), expected)
+  # tximeta-style rowData without isoform_id; the kept row keeps its note
+  se_tx <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts),
+    rowData = S4Vectors::DataFrame(tx_id = ids, gene_id = c(
+      map$kept_ENSG[1], map$redundant_ENSG[1]), note = c("kept", "redundant")))
+  expect_identical(assay_of(se_tx), expected)
+  expect_identical(SummarizedExperiment::rowData(
+    aggregate_duplicate_counts(se_tx)$object)$note, "kept")
+  # feature_data given with the SummarizedExperiment
+  features <- data.frame(gene_id = c(map$kept_ENSG[1], map$redundant_ENSG[1]),
+                         isoform_id = ids)
+  expect_identical(SummarizedExperiment::assay(
+    aggregate_duplicate_counts(se, feature_data = features)$object), expected)
+})
+
+test_that("versioned gene IDs match the unversioned duplicate map", {
+  map <- isonet_duplicate_map()
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1])
+  genes <- paste0(c(map$kept_ENSG[1], map$redundant_ENSG[1]), ".21")
+  counts <- matrix(c(10L, 4L, 2L, 1L), nrow = 2L, byrow = TRUE,
+                   dimnames = list(ids, c("s1", "s2")))
+  # As without versions, the redundant row is added to its representative:
+  # 10 + 2 and 4 + 1
+  features <- data.frame(gene_id = genes, isoform_id = ids)
+  expect_equal(unname(aggregate_duplicate_counts(counts, features)$object[1, ]),
+               c(12L, 5L))
+  rownames(counts) <- paste(genes, ids, sep = ":")
+  expect_equal(unname(aggregate_duplicate_counts(counts)$object[1, ]),
+               c(12L, 5L))
+  resolved <- resolve_duplicate_isoforms(
+    data.frame(gene_id = genes[2], isoform_id = ids[2]))
+  expect_identical(resolved$isoform_id, ids[1])
+})
+
+test_that("tximeta-style rowData keeps the user's gene IDs", {
+  skip_if_not_installed("SummarizedExperiment")
+  map <- isonet_duplicate_map()
+  # ENST00000000233 (ENSG00000004059) is not in the map
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1], "ENST00000000233")
+  genes <- paste0(c(map$kept_ENSG[1], map$redundant_ENSG[1],
+                    "ENSG00000004059"), ".5")
+  counts <- matrix(c(10L, 4L, 2L, 1L, 7L, 7L), nrow = 3L, byrow = TRUE,
+                   dimnames = list(ids, c("s1", "s2")))
+  tximeta <- function(gene_id) SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts),
+    rowData = S4Vectors::DataFrame(tx_id = 1:3, gene_id = I(as.list(gene_id))))
+  out <- aggregate_duplicate_counts(tximeta(genes))$object
+  # Kept and redundant rows are added up (12, 5); the unmapped transcript
+  # keeps its counts (7, 7). Both keep the gene IDs they were given
+  expect_identical(unname(SummarizedExperiment::assay(out)),
+                   matrix(c(12L, 7L, 5L, 7L), nrow = 2L))
+  expect_identical(SummarizedExperiment::rowData(out)$gene_id,
+                   genes[c(1, 3)])
+  # A gene that contradicts the map stops, as for a count matrix
+  expect_error(aggregate_duplicate_counts(tximeta(replace(genes, 1, "ENSG1"))),
+               "gene assignment disagrees with the duplicate map")
+})
+
+test_that("aggregated counts keep the user's versioned gene IDs", {
+  map <- isonet_duplicate_map()
+  # A protein-identical pair and an unmapped transcript, all of one gene
+  gene <- paste0(map$kept_ENSG[1], ".21")
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1], "ENST00000000233")
+  counts <- matrix(c(10L, 4L, 2L, 1L, 7L, 7L), nrow = 3L, byrow = TRUE,
+                   dimnames = list(paste(gene, ids, sep = ":"), c("s1", "s2")))
+  res <- aggregate_duplicate_counts(counts)
+  # The pair is added up under the kept transcript; one gene ID throughout
+  expect_identical(rownames(res$object),
+                   paste(gene, c(map$kept_ENST[1], "ENST00000000233"),
+                         sep = ":"))
+  expect_identical(res$feature_data$gene_id, c(gene, gene))
+})
+
+test_that("rowData isoform IDs are used when row names are not transcripts", {
+  skip_if_not_installed("SummarizedExperiment")
+  map <- isonet_duplicate_map()
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1], "ENST00000000233")
+  counts <- matrix(c(10L, 4L, 2L, 1L, 7L, 7L), nrow = 3L, byrow = TRUE,
+                   dimnames = list(c("row1", "row2", "row3"), c("s1", "s2")))
+  se <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts),
+    rowData = S4Vectors::DataFrame(isoform_id = ids))
+  out <- aggregate_duplicate_counts(se)$object
+  # The protein-identical pair is added up (12, 5) under the kept transcript
+  # and its map gene; ENST00000000233 is not in the map and keeps (7, 7)
+  expect_identical(rownames(out), c(map$kept_ENST[1], "ENST00000000233"))
+  expect_identical(unname(SummarizedExperiment::assay(out)),
+                   matrix(c(12L, 7L, 5L, 7L), nrow = 2L))
+  expect_identical(SummarizedExperiment::rowData(out)$gene_id,
+                   c(map$kept_ENSG[1], NA))
+})
+
+test_that("a list-valued gene_id gives each row its first gene", {
+  skip_if_not_installed("SummarizedExperiment")
+  map <- isonet_duplicate_map()
+  ids <- c(map$kept_ENST[1], map$redundant_ENST[1], "ENST00000000233")
+  counts <- matrix(c(10L, 4L, 2L, 1L, 7L, 7L), nrow = 3L, byrow = TRUE,
+                   dimnames = list(ids, c("s1", "s2")))
+  kept_gene <- paste0(map$kept_ENSG[1], ".5")
+  # tximeta-style: a list per row, here with two genes, one, and none
+  genes <- list(c(kept_gene, "ENSG00000000003"),
+                paste0(map$redundant_ENSG[1], ".5"), character(0))
+  se <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = counts),
+    rowData = S4Vectors::DataFrame(gene_id = I(genes), isoform_id = ids))
+  out <- aggregate_duplicate_counts(se)$object
+  # The pair under the kept row's first gene; no gene for the third row
+  expect_identical(SummarizedExperiment::rowData(out)$gene_id,
+                   c(kept_gene, NA))
 })

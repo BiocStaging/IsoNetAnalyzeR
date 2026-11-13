@@ -1,3 +1,95 @@
+# IsoNetAnalyzeR 0.99.2
+
+## Bug fixes
+
+- A network with Ensembl transcript IDs is always annotated from Ensembl 107,
+  or from an `EnsDb` passed as `transcript_biotypes`; a `transcript_biotype`
+  vertex attribute or a `transcript_biotypes` table overrides it for the
+  transcripts it lists. Before, a table or attribute covering every vertex,
+  or `include_nmd = TRUE` with `include_nsd = TRUE`, skipped the annotation:
+  decay transcripts outside the network were not blocked as seeds and could
+  be remapped to a coding representative, and the unfiltered bundled network
+  had no biotypes or gene symbols. If the annotation cannot be loaded, the
+  session is still created when both flags are `TRUE` (without biotypes and
+  gene symbols) or when every vertex has a biotype (with a warning that
+  decay transcripts outside the network cannot be blocked).
+- A network without Ensembl transcript IDs does not load the Ensembl 107
+  annotation when the session is created; an unannotated one gives the
+  "unknown transcript biotypes" error directly. The `annotation` field of the eligibility audit names the
+  sources that were used.
+- `IsoNetAnalyzeR()` merges repeated edges of a supplied network using the
+  `pi` of the predicted copies only, as for the bundled network.
+- `get_metadata(obj, "analysis_biotype_exclusions")[[label]]` is a zero-row
+  table when no seed was excluded, instead of missing.
+- Rerunning an analysis label removes the seed-support and
+  duplicate-resolution audits of the earlier run.
+- `n_genes_dropped_opposite_collision` in the coverage report counts only
+  genes dropped for protein-identical seeds in opposite directions, not
+  genes removed by `seed_padj_col` or without mapped seeds.
+- `pct_up_found` and `pct_down_found` divide by the resolved
+  representatives, so protein-identical seeds count once.
+- Versioned Ensembl gene IDs (`ENSG00000070371.16`) are accepted in the
+  `gene_id` of `run_differential_pulldown()`, and by
+  `aggregate_duplicate_counts()`, which keeps them in its output, and
+  `resolve_duplicate_isoforms()`. The help no longer says that gene symbols
+  work in `gene_id`.
+- `distance_from_seed` is the distance to the nearest seed. It was the mean
+  over seeds, which was `Inf` for every node when one seed could not reach
+  another.
+- `summarize_subgraphs()` returns one row per graph for unnamed, partly
+  named and duplicate-named lists; an unnamed list gave no rows.
+- `aggregate_duplicate_counts()` uses `feature_data` for a
+  `SummarizedExperiment`. Without it, an ID column missing from `rowData` is
+  taken from the row names (genes of mapped transcripts from the map), the
+  `rowData` ID and other columns are kept, and a list-valued `gene_id`, as in
+  tximeta objects, gives each row its first gene. It returns the map
+  provenance, which was `NULL`.
+- `run_component_ora()` stores the p-values and adjusted p-values of
+  `fgsea::fora()` unrounded; p-values below 5e-7 were stored as 0.
+- `run_fgsea()` uses `fgseaMultilevel` unless `nperm` is given, so p-values
+  are no longer limited to 1/1001 and fgsea no longer warns that
+  `fgseaSimple` is used. The method is recorded in the result's `params`.
+- Gene sets (named lists or `GeneSetCollection`s) are matched to the ranked
+  genes in `run_fgsea()` and to the network genes in `run_component_ora()`:
+  IDs that are such genes are kept, and other Ensembl gene IDs and gene
+  symbols match every such gene with or without a version suffix.
+  Collections without an identifier type, as read by `GSEABase::getGmt()`,
+  are accepted: their IDs are taken as Ensembl gene IDs when all look like
+  Ensembl gene IDs, and as gene symbols otherwise. An empty collection, or
+  gene sets with no matching gene, give a clear error.
+- The MSigDB GO gene sets are loaded and converted once per R session
+  instead of on every `run_fgsea()` or `run_component_ora()` call.
+- Versioned identifiers of an `EnsDb` passed as `transcript_biotypes` match
+  the network's transcripts and genes.
+- When the gene-symbol annotation cannot be loaded, plots and printed
+  summaries no longer retry loading it every time.
+- Up is green and down orange in every plot and key; component and
+  cross-gene plots used orange for up and sky blue for down. Box plots draw
+  genes without an up/down difference in grey.
+- The `"x"`, `"y"`, `"up"` and `"down"` label strategies of the cross-gene
+  plots label the genes with the highest values of their own statistic;
+  `"up"` and `"down"` take only positive and negative differences, and
+  several strategies take turns in the order given, so each is represented.
+- `get_isoform_stats()` flags the seeds of results saved without an
+  `is_seed` column from the gene's seed isoforms; the earlier fallback,
+  `distance_from_seed == 0`, missed seeds of multi-seed genes.
+- `plot_component()` lists "none" when an analysis has no component
+  analyses. A missing (`NA`) analysis or component label, and
+  `group_by_gene = NA`, give the intended argument errors, and the warning
+  for an analysis with an empty cross-gene summary names the analysis.
+
+## Other changes
+
+- The `all_edges` argument of `plot_network()` is deprecated and has no
+  effect. It changed the drawn network only through an undocumented
+  `pi_score` edge attribute, which the bundled network does not have.
+- future and future.apply are suggested instead of imported; they are needed
+  only for `parallel = TRUE`.
+- Gene-level component analyses and plots build the merged graph of 1,000
+  genes in about a second instead of several minutes, and
+  `run_differential_pulldown()` is about eight times faster on the bundled
+  network (1,000 genes in about half a minute instead of over four minutes).
+
 # IsoNetAnalyzeR 0.99.1
 
 ## Bundled network

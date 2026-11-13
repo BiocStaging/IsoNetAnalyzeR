@@ -165,53 +165,84 @@ test_that("overlay plots colour focal seeds independently from neighbourhood sta
   })
 })
 
-test_that("plot graph filtering preserves isolated seeds without warnings", {
+test_that("plot graphs keep every edge and isolated seeds without warnings", {
   fixture <- make_isolated_seed_fixture()
-  filtered <- expect_no_warning(
+  prepared <- expect_no_warning(
     IsoNetAnalyzeR:::.build_plot_graph(
       fixture$obj@network,
       level = "isoform",
-      all_edges = FALSE,
-      threshold = 0.85,
       seed_vertices = "tx_isolated_up"
     )
   )
 
-  # Only the pi 0.9 edge passes the 0.85 threshold; the isolated seed stays
-  expect_equal(igraph::ecount(filtered), 1L)
+  # Both fixture edges are drawn; the isolated seed stays and the isolated
+  # non-seeds tx_isolated_down and tx_other are dropped
+  expect_equal(igraph::ecount(prepared), 2L)
   expect_setequal(
-    igraph::V(filtered)$name,
-    c("tx_up", "tx_neighbour", "tx_isolated_up")
+    igraph::V(prepared)$name,
+    c("tx_up", "tx_down", "tx_neighbour", "tx_isolated_up")
   )
-  expect_equal(igraph::E(filtered)$pi_score, 0.9)
 })
 
-test_that("explicit seed flags survive disconnected multi-seed distances", {
-  g <- igraph::make_empty_graph(n = 2, directed = FALSE)
-  igraph::V(g)$name <- c("seed_a", "seed_b")
-  igraph::V(g)$gene <- c("GA", "GB")
-  igraph::V(g)$order <- c(0, 0)
-  igraph::V(g)$frac_internal <- c(NA_real_, NA_real_)
+test_that("all_edges is deprecated and has no effect", {
+  fixture <- make_isolated_seed_fixture()
+  obj <- suppressMessages(lookup_virtual_pulldown(
+    fixture$obj, "lk", "tx_up", order = 1, cutoff = 0))
+  lookup <- get_lookup(obj, "lk")
+  default <- expect_no_warning(suppressMessages(plot_network(lookup)))
+  expect_warning(named <- suppressMessages(plot_network(lookup,
+                                                        all_edges = TRUE)),
+                 "deprecated")
+  # Third position is still all_edges, not group_by_gene
+  expect_warning(positional <- suppressMessages(plot_network(lookup, "isoform",
+                                                             TRUE)),
+                 "deprecated")
+  expect_identical(named$data$name, default$data$name)
+  expect_identical(positional$data$name, default$data$name)
+})
+
+test_that("patchwork loads with the package, for combined plots", {
+  # Its `+`, `|` and `/` methods for ggplots exist only once it is loaded
+  expect_true("patchwork" %in% names(getNamespaceImports("IsoNetAnalyzeR")))
+})
+
+test_that("distance_from_seed is the distance to the nearest seed", {
+  # seed_a has one neighbour, n1; seed_b is isolated
+  g <- igraph::make_graph(~ seed_a - n1, seed_b)
+  igraph::V(g)$gene <- c("GA", "GN", "GB")
+  igraph::V(g)$order <- c(0, 1, 0)
 
   stats <- analyze_subgraph(g)
-  expect_true(all(stats$is_seed))
-  expect_true(all(is.infinite(stats$distance_from_seed)))
+  expect_identical(stats$is_seed, c(TRUE, FALSE, TRUE))
+  # Each seed is 0 from itself; n1 is 1 hop from seed_a, although seed_b
+  # cannot reach it
+  expect_equal(stats$distance_from_seed, c(0, 1, 0))
+})
 
-  legacy <- stats[, setdiff(names(stats), "is_seed"), drop = FALSE]
-  expect_false("is_seed" %in% names(legacy))
-
+test_that("summarize_subgraphs gives one row per graph, named or not", {
   fixture <- make_isolated_seed_fixture()
-  suppressWarnings(
-    obj <- run_differential_pulldown(
-      fixture$obj, "legacy", fixture$input, order = 1, cutoff = 0,
-      confirm = FALSE, verbose = FALSE
-    )
-  )
-  legacy_result <- obj@analyses[["legacy"]]@gene_results[["G3"]]
-  legacy_result@up_stats <- legacy_result@up_stats[
-    , setdiff(names(legacy_result@up_stats), "is_seed"), drop = FALSE
-  ]
-  obj@analyses[["legacy"]]@gene_results[["G3"]] <- legacy_result
-  legacy_stats <- get_isoform_stats(obj, "legacy", "G3")
-  expect_true(all(legacy_stats$is_seed))
+  up <- virtual_pulldown(fixture$obj, "tx_up", order = 1, cutoff = 0)
+  down <- virtual_pulldown(fixture$obj, "tx_down", order = 1, cutoff = 0)
+  # Rows follow the list, tx_up's graph then tx_down's, whatever the names
+  for (graphs in list(list(up, down), list(a = up, b = down),
+                      list(a = up, a = down), list(a = up, down)))
+    expect_identical(summarize_subgraphs(graphs)$seed, c("tx_up", "tx_down"))
+})
+
+test_that("results saved without is_seed take seeds from the seed lists", {
+  fixture <- make_isolated_seed_fixture()
+  obj <- suppressWarnings(run_differential_pulldown(
+    fixture$obj, "legacy", fixture$input[1:2, ], order = 1, cutoff = 0,
+    confirm = FALSE, verbose = FALSE
+  ))
+  gr <- obj@analyses$legacy@gene_results$G1
+  gr@up_stats <- gr@up_stats[, names(gr@up_stats) != "is_seed"]
+  gr@down_stats <- gr@down_stats[, names(gr@down_stats) != "is_seed"]
+  obj@analyses$legacy@gene_results$G1 <- gr
+  stats <- get_isoform_stats(obj, "legacy", "G1")
+  # G1's seeds are tx_up (up) and tx_down (down); tx_neighbour is in both
+  # neighbourhoods and is no seed
+  expect_identical(nrow(stats), 4L)
+  expect_setequal(paste(stats$direction, stats$isoform)[stats$is_seed],
+                  c("up tx_up", "down tx_down"))
 })

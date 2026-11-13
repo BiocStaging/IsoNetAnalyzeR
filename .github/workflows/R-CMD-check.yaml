@@ -38,11 +38,15 @@ jobs:
         run: |
           echo "ANNOTATION_HUB_CACHE=${{ runner.temp }}/hubs/AnnotationHub" >> "$GITHUB_ENV"
           echo "EXPERIMENT_HUB_CACHE=${{ runner.temp }}/hubs/ExperimentHub" >> "$GITHUB_ENV"
+          echo "HUB_CACHE_MONTH=$(date +%Y-%m)" >> "$GITHUB_ENV"
 
+      # A new key each month saves the refreshed hub metadata; earlier
+      # months' caches are restored as a starting point
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/hubs
-          key: hubs-${{ runner.os }}-AH104864-msigdb-2023.1
+          key: hubs-${{ runner.os }}-AH104864-msigdb-2023.1-${{ env.HUB_CACHE_MONTH }}
+          restore-keys: hubs-${{ runner.os }}-AH104864-msigdb-2023.1-
 
       - uses: r-lib/actions/check-r-package@v2
         with:

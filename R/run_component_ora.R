@@ -20,7 +20,7 @@
 ## Exported: ComponentOraResult class, run_component_ora,
 ##           get_component_ora_result, show(ComponentOraResult)
 
-#' @importFrom stats p.adjust setNames
+#' @importFrom stats setNames
 #' @importFrom utils head
 NULL
 
@@ -295,17 +295,11 @@ run_component_ora <- function(obj,
 
   obj_name <- .obj_name(substitute(obj))
 
-  # -- Package checks ----------------------------------------------------------
-  if (!requireNamespace("fgsea", quietly = TRUE))
-    stop("Package 'fgsea' is required. Install with:\n",
-         "  BiocManager::install('fgsea')", call. = FALSE)
-
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  diff_res <- .resolve_diff_analysis(obj, analysis)
-  ca       <- .resolve_component_analysis(obj, analysis, component_analysis)
+  ca <- .resolve_component_analysis(obj, analysis, component_analysis)
 
   if (!is.character(label) || length(label) != 1L || is.na(label) ||
       !nzchar(trimws(label)))
@@ -413,12 +407,8 @@ run_component_ora <- function(obj,
 
     n_tested <- n_tested + 1L
 
-    # BH correction within this component (fora returns raw pval only)
-    fora_res$padj <- p.adjust(fora_res$pval, method = "BH")
-    fora_res$padj <- round(fora_res$padj, 6L)
-    fora_res$pval <- round(fora_res$pval, 6L)
-
-    # Attach component ID and gene count
+    # Attach component ID and gene count; fora()'s padj is BH-adjusted
+    # within this component
     fora_df <- data.frame(
       component_id    = cid,
       pathway         = fora_res$pathway,

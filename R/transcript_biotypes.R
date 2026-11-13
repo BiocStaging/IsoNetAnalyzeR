@@ -20,9 +20,7 @@
       AnnotationHub::AnnotationHub()[[.ISONET_ENSDB]],
       error = function(e) stop(
         "Could not load AnnotationHub record ", .ISONET_ENSDB, ": ",
-        conditionMessage(e), "\nSupply `transcript_biotypes` (a table or an ",
-        "EnsDb) or set include_nmd = TRUE and include_nsd = TRUE.",
-        call. = FALSE
+        conditionMessage(e), call. = FALSE
       )
     )
     .annotation_cache$ensdb <- edb
@@ -101,14 +99,21 @@ isonet_gene_names <- function(edb = NULL) {
 
 # Gene symbols for Ensembl gene IDs (versioned or not); NA when unknown.
 # Only Ensembl gene IDs are looked up, so networks with other identifiers
-# never load the annotation; a failure to load it leaves the symbols NA.
+# never load the annotation; a failure to load it leaves the symbols NA and
+# is not retried until the annotation has been loaded by another route.
 .gene_symbols <- function(gene_ids) {
   gene_ids <- as.character(gene_ids)
-  stable <- sub("\\..*$", "", gene_ids)
+  stable <- .strip_gene_version(gene_ids)
   out <- rep(NA_character_, length(gene_ids))
   ensembl <- grepl("^ENSG[0-9]+$", stable)
   if (!any(ensembl)) return(out)
-  ann <- tryCatch(isonet_gene_names(), error = function(e) NULL)
+  if (isTRUE(.annotation_cache$symbols_failed) &&
+      is.null(.annotation_cache$ensdb))
+    return(out)
+  ann <- tryCatch(isonet_gene_names(), error = function(e) {
+    .annotation_cache$symbols_failed <- TRUE
+    NULL
+  })
   if (is.null(ann)) return(out)
   out[ensembl] <- ann$gene_name[match(stable[ensembl], ann$gene_id)]
   out
@@ -132,7 +137,7 @@ isonet_gene_names <- function(edb = NULL) {
   if (!all(required %in% names(x)))
     stop("`transcript_biotypes` must have isoform_id and transcript_biotype columns.", call. = FALSE)
   x <- x[required]
-  x$isoform_id <- sub("\\.[0-9]+$", "", trimws(as.character(x$isoform_id)))
+  x$isoform_id <- .strip_version(trimws(as.character(x$isoform_id)))
   x$transcript_biotype <- tolower(trimws(as.character(x$transcript_biotype)))
   if (anyNA(x$isoform_id) || any(!nzchar(x$isoform_id)) ||
       anyNA(x$transcript_biotype) || any(!nzchar(x$transcript_biotype)))
@@ -147,10 +152,13 @@ isonet_gene_names <- function(edb = NULL) {
 #'
 #' Biotypes come, in increasing priority, from an EnsDb (the
 #' \code{transcript_biotypes} argument, or the Ensembl 107 annotation when
-#' vertices are still unannotated and an exclusion is enabled), from a
+#' the network has Ensembl transcript IDs), from a
 #' \code{transcript_biotype} vertex attribute, and from a
 #' \code{transcript_biotypes} table. Gene symbols from the EnsDb are added
 #' as a \code{gene_name} vertex attribute when the network has none.
+#' Networks without Ensembl transcript IDs do not load the Ensembl 107
+#' annotation here; without any exclusion it is optional, and a failure to load
+#' it leaves the vertices unannotated.
 #' @noRd
 .filter_network_biotypes <- function(network, include_nmd, include_nsd,
                                      transcript_biotypes = NULL) {
@@ -160,7 +168,7 @@ isonet_gene_names <- function(edb = NULL) {
       stop(sprintf("`%s` must be TRUE or FALSE.", arg), call. = FALSE)
   }
   ids <- igraph::V(network)$name
-  stable <- sub("\\.[0-9]+$", "", ids)
+  stable <- .strip_version(ids)
   user_edb <- is(transcript_biotypes, "EnsDb")
   table <- if (!is.null(transcript_biotypes) && !user_edb)
     .validate_biotype_table(transcript_biotypes)
@@ -178,24 +186,49 @@ isonet_gene_names <- function(edb = NULL) {
     by_id[table$isoform_id] <- table$transcript_biotype
 
   filtering <- !include_nmd || !include_nsd
+  # Ensembl transcript IDs are always annotated from Ensembl, so that every
+  # annotated decay transcript, in the network or not, is excluded. Without
+  # it, a session needs no exclusion or a biotype for every vertex.
   edb <- if (user_edb) {
     transcript_biotypes
-  } else if (filtering && !all(stable %in% names(by_id))) {
-    .isonet_ensdb()
+  } else if (any(grepl("^ENST[0-9]+", stable))) {
+    tryCatch(.isonet_ensdb(), error = function(e) {
+      # Labels and symbol lookups later in the session do not retry either
+      .annotation_cache$symbols_failed <- TRUE
+      if (!filtering) {
+        message("The Ensembl 107 annotation could not be loaded; transcript ",
+                "biotypes and gene symbols are not annotated.")
+      } else if (all(stable %in% names(by_id))) {
+        warning(conditionMessage(e), "\nEvery vertex has a biotype, so the ",
+                "session is created, but decay transcripts outside the ",
+                "network cannot be blocked during identifier resolution.",
+                call. = FALSE)
+      } else {
+        stop(conditionMessage(e), "\nTo create the session without ",
+             "AnnotationHub, give every vertex a biotype (a ",
+             "`transcript_biotype` vertex attribute or a ",
+             "`transcript_biotypes` table), pass the annotation as an EnsDb ",
+             "through `transcript_biotypes`, or set include_nmd = TRUE and ",
+             "include_nsd = TRUE.", call. = FALSE)
+      }
+      NULL
+    })
   }
   if (!is.null(edb)) {
     ann <- if (user_edb) isonet_transcript_biotypes(edb) else
       isonet_transcript_biotypes()
     # Every annotated transcript, so that seeds outside the network that are
     # decay transcripts are still reported as excluded
-    base <- stats::setNames(ann$transcript_biotype, ann$isoform_id)
+    base <- stats::setNames(ann$transcript_biotype,
+                            .strip_version(ann$isoform_id))
     by_id <- c(by_id, base[!names(base) %in% names(by_id)])
     if (is.null(igraph::vertex_attr(network, "gene_name"))) {
       genes <- if (user_edb) isonet_gene_names(edb) else isonet_gene_names()
-      vertex_genes <- sub("\\..*$", "", igraph::V(network)$gene)
+      vertex_genes <- .strip_gene_version(igraph::V(network)$gene)
       network <- igraph::set_vertex_attr(
         network, "gene_name",
-        value = genes$gene_name[match(vertex_genes, genes$gene_id)]
+        value = genes$gene_name[match(vertex_genes,
+                                      .strip_gene_version(genes$gene_id))]
       )
     }
   }
@@ -221,14 +254,14 @@ isonet_gene_names <- function(edb = NULL) {
   before_edges <- igraph::ecount(network)
   if (any(excluded)) network <- igraph::delete_vertices(network, which(excluded))
   network <- igraph::set_graph_attr(network, "excluded_transcript_ids", excluded_ids)
-  annotation <- if (user_edb) {
-    "user-supplied EnsDb; optional vertex/table overrides"
-  } else if (!is.null(edb)) {
-    paste("Ensembl 107 (GENCODE v41), AnnotationHub AH104864;",
-          "optional vertex/table overrides")
-  } else {
-    "vertex attribute and/or table"
-  }
+  annotation <- c(
+    if (user_edb) "user-supplied EnsDb" else if (!is.null(edb))
+      "Ensembl 107 (GENCODE v41), AnnotationHub AH104864",
+    if (!is.null(vertex_biotypes)) "transcript_biotype vertex attribute",
+    if (!is.null(table)) "transcript_biotypes table"
+  )
+  annotation <- if (length(annotation)) paste(annotation, collapse = "; ") else
+    "none"
   list(network = network, audit = list(
     include_nmd = include_nmd, include_nsd = include_nsd,
     annotation = annotation,

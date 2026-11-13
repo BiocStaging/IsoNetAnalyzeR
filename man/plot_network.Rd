@@ -11,7 +11,7 @@
 plot_network(
   object,
   level = "isoform",
-  all_edges = FALSE,
+  all_edges = NULL,
   group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
@@ -25,7 +25,7 @@ plot_network(
 \S4method{plot_network}{IsoNetAnalyzeR}(
   object,
   level = "isoform",
-  all_edges = FALSE,
+  all_edges = NULL,
   group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
@@ -40,7 +40,7 @@ plot_network(
 \S4method{plot_network}{VirtualPulldownLookup}(
   object,
   level = "isoform",
-  all_edges = FALSE,
+  all_edges = NULL,
   group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
@@ -54,7 +54,7 @@ plot_network(
 \S4method{plot_network}{GeneDiffPulldown}(
   object,
   level = "isoform",
-  all_edges = FALSE,
+  all_edges = NULL,
   group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
@@ -69,7 +69,7 @@ plot_network(
 \S4method{plot_network}{DifferentialPulldownAnalysis}(
   object,
   level = "isoform",
-  all_edges = FALSE,
+  all_edges = NULL,
   group_by_gene = FALSE,
   layout = "stress",
   node_size = 3,
@@ -92,10 +92,8 @@ plot_network(
 
 \item{level}{\code{"isoform"} (default) or \code{"gene"}.}
 
-\item{all_edges}{Logical.  \code{FALSE} (default) respects the
-\code{pi_threshold} stored in the object.  \code{TRUE} shows all edges
-present in the graph regardless of their \code{pi_score} attribute.
-See Details.}
+\item{all_edges}{Deprecated and ignored; a value other than the default
+\code{NULL} gives a warning.}
 
 \item{group_by_gene}{Logical.  Only used when \code{level = "isoform"}.
 Colours nodes by their parent gene when \code{TRUE}.  Default
@@ -208,13 +206,6 @@ virtual pulldown subgraphs from multiple genes into a single network to
 reveal cross-gene clustering and shared interaction partners.
 }
 \details{
-\strong{\code{all_edges}}: For \linkS4class{IsoNetAnalyzeR} the stored network
-is already filtered at construction time, so \code{all_edges = TRUE} only
-has an effect when a \code{pi_score} edge attribute is still present on the
-graph.  For \linkS4class{VirtualPulldownLookup} \code{all_edges = TRUE}
-re-displays edges whose \code{pi_score} falls below \code{@params$cutoff},
-which is meaningful for inspecting nodes that were filtered out.
-
 \strong{Gene-level plot}: Isoforms are contracted by the \code{gene} vertex
 attribute.  Isoforms with a missing \code{gene} attribute are grouped as
 \code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid

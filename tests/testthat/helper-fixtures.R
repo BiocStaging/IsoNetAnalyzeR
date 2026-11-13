@@ -1,3 +1,49 @@
+# Tests that need the Ensembl 107 annotation (AnnotationHub AH104864) or the
+# MSigDB gene sets (ExperimentHub) are skipped when these cannot be loaded,
+# for example offline without a hub cache. Each hub is tried once per run.
+hub_loaded <- new.env(parent = emptyenv())
+
+skip_if_no_ensembl <- function() {
+  if (is.null(hub_loaded$ensembl))
+    hub_loaded$ensembl <- tryCatch({
+      suppressMessages(.isonet_ensdb())
+      TRUE
+    }, error = function(e) FALSE)
+  if (!hub_loaded$ensembl)
+    skip("The Ensembl 107 annotation (AnnotationHub) cannot be loaded.")
+}
+
+skip_if_no_msigdb <- function() {
+  skip_if_not_installed("msigdb")
+  skip_if_not_installed("GSEABase")
+  if (is.null(hub_loaded$msigdb))
+    hub_loaded$msigdb <- tryCatch({
+      suppressMessages(.msigdb_go_sets())
+      TRUE
+    }, error = function(e) FALSE)
+  if (!hub_loaded$msigdb)
+    skip("The MSigDB gene sets (ExperimentHub) cannot be loaded.")
+}
+
+# Until the calling test ends: AnnotationHub in local mode with an empty
+# cache and no annotation loaded in the session, as offline without a cache
+local_offline_annotation <- function(env = parent.frame()) {
+  options <- list(CACHE = AnnotationHub::getAnnotationHubOption("CACHE"),
+                  LOCAL = AnnotationHub::getAnnotationHubOption("LOCAL"))
+  cached <- mget(c("ensdb", "biotypes", "gene_names", "symbols_failed"),
+                 envir = .annotation_cache, ifnotfound = list(NULL))
+  withr::defer({
+    for (o in names(options))
+      AnnotationHub::setAnnotationHubOption(o, options[[o]])
+    list2env(cached, envir = .annotation_cache)
+  }, envir = env)
+  AnnotationHub::setAnnotationHubOption(
+    "CACHE", withr::local_tempdir(.local_envir = env))
+  AnnotationHub::setAnnotationHubOption("LOCAL", TRUE)
+  list2env(list(ensdb = NULL, biotypes = NULL, gene_names = NULL),
+           envir = .annotation_cache)
+}
+
 # Gene G1's up and down seeds share one neighbour (tx_neighbour), so each
 # neighbourhood has 2 nodes and 1 edge. G3's seeds are in the network without
 # edges (one-node neighbourhoods); G_missing's seeds are not in the network
@@ -14,7 +60,6 @@ make_isolated_seed_fixture <- function() {
     to = c("tx_neighbour", "tx_neighbour"),
     interact = c(1L, 1L),
     pi = c(0.9, 0.8),
-    pi_score = c(0.9, 0.8),
     stringsAsFactors = FALSE
   )
   vertices$transcript_biotype <- "protein_coding"

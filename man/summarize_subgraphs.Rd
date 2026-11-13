@@ -7,8 +7,8 @@
 summarize_subgraphs(vp_list)
 }
 \arguments{
-\item{vp_list}{A named list of igraph objects, typically the output of
-repeated calls to \code{\link{virtual_pulldown}}.}
+\item{vp_list}{A list of igraph objects, typically the output of
+repeated calls to \code{\link{virtual_pulldown}}. Names are optional.}
 }
 \value{
 A \code{DataFrame} with one row per subgraph and the following

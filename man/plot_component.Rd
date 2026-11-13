@@ -90,8 +90,9 @@ Behaviour differs by analysis level — see below.}
 
 \section{Direction mode — isoform level}{
 
-Seed nodes are coloured by their caller-supplied direction: up (orange),
-down (sky blue), or present in both directions (purple).
+Seed nodes are coloured by their caller-supplied direction: up (green)
+and down (orange), the up and down colours of every plot, or present in
+both directions (purple).
 Neighbour behaviour is controlled by \code{colour_neighbours}:
 \describe{
 \item{\code{FALSE} (default)}{Neighbours are light grey.}
@@ -111,14 +112,14 @@ both up- and down-labelled isoforms). Instead a continuous
 \deqn{score = \frac{n_{up} - n_{down}}{n_{up} + n_{down}} \in [-1, +1]}
 where \eqn{n_{up}} and \eqn{n_{down}} are the numbers of seed isoforms from
 the input table that are up- and down-labelled for that gene. The score is
-mapped to a diverging orange–white–sky-blue colour scale:
+mapped to a diverging green–grey–orange colour scale:
 \itemize{
-\item \strong{+1} (pure up) → orange
-\item \strong{0} (balanced or neighbour) → white / neutral
-\item \strong{-1} (pure down) → sky blue
+\item \strong{+1} (pure up) → green
+\item \strong{0} (balanced or neighbour) → light grey
+\item \strong{-1} (pure down) → orange
 }
 Neighbour genes (no seed isoforms in this component) receive a score of 0
-and appear white/neutral.  \code{colour_neighbours} is ignored at gene level.
+and appear light grey.  \code{colour_neighbours} is ignored at gene level.
 }
 
 \examples{

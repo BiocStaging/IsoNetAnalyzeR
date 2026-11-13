@@ -302,24 +302,7 @@ run_component_analysis <- function(obj,
   obj_name <- .obj_name(substitute(obj))
 
   # -- Input validation --------------------------------------------------------
-  if (!is(obj, "IsoNetAnalyzeR"))
-    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
-
-  if (!is.character(analysis) || length(analysis) != 1L || is.na(analysis) ||
-      !nzchar(trimws(analysis)))
-    stop("`analysis` must be a single non-empty character string.", call. = FALSE)
-
-  if (!analysis %in% names(obj@analyses))
-    stop(sprintf(
-      "No analysis labelled '%s'. Available: %s",
-      analysis, paste(names(obj@analyses), collapse = ", ")
-    ), call. = FALSE)
-
-  diff_result <- obj@analyses[[analysis]]
-  if (!is(diff_result, "DifferentialPulldownAnalysis"))
-    stop(sprintf(
-      "Analysis '%s' is not a DifferentialPulldownAnalysis object.", analysis
-    ), call. = FALSE)
+  diff_result <- .resolve_diff_analysis(obj, analysis)
 
   if (!is.character(label) || length(label) != 1L || is.na(label) ||
       !nzchar(trimws(label)))
@@ -827,28 +810,10 @@ run_component_analysis <- function(obj,
 #' @noRd
 .resolve_component_analysis <- function(obj, analysis, component_analysis) {
 
-  if (!is(obj, "IsoNetAnalyzeR"))
-    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
-
-  if (!is.character(analysis) || length(analysis) != 1L ||
-      nchar(trimws(analysis)) == 0L)
-    stop("`analysis` must be a single non-empty character string.", call. = FALSE)
-
-  if (!analysis %in% names(obj@analyses))
-    stop(sprintf(
-      "No analysis labelled '%s'. Available: %s",
-      analysis, paste(names(obj@analyses), collapse = ", ")
-    ), call. = FALSE)
-
-  diff_result <- obj@analyses[[analysis]]
-
-  if (!is(diff_result, "DifferentialPulldownAnalysis"))
-    stop(sprintf(
-      "Analysis '%s' is not a DifferentialPulldownAnalysis object.", analysis
-    ), call. = FALSE)
+  diff_result <- .resolve_diff_analysis(obj, analysis)
 
   if (!is.character(component_analysis) || length(component_analysis) != 1L ||
-      nchar(trimws(component_analysis)) == 0L)
+      is.na(component_analysis) || nchar(trimws(component_analysis)) == 0L)
     stop("`component_analysis` must be a single non-empty character string.",
          call. = FALSE)
 

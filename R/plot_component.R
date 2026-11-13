@@ -13,16 +13,16 @@
 ##
 ##   ISOFORM LEVEL
 ##     Each node is one isoform.  Colour encodes its seed direction:
-##       up       → orange   (#E69F00)
-##       down     → sky blue (#56B4E9)
+##       up       → green    (.col_up, #009E73)
+##       down     → orange   (.col_down, #D55E00)
 ##       both     → purple   (#CC79A7)
 ##       neighbour → grey    (#CCCCCC)  [or territory colour if colour_neighbours]
 ##
 ##     colour_neighbours = TRUE (territory map):
 ##       Each neighbour is coloured by its nearest seed group via unweighted
 ##       shortest-path distance (igraph::distances()).
-##         dist_up < dist_down  → up territory   (orange)
-##         dist_down < dist_up  → down territory (sky blue)
+##         dist_up < dist_down  → up territory   (green)
+##         dist_down < dist_up  → down territory (orange)
 ##         equidistant          → contested      (purple)
 ##         unreachable          → grey fallback
 ##
@@ -34,12 +34,12 @@
 ##       score = (n_up_isoforms - n_down_isoforms) /
 ##               (n_up_isoforms + n_down_isoforms)   ∈ [-1, +1]
 ##
-##       +1  all contributing isoforms are up-regulated  → orange
-##        0  equal up and down (or a pure neighbour)     → white / neutral
-##       -1  all contributing isoforms are down-regulated → sky blue
+##       +1  all contributing isoforms are up-regulated  → green
+##        0  equal up and down (or a pure neighbour)     → light grey
+##       -1  all contributing isoforms are down-regulated → orange
 ##
-##     Rendered on a diverging orange–white–blue colour scale.
-##     Neighbour genes (no seed isoforms) receive score = 0 (neutral white).
+##     Rendered on a diverging green–grey–orange colour scale.
+##     Neighbour genes (no seed isoforms) receive score = 0 (light grey).
 ##     colour_neighbours is silently ignored at gene level (dominance already
 ##     encodes the full picture).
 ##
@@ -80,8 +80,9 @@ NULL
 #' }
 #'
 #' @section Direction mode — isoform level:
-#' Seed nodes are coloured by their caller-supplied direction: up (orange),
-#' down (sky blue), or present in both directions (purple).
+#' Seed nodes are coloured by their caller-supplied direction: up (green)
+#' and down (orange), the up and down colours of every plot, or present in
+#' both directions (purple).
 #' Neighbour behaviour is controlled by \code{colour_neighbours}:
 #' \describe{
 #'   \item{\code{FALSE} (default)}{Neighbours are light grey.}
@@ -99,14 +100,14 @@ NULL
 #' \deqn{score = \frac{n_{up} - n_{down}}{n_{up} + n_{down}} \in [-1, +1]}
 #' where \eqn{n_{up}} and \eqn{n_{down}} are the numbers of seed isoforms from
 #' the input table that are up- and down-labelled for that gene. The score is
-#' mapped to a diverging orange–white–sky-blue colour scale:
+#' mapped to a diverging green–grey–orange colour scale:
 #' \itemize{
-#'   \item \strong{+1} (pure up) → orange
-#'   \item \strong{0} (balanced or neighbour) → white / neutral
-#'   \item \strong{-1} (pure down) → sky blue
+#'   \item \strong{+1} (pure up) → green
+#'   \item \strong{0} (balanced or neighbour) → light grey
+#'   \item \strong{-1} (pure down) → orange
 #' }
 #' Neighbour genes (no seed isoforms in this component) receive a score of 0
-#' and appear white/neutral.  \code{colour_neighbours} is ignored at gene level.
+#' and appear light grey.  \code{colour_neighbours} is ignored at gene level.
 #'
 #' @param obj                An \linkS4class{IsoNetAnalyzeR} session object.
 #' @param analysis           Character scalar.  Label of the parent
@@ -177,38 +178,8 @@ plot_component <- function(obj,
                            ...) {
 
   # -- Input validation --------------------------------------------------------
-  if (!is(obj, "IsoNetAnalyzeR"))
-    stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
-
-  if (!is.character(analysis) || length(analysis) != 1L ||
-      nchar(trimws(analysis)) == 0L)
-    stop("`analysis` must be a single non-empty character string.", call. = FALSE)
-
-  if (!analysis %in% names(obj@analyses))
-    stop(sprintf(
-      "No analysis labelled '%s'. Available: %s",
-      analysis, paste(names(obj@analyses), collapse = ", ")
-    ), call. = FALSE)
-
+  ca          <- .resolve_component_analysis(obj, analysis, component_analysis)
   diff_result <- obj@analyses[[analysis]]
-  if (!is(diff_result, "DifferentialPulldownAnalysis"))
-    stop(sprintf(
-      "Analysis '%s' is not a DifferentialPulldownAnalysis object.", analysis
-    ), call. = FALSE)
-
-  if (!is.character(component_analysis) || length(component_analysis) != 1L ||
-      nchar(trimws(component_analysis)) == 0L)
-    stop("`component_analysis` must be a single non-empty character string.",
-         call. = FALSE)
-
-  if (!component_analysis %in% names(diff_result@component_analyses))
-    stop(sprintf(
-      "No component analysis labelled '%s' in analysis '%s'. Available: %s",
-      component_analysis, analysis,
-      paste(names(diff_result@component_analyses), collapse = ", ")
-    ), call. = FALSE)
-
-  ca <- diff_result@component_analyses[[component_analysis]]
 
   component_id <- .validate_positive_integer(component_id, "component_id")
 
@@ -233,8 +204,6 @@ plot_component <- function(obj,
 
   if (colour_neighbours && ca@level == "gene")
     message("`colour_neighbours` is ignored at gene level; dominance score is used instead.")
-
-  .check_plot_pkgs()
 
   # -- Resolve parameters from ComponentAnalysis -------------------------------
   direction  <- ca@direction
@@ -469,8 +438,8 @@ plot_component <- function(obj,
 #' colour_neighbours = TRUE:  territory map via nearest-seed distance.
 #'
 #' Colour palette (CVD-safe Okabe-Ito):
-#'   up / up territory   → orange   (#E69F00)
-#'   down / down terr.   → sky blue (#56B4E9)
+#'   up / up territory   → green    (.col_up)
+#'   down / down terr.   → orange   (.col_down)
 #'   both / contested    → purple   (#CC79A7)
 #'   unreachable nbr.    → grey     (#CCCCCC)
 #'
@@ -504,7 +473,7 @@ plot_component <- function(obj,
     igraph::vcount(g), igraph::ecount(g), n_multi
   )
 
-  dir_colours <- c(up = "#E69F00", down = "#56B4E9",
+  dir_colours <- c(up = .col_up, down = .col_down,
                    both = "#CC79A7", neighbour = "#CCCCCC")
 
   dir_labels <- if (colour_neighbours) {
@@ -562,10 +531,10 @@ plot_component <- function(obj,
 #' Each gene node is coloured by its dominance score:
 #'   score = (n_up_isoforms - n_down_isoforms) / (n_up_isoforms + n_down_isoforms)
 #'
-#' Mapped to a diverging orange–white–sky-blue scale:
-#'   +1 (pure up)      → orange   (#E69F00)
-#'    0 (balanced/nbr) → white
-#'   -1 (pure down)    → sky blue (#56B4E9)
+#' Mapped to a diverging green–grey–orange scale:
+#'   +1 (pure up)      → green    (.col_up)
+#'    0 (balanced/nbr) → light grey
+#'   -1 (pure down)    → orange   (.col_down)
 #'
 #' Seed genes (score != 0) are drawn as diamonds; pure neighbour genes
 #' (score == 0 and no seed isoforms) as circles.
@@ -602,12 +571,11 @@ plot_component <- function(obj,
     igraph::vcount(g), igraph::ecount(g), n_multi
   )
 
-  # Diverging scale: orange (+1) → white (0) → sky blue (-1)
-  # Colours match the up/down palette used throughout the package (Okabe-Ito).
+  # Diverging scale: up colour (+1) → grey (0) → down colour (-1)
   scale_col <- ggplot2::scale_colour_gradient2(
-    low      = "#56B4E9",   # sky blue (down-dominated)
-    mid      = "grey85",     # balanced / neighbour
-    high     = "#E69F00",   # orange   (up-dominated)
+    low      = .col_down,   # down-dominated
+    mid      = "grey85",    # balanced / neighbour
+    high     = .col_up,     # up-dominated
     midpoint = 0,
     limits   = c(-1, 1),
     name     = "Dominance\n(up to down)",

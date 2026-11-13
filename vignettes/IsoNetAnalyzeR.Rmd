@@ -134,10 +134,11 @@ unlist(eligibility[c("vertices_before", "excluded_nmd", "excluded_nsd",
 ```
 
 Set `include_nmd = TRUE` or `include_nsd = TRUE` when creating the session to
-keep either class. Another annotation can be passed as an `EnsDb` object or a
-table through the `transcript_biotypes` argument. A different network can be supplied as an `igraph` object
-through the `network` argument (Section \@ref(isolated-and-unmapped-seeds)
-builds one).
+keep either class. Another annotation can be passed as an `EnsDb` object
+through the `transcript_biotypes` argument; a table passed there overrides the
+Ensembl biotypes of the transcripts it lists. A different network can be
+supplied as an `igraph` object through the `network` argument (Section
+\@ref(isolated-and-unmapped-seeds) builds one).
 
 The session also stores the neighbourhood cutoff calibrated when the network
 was built. During a pulldown, a neighbour is kept only if at least this
@@ -233,6 +234,9 @@ head(cgs[order(-abs(cgs$delta_nodes)),
 
 `jaccard` is the overlap of the two neighbourhoods' nodes: 1 means the
 isoforms reach the same predicted partners, 0 means entirely different ones.
+Node and edge counts and `jaccard` include the seeds themselves, so a direction
+with more seeds counts more even when both reach the same partners;
+`n_up_resolved` and `n_down_resolved` give the numbers of seeds.
 
 ```{r overview-plot, fig.height = 6, fig.cap = caps$overview}
 plot_cross_gene_overview(obj, "t2d")
@@ -354,10 +358,10 @@ head(ora[, c("component_id", "pathway", "overlap", "padj")], 8)
 ## Gene set enrichment across genes
 
 `run_fgsea()` ranks the analysed genes by a neighbourhood statistic, by
-default the difference in node count between the up and down neighbourhoods,
-and runs **fgsea**. With `r nrow(cgs)` genes the ranked list is short, so
-only small gene sets can be tested and power is low. We lower `minSize` for
-illustration.
+default the difference in node count between the up and down neighbourhoods
+(seeds included, as above), and runs **fgsea**. With `r nrow(cgs)` genes the
+ranked list is short, so only small gene sets can be tested and power is low.
+We lower `minSize` for illustration.
 
 ```{r gsea, warning = FALSE}
 set.seed(42)

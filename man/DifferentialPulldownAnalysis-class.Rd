@@ -47,10 +47,11 @@ up/down subgraph properties side by side.  Columns:
 isoforms),
 \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
 representatives analyzed),
-\code{n_up_found}, \code{n_down_found} (input isoforms present in the
-network before BFS expansion),
-\code{pct_up_found}, \code{pct_down_found} (percentage of input isoforms
-found in the network; \code{NA} when \code{n_input == 0}),
+\code{n_up_found}, \code{n_down_found} (resolved representatives
+present in the network before BFS expansion),
+\code{pct_up_found}, \code{pct_down_found} (percentage of resolved
+representatives found in the network; \code{NA} when
+\code{n_resolved == 0}),
 \code{up_nodes}, \code{up_edges}, \code{up_density},
 \code{up_avg_degree}, \code{up_clustering},
 \code{up_starness} (degree centralization of the up subgraph; 0 = uniform,
@@ -79,7 +80,10 @@ up seeds; summarises how evenly interaction confidence is distributed
 across partners for the up seed set),
 \code{down_seed_mean_pi}, \code{down_seed_pi_entropy} (analogous metrics
 for the down seed set).  All four columns are \code{NA} when the
-corresponding subgraph is absent or carries no \code{pi} edge attribute.}
+corresponding subgraph is absent or carries no \code{pi} edge attribute.
+Node, edge and gene counts, their overlaps and \code{jaccard} include the
+seeds, so a direction with more seeds counts more even when both reach
+the same partners.}
 
 \item{\code{gsea_results}}{Named list of \linkS4class{FgseaResult} objects,
 keyed by user-supplied label.  Populated by \code{\link{run_fgsea}}.

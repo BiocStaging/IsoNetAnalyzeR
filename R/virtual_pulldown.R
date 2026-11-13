@@ -21,10 +21,14 @@
 #'   with all original vertices preserved (including those now isolated).
 #' @noRd
 .filter_interact_edges <- function(g) {
-  interact_vec <- igraph::edge_attr(g, "interact")
+  # edge_attr(g)$interact: edge_attr(g, name) first builds E(g), ~30 ms here
+  interact_vec <- igraph::edge_attr(g)$interact
 
   if (is.null(interact_vec))
     stop("Graph has no edge attribute 'interact'.", call. = FALSE)
+
+  # The bundled network has predicted edges only; skip copying it
+  if (all(interact_vec == 1L)) return(g)
 
   pred_edges <- which(interact_vec == 1L)
 
@@ -38,27 +42,23 @@
 }
 
 
-#' Annotate vertices with their BFS order relative to seed vertices
+#' The candidate subnetwork: vertices within \code{order} hops of a seed
 #'
-#' Performs a single BFS from all seed vertices simultaneously using
-#' \code{igraph::distances()}, which runs entirely at the C level and is
-#' substantially faster than looping over \code{igraph::neighbors()} in R.
-#' Each vertex is assigned the shortest-path distance from the nearest seed.
-#' Vertices not reachable within \code{order} hops are left as \code{NA}.
-#'
-#' Isolated seed vertices (degree zero in the interaction-filtered graph)
-#' receive \code{order = 0} automatically because their distance from
-#' themselves is 0, which satisfies \code{min_dist <= order} for any
-#' \code{order >= 0}.  They will therefore always be included in the
-#' candidate subnetwork and are subsequently protected from the cutoff filter
-#' in \code{virtual_pulldown()}.
+#' Finds the vertices within \code{order} hops of any seed with
+#' \code{igraph::ego()}, takes the subgraph they induce and gives each vertex
+#' its shortest-path distance from the nearest seed, computed with
+#' \code{igraph::distances()} inside that subgraph. Both run at the C level.
+#' An isolated seed (no predicted edge) is its own only candidate and gets
+#' \code{order = 0}; \code{virtual_pulldown()} always keeps seeds.
 #'
 #' @param g             An igraph object (interaction-edge filtered, with
 #'   isolated vertices retained).
 #' @param seed_vertices Character vector of seed vertex names.
 #' @param order         Integer. Maximum number of hops from any seed.
 #'
-#' @return The input graph with an \code{order} vertex attribute added.
+#' @return A list: \code{graph}, the candidate subgraph with an \code{order}
+#'   vertex attribute, and \code{vertices}, the candidates' vertex indices in
+#'   \code{g} (in the subgraph's vertex order).
 #' @noRd
 .get_neighbor <- function(g, seed_vertices, order) {
 
@@ -68,23 +68,22 @@
     stop("None of the seed vertices were found in the network.",
          call. = FALSE)
 
-  # igraph::distances() runs BFS entirely in C — one call covers all seeds
-  # simultaneously, returning a (n_seeds x n_vertices) matrix.
-  # Column-wise minimum gives each vertex's distance from its nearest seed.
-  # For isolated seeds, distances() returns 0 for the seed itself and Inf
-  # for all other vertices — so isolated seeds correctly get order = 0.
+  candidates <- sort(unique(unlist(
+    igraph::ego(g, order = order, nodes = seed_idx, mode = "all"),
+    use.names = FALSE
+  )))
+  # induced_subgraph() keeps the vertex order, so vertex i is candidates[i]
+  sub <- igraph::induced_subgraph(g, candidates)
+  # Every vertex on a shortest path of length <= order is itself within
+  # `order` hops, so nearest-seed distances inside the subgraph are exact
   dist_mat <- igraph::distances(
-    g,
-    v         = seed_idx,
+    sub,
+    v         = match(seed_idx, candidates),
     mode      = "all",
     algorithm = "unweighted"   # pure BFS — fastest option for unweighted graphs
   )
-
-  min_dist <- if (is.matrix(dist_mat)) apply(dist_mat, 2L, min) else as.vector(dist_mat)
-
-  # Vertices unreachable within `order` hops stay NA
-  igraph::V(g)$order <- ifelse(min_dist <= order, min_dist, NA_real_)
-  g
+  igraph::V(sub)$order <- apply(dist_mat, 2L, min)
+  list(graph = sub, vertices = candidates)
 }
 
 
@@ -179,26 +178,18 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL,
   # single-node subgraph rather than disappearing before BFS.
   g_interact <- .filter_interact_edges(obj@network)
 
-  # ── Step 2: BFS expansion — single C-level distances() call ────────────────
-  g_interact <- .get_neighbor(g_interact, seed_vertices, order)
+  # ── Steps 2-3: candidate subnetwork within `order` hops of the seeds ───────
+  candidates <- .get_neighbor(g_interact, seed_vertices, order)
+  g_sub      <- candidates$graph
+  sub_names  <- igraph::V(g_sub)$name
 
-  # ── Step 3: extract subnetwork vertices via integer indices (fast) ──────────
-  sub_idx <- which(!is.na(igraph::V(g_interact)$order))
-
-  if (length(sub_idx) == 0L)
-    stop("No vertices found within the requested hop distance from the seeds.",
-         call. = FALSE)
-
-  sub_names <- igraph::V(g_interact)$name[sub_idx]
-
-  # ── Step 4: compute degrees — one induced_subgraph call, integer indices ────
+  # ── Step 4: compute degrees ─────────────────────────────────────────────────
   # Degree in the full interaction graph (external + internal edges combined).
   # Isolated seeds have deg_full = 0; frac_internal is set to NA for them,
   # but they are explicitly protected in Step 5 below.
-  deg_full <- igraph::degree(g_interact, v = sub_idx, mode = "all")
+  deg_full <- igraph::degree(g_interact, v = candidates$vertices, mode = "all")
 
   # Degree within the candidate subnetwork (internal edges only)
-  g_sub        <- igraph::induced_subgraph(g_interact, vids = sub_idx)
   deg_internal <- igraph::degree(g_sub, mode = "all")
 
   frac_internal <- ifelse(deg_full > 0L, deg_internal / deg_full, NA_real_)
@@ -209,7 +200,7 @@ virtual_pulldown <- function(obj, seed_vertices, order, cutoff = NULL,
   # themselves.  An isolated seed (frac_internal = NA, degree = 0) represents
   # a valid result — the isoform is in the network but is incident to no
   # predicted edge in this network — and must not be silently discarded.
-  is_seed   <- igraph::V(g_interact)$order[sub_idx] == 0L
+  is_seed   <- igraph::V(g_sub)$order == 0L
   keep_mask <- is_seed | (!is.na(frac_internal) & frac_internal >= cutoff)
   keep_names <- sub_names[keep_mask]
 

@@ -21,6 +21,7 @@ test_that("bundled network keeps every vertex and only predicted interactions", 
 })
 
 test_that("default session applies eligibility to the reduced network", {
+  skip_if_no_ensembl()
   obj <- suppressMessages(IsoNetAnalyzeR("bundled"))
   audit <- get_metadata(obj, "network_biotype_filter")
   expect_equal(audit$vertices_before, 58164L)
@@ -31,6 +32,7 @@ test_that("default session applies eligibility to the reduced network", {
 })
 
 test_that("CLTCL1 example reproduces the published neighbourhood sizes", {
+  skip_if_no_ensembl()
   seeds <- utils::read.csv(system.file(
     "extdata", "gse141432_t2d_vs_lean_seeds.csv", package = "IsoNetAnalyzeR"
   ))
@@ -57,6 +59,7 @@ test_that("repeated source pairs are merged and self-pairs removed", {
 })
 
 test_that("APAF1 neighbourhoods match the simplified network", {
+  skip_if_no_ensembl()
   # In the 0.99.0 network the DIABLO transcript ENST00000464942 entered the
   # up-labelled APAF1 neighbourhood only because its repeated edges and its
   # self-pair inflated the degrees behind frac_internal. Expected sizes are
@@ -112,6 +115,7 @@ test_that("metadata, network and pulldown-graph accessors", {
 })
 
 test_that("transcript biotypes come from Ensembl 107 and are cached", {
+  skip_if_no_ensembl()
   first <- isonet_transcript_biotypes()
   expect_identical(isonet_transcript_biotypes(), first)
   expect_s4_class(first, "DataFrame")
@@ -129,6 +133,7 @@ test_that("transcript biotypes come from Ensembl 107 and are cached", {
 })
 
 test_that("gene symbols cover the bundled network", {
+  skip_if_no_ensembl()
   gene_names <- isonet_gene_names()
   expect_s4_class(gene_names, "DataFrame")
   expect_named(gene_names, c("gene_id", "gene_name"))
@@ -144,7 +149,69 @@ test_that("gene symbols cover the bundled network", {
                    "CLTCL1 (ENSG00000070371)")
 })
 
+test_that("networks with Ensembl transcript IDs always use Ensembl 107", {
+  skip_if_no_ensembl()
+  ann <- isonet_transcript_biotypes()
+  decay <- ann$isoform_id[ann$transcript_biotype %in%
+                            c("nonsense_mediated_decay", "non_stop_decay")]
+  # ENST00000477548 is an NMD transcript outside the network whose
+  # protein-identical alias would map to a coding representative
+  g <- get(".network_data", envir = asNamespace("IsoNetAnalyzeR"))
+  expect_true("ENST00000477548" %in% decay)
+  expect_false("ENST00000477548" %in% igraph::V(g)$name)
+
+  # A table annotating every vertex still excludes every annotated decay
+  # transcript of Ensembl 107, as the default session does
+  complete <- ann[ann$isoform_id %in% igraph::V(g)$name, ]
+  obj <- suppressMessages(IsoNetAnalyzeR("table", g,
+                                         transcript_biotypes = complete))
+  expect_setequal(
+    igraph::graph_attr(get_network(obj), "excluded_transcript_ids"), decay
+  )
+  resolved <- resolve_duplicate_isoforms("ENST00000477548", get_network(obj))
+  expect_identical(attr(resolved, "dedup_audit")$resolution,
+                   "excluded_transcript_biotype")
+
+  # With both exclusions off, every bundled transcript is still annotated
+  both <- suppressMessages(IsoNetAnalyzeR("both", include_nmd = TRUE,
+                                          include_nsd = TRUE))
+  audit <- get_metadata(both, "network_biotype_filter")
+  expect_equal(audit$unknown_vertices, 0L)
+  expect_equal(audit$vertices_after, 58164L)
+  expect_match(audit$annotation, "Ensembl 107")
+})
+
+test_that("GENCODE PAR_Y gene IDs get their symbol", {
+  skip_if_no_ensembl()
+  # ENSG00000002586 is CD99; GENCODE marks its Y copy with _PAR_Y
+  expect_identical(.gene_label("ENSG00000002586.20_PAR_Y"), "CD99")
+})
+
+test_that("a failed annotation load is retried only once it has loaded", {
+  # The symbol table loads only once the EnsDb is in the session cache
+  calls <- 0L
+  local_mocked_bindings(isonet_gene_names = function(edb = NULL) {
+    calls <<- calls + 1L
+    if (is.null(.annotation_cache$ensdb)) stop("offline")
+    S4Vectors::DataFrame(gene_id = "ENSG00000070371", gene_name = "CLTCL1")
+  })
+  cached <- mget(c("ensdb", "gene_names", "symbols_failed"),
+                 envir = .annotation_cache, ifnotfound = list(NULL))
+  withr::defer(list2env(cached, envir = .annotation_cache))
+  .annotation_cache$ensdb <- NULL
+  .annotation_cache$gene_names <- NULL
+  .annotation_cache$symbols_failed <- NULL
+  # Two label lookups, one load attempt; the IDs are kept
+  expect_identical(.gene_label("ENSG00000070371"), "ENSG00000070371")
+  expect_identical(.gene_label("ENSG00000070371"), "ENSG00000070371")
+  expect_identical(calls, 1L)
+  # Once the EnsDb is loaded by another route (a session), symbols return
+  .annotation_cache$ensdb <- "loaded"
+  expect_identical(.gene_label("ENSG00000070371"), "CLTCL1")
+})
+
 test_that("node labels use symbols, identifiers or nothing", {
+  skip_if_no_ensembl()
   g <- igraph::make_graph(~ tx1 - tx2 - tx3)
   igraph::V(g)$gene <- c("ENSG00000070371", "ENSG00000070371", "gene_X")
   expect_identical(igraph::V(.add_node_labels(g, "symbol"))$node_label,
@@ -181,6 +248,7 @@ test_that("printed summaries keep their column alignment", {
   expect_identical(cli::cli_fmt(.cli_aligned("Up : {x}
                                              and more")),
                    "Up : 5 and more")
+  skip_if_no_ensembl()
   obj <- suppressMessages(IsoNetAnalyzeR("printing"))
   out <- cli::cli_fmt(show(obj))
   expect_true(any(grepl("Network     : 46,433 transcripts, 146,256 edges",

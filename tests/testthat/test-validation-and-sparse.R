@@ -80,6 +80,8 @@ test_that("decay defaults filter seeds and neighbours with independent opt-ins",
 test_that("custom networks require transcript annotation unless explicitly unfiltered", {
   graph <- make_isolated_seed_fixture()$obj@network
   graph <- igraph::delete_vertex_attr(graph, "transcript_biotype")
+  # Without Ensembl transcript IDs the Ensembl annotation is never loaded
+  local_mocked_bindings(.isonet_ensdb = function() stop("AnnotationHub used"))
   expect_error(IsoNetAnalyzeR("unknown", graph), "unknown transcript biotypes")
   expect_s4_class(IsoNetAnalyzeR("unfiltered", graph,
                                 include_nmd = TRUE, include_nsd = TRUE), "IsoNetAnalyzeR")
@@ -90,6 +92,126 @@ test_that("custom networks require transcript annotation unless explicitly unfil
   conflict <- rbind(ann, transform(ann[1, ], transcript_biotype = "non_stop_decay"))
   expect_error(IsoNetAnalyzeR("conflicting", graph, transcript_biotypes = conflict),
                "Conflicting transcript biotypes")
+})
+
+test_that("EnsDb transcript and gene versions are ignored", {
+  # A GENCODE-style annotation with version suffixes: ENST1 is protein
+  # coding and ENST2 NMD, both of gene ENSG1, whose symbol is SYM1
+  g <- paste('gene_id "ENSG00000000001.5"; gene_name "SYM1";',
+             'gene_biotype "protein_coding";')
+  t1 <- paste(g, 'transcript_id "ENST00000000001.3";',
+              'transcript_biotype "protein_coding";')
+  t2 <- paste(g, 'transcript_id "ENST00000000002.2";',
+              'transcript_biotype "nonsense_mediated_decay";')
+  e1 <- 'exon_number "1"; exon_id "ENSE00000000001.1";'
+  e2 <- 'exon_number "1"; exon_id "ENSE00000000002.1";'
+  rows <- rbind(
+    c("gene",       900, ".", g),
+    c("transcript", 900, ".", t1),
+    c("exon",       900, ".", paste(t1, e1)),
+    c("CDS",        700, "0", paste(t1, e1, 'protein_id "ENSP00000000001.1";')),
+    c("transcript", 800, ".", t2),
+    c("exon",       800, ".", paste(t2, e2)),
+    c("CDS",        600, "0", paste(t2, e2, 'protein_id "ENSP00000000002.1";'))
+  )
+  gtf <- tempfile(fileext = ".gtf")
+  writeLines(paste("1", "test", rows[, 1], 100, rows[, 2], ".", "+", rows[, 3],
+                   rows[, 4], sep = "\t"), gtf)
+  # No download: ensembldb's sequence-length lookup returns what it returns
+  # offline (no lengths). The function is internal to ensembldb.
+  skip_if_not(exists("tryGetSeqinfoFromEnsembl", asNamespace("ensembldb"),
+                     inherits = FALSE),
+              "ensembldb has no tryGetSeqinfoFromEnsembl() to replace")
+  local_mocked_bindings(
+    tryGetSeqinfoFromEnsembl = function(...) matrix(nrow = 0L, ncol = 2L),
+    .package = "ensembldb")
+  edb <- ensembldb::EnsDb(suppressWarnings(suppressMessages(
+    ensembldb::ensDbFromGtf(gtf, outfile = tempfile(fileext = ".sqlite"),
+                            organism = "Homo_sapiens",
+                            genomeVersion = "GRCh38", version = 107)
+  )))
+  graph <- igraph::graph_from_data_frame(
+    data.frame(from = "ENST00000000001", to = "ENST00000000002", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(name = c("ENST00000000001", "ENST00000000002"),
+                          gene = "ENSG00000000001"))
+  obj <- suppressMessages(IsoNetAnalyzeR("edb", graph,
+                                         transcript_biotypes = edb))
+  net <- get_network(obj)
+  expect_identical(igraph::V(net)$name, "ENST00000000001")
+  expect_identical(igraph::V(net)$gene_name, "SYM1")
+})
+
+test_that("the Ensembl annotation is optional only without decay exclusion", {
+  local_offline_annotation()
+  graph <- igraph::graph_from_data_frame(
+    data.frame(from = "ENST00000000001", to = "ENST00000000002", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(name = c("ENST00000000001", "ENST00000000002"),
+                          gene = "ENSG00000000001"))
+
+  # Nothing excluded: both transcripts are kept, without biotypes
+  expect_message(
+    obj <- IsoNetAnalyzeR("offline", graph, include_nmd = TRUE,
+                          include_nsd = TRUE),
+    "biotypes and gene symbols are not annotated")
+  audit <- get_metadata(obj, "network_biotype_filter")
+  expect_equal(c(audit$vertices_after, audit$unknown_vertices), c(2L, 2L))
+  # An exclusion needs a biotype for every vertex; the error says how
+  expect_error(suppressMessages(IsoNetAnalyzeR("offline", graph)),
+               "give every vertex a biotype", fixed = TRUE)
+})
+
+test_that("offline, an annotated Ensembl network is created with a warning", {
+  local_offline_annotation()
+  # ENST2 is annotated as NMD in the network itself
+  graph <- igraph::graph_from_data_frame(
+    data.frame(from = "ENST00000000001", to = "ENST00000000002", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(
+      name = c("ENST00000000001", "ENST00000000002"), gene = "ENSG00000000001",
+      transcript_biotype = c("protein_coding", "nonsense_mediated_decay")))
+  expect_warning(obj <- suppressMessages(IsoNetAnalyzeR("offline", graph)),
+                 "cannot be blocked during identifier resolution")
+  expect_identical(igraph::V(get_network(obj))$name, "ENST00000000001")
+})
+
+test_that("a failed load at session creation is not retried for labels", {
+  local_offline_annotation()
+  calls <- 0L
+  local_mocked_bindings(.isonet_ensdb = function() {
+    calls <<- calls + 1L
+    stop("offline")
+  })
+  graph <- igraph::graph_from_data_frame(
+    data.frame(from = "ENST00000000001", to = "ENST00000000002", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(name = c("ENST00000000001", "ENST00000000002"),
+                          gene = "ENSG00000070371"))
+  obj <- suppressMessages(IsoNetAnalyzeR("offline", graph, include_nmd = TRUE,
+                                         include_nsd = TRUE))
+  # One attempt, by the session; the label keeps the gene ID
+  expect_identical(.gene_label("ENSG00000070371"), "ENSG00000070371")
+  expect_identical(calls, 1L)
+})
+
+test_that("placeholder IDs starting with ENST are not Ensembl IDs", {
+  graph <- igraph::graph_from_data_frame(
+    data.frame(from = "ENST_UP_1", to = "ENST_DOWN_1", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(name = c("ENST_UP_1", "ENST_DOWN_1"), gene = "G1"))
+  # ENST_UP_1 is not ENST followed by digits, so Ensembl is never loaded
+  local_mocked_bindings(.isonet_ensdb = function() stop("AnnotationHub used"))
+  expect_error(suppressMessages(IsoNetAnalyzeR("placeholder", graph)),
+               "unknown transcript biotypes")
+})
+
+test_that("the annotation load error gives no session advice elsewhere", {
+  local_offline_annotation()
+  msg <- tryCatch(suppressMessages(isonet_gene_names()),
+                  error = conditionMessage)
+  expect_match(msg, "Could not load AnnotationHub record AH104864")
+  expect_no_match(msg, "session|include_nmd")
 })
 
 test_that("decay-excluded aliases cannot bypass eligibility by duplicate remapping", {
@@ -138,6 +260,61 @@ test_that("retained support requires a significant mapped seed and both directio
     order = 1, confirm = FALSE, seed_padj_col = "q"), "numeric in")
   expect_error(run_differential_pulldown(fixture$obj, "bad_alpha", input,
     order = 1, confirm = FALSE, seed_padj_col = "q", seed_fdr = 0), "seed_fdr")
+})
+
+test_that("runs record exclusions, collisions and audits of this run only", {
+  fixture <- make_isolated_seed_fixture()
+  input <- fixture$input
+  input$q <- c(.01, .01, .2, .3, .001, .001)
+  run <- function(obj, ...) suppressWarnings(run_differential_pulldown(
+    obj, "run", input, order = 1, cutoff = 0, confirm = FALSE,
+    verbose = FALSE, ...))
+
+  obj <- run(fixture$obj, seed_padj_col = "q")
+  # Every fixture transcript is protein coding: no seed is excluded
+  excluded <- obj@metadata$analysis_biotype_exclusions$run
+  expect_identical(nrow(excluded), 0L)
+  expect_named(excluded, names(input))
+  # No gene has up and down seeds of one protein; G3 and G_missing fail the
+  # support filter instead
+  genes <- get_metadata(obj, "analysis_network_coverage")$run$genes
+  expect_equal(genes$n_genes_analyzed, 1L)
+  expect_equal(genes$n_genes_dropped_opposite_collision, 0L)
+
+  # A rerun without seed_padj_col and duplicate resolution keeps no audit of
+  # the first run
+  obj <- run(obj, resolve_duplicates = FALSE)
+  expect_named(get_analysis(obj, "run")@gene_results,
+               c("G1", "G3", "G_missing"))
+  expect_null(get_metadata(obj, "analysis_seed_support")$run)
+  expect_null(get_metadata(obj, "analysis_duplicate_resolution")$run)
+})
+
+test_that("versioned Ensembl gene IDs match unversioned network genes", {
+  network <- igraph::graph_from_data_frame(
+    data.frame(from = c("tx_up", "tx_down"), to = "tx_n", interact = 1L),
+    directed = FALSE,
+    vertices = data.frame(
+      name = c("tx_up", "tx_down", "tx_n"),
+      gene = c("ENSG00000000001", "ENSG00000000001", "ENSG00000000002"),
+      transcript_biotype = "protein_coding"))
+  obj <- suppressMessages(IsoNetAnalyzeR(
+    "versioned", network, metadata = list(network_cutoff = 0)))
+  input <- data.frame(gene_id = "ENSG00000000001.16",
+                      isoform_id = c("tx_up", "tx_down"),
+                      direction = c("up", "down"))
+  # ENSG00000000001.16 is ENSG00000000001 without its version
+  obj <- run_differential_pulldown(obj, "v", input, order = 1,
+                                   confirm = FALSE, verbose = FALSE)
+  expect_named(get_analysis(obj, "v")@gene_results, "ENSG00000000001")
+
+  # A network that uses the versioned ID keeps it
+  igraph::V(network)$gene[1:2] <- "ENSG00000000001.16"
+  versioned <- suppressMessages(IsoNetAnalyzeR(
+    "versioned", network, metadata = list(network_cutoff = 0)))
+  versioned <- run_differential_pulldown(versioned, "v", input, order = 1,
+                                         confirm = FALSE, verbose = FALSE)
+  expect_named(get_analysis(versioned, "v")@gene_results, "ENSG00000000001.16")
 })
 
 test_that("a decay-excluded significant seed cannot support a coding pair", {

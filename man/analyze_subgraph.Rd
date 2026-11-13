@@ -19,8 +19,9 @@ columns:
 \code{order == 0} annotation.}
 \item{degree}{Number of edges connected to the vertex.}
 \item{clustering}{Local clustering coefficient.}
-\item{distance_from_seed}{Average shortest-path distance from all seeds.
-\code{Inf} indicates the vertex is unreachable from the seed(s).}
+\item{distance_from_seed}{Shortest-path distance from the nearest seed
+(0 for a seed). \code{Inf} indicates the vertex is unreachable from
+every seed.}
 \item{mean_pi}{Mean of the \code{pi} edge-attribute values across all
 incident edges.  \code{NA} for non-seed vertices.}
 \item{pi_entropy}{Shannon entropy of the normalised \code{pi} values
@@ -34,7 +35,7 @@ seed vertices with only one incident edge.}
 \description{
 Returns node-level statistics for every vertex in a virtual pulldown
 subgraph. When multiple seed vertices are present, \code{distance_from_seed}
-is the average shortest-path distance across all seeds.
+is the shortest-path distance to the nearest seed.
 }
 \details{
 Pi statistics (\code{mean_pi}, \code{pi_entropy}) are computed only for

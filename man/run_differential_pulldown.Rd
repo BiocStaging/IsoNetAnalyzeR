@@ -81,7 +81,10 @@ A CSV, Excel (\code{.xlsx} / \code{.xls}), \code{data.frame} or
 \code{DataFrame} in
 \strong{long format} with exactly the following columns (any order):
 \describe{
-\item{gene_id}{Gene identifier (e.g. Ensembl gene ID or gene symbol).}
+\item{gene_id}{Gene identifier matching the network's \code{gene}
+vertex attribute; an Ensembl gene ID for the bundled network. A
+version suffix (\code{ENSG00000070371.16}) is removed unless the
+network uses the versioned ID.}
 \item{isoform_id}{Isoform / transcript identifier matching vertex names
 in the session network.}
 \item{direction}{Must be exactly \code{"up"} or \code{"down"} (case

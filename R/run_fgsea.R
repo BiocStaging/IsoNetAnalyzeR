@@ -27,22 +27,22 @@ NULL
 #  Valid rank_by presets
 # ==============================================================================
 
-#' Named character vector of all valid rank_by presets
+#' The rank_by presets and the cross_gene_summary columns they subtract
 #'
-#' Each name is the user-facing preset string; the value is a short description
-#' used in messages and stored in the result object.
+#' Each name is the user-facing preset string; the value is the pair of
+#' columns whose difference (first minus second) ranks the genes.
 #' @noRd
-.FGSEA_RANK_PRESETS <- c(
-  delta_nodes          = "up_nodes - down_nodes",
-  delta_edges          = "up_edges - down_edges",
-  delta_avg_degree     = "up_avg_degree - down_avg_degree",
-  delta_density        = "up_density - down_density",
-  delta_clustering     = "up_clustering - down_clustering",
-  delta_starness       = "up_starness - down_starness",
-  delta_genes          = "up_genes - down_genes",
-  delta_seed_mean_pi   = "up_seed_mean_pi - down_seed_mean_pi",
-  delta_seed_pi_entropy = "up_seed_pi_entropy - down_seed_pi_entropy",
-  edges_gained_vs_lost = "n_edges_gained - n_edges_lost"
+.FGSEA_RANK_PRESETS <- list(
+  delta_nodes           = c("up_nodes",           "down_nodes"),
+  delta_edges           = c("up_edges",           "down_edges"),
+  delta_avg_degree      = c("up_avg_degree",      "down_avg_degree"),
+  delta_density         = c("up_density",         "down_density"),
+  delta_clustering      = c("up_clustering",      "down_clustering"),
+  delta_starness        = c("up_starness",        "down_starness"),
+  delta_genes           = c("up_genes",           "down_genes"),
+  delta_seed_mean_pi    = c("up_seed_mean_pi",    "down_seed_mean_pi"),
+  delta_seed_pi_entropy = c("up_seed_pi_entropy", "down_seed_pi_entropy"),
+  edges_gained_vs_lost  = c("n_edges_gained",     "n_edges_lost")
 )
 
 
@@ -65,7 +65,8 @@ NULL
 #'   \linkS4class{DifferentialPulldownAnalysis} run.
 #' @slot result_table \code{DataFrame}.  Output of \code{fgsea::fgsea()} with
 #'   standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
-#'   \code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
+#'   \code{NES}, \code{size}, \code{leadingEdge}, and \code{log2err}
+#'   (\code{fgseaMultilevel}) or \code{nMoreExtreme} (\code{fgseaSimple}).
 #'   Sorted by \code{padj} ascending.  Access via
 #'   \code{get_gsea_table(obj, analysis, gsea_label)}.
 #' @slot ranked_genes Named numeric vector.  The gene-level rank statistic
@@ -79,8 +80,9 @@ NULL
 #'   release fetched with the msigdb package, or \code{NA} when gene sets
 #'   were supplied.
 #' @slot params       Named list.  Run parameters: \code{minSize},
-#'   \code{maxSize}, \code{nperm}, \code{n_genes_ranked},
-#'   \code{n_genes_dropped_na}.
+#'   \code{maxSize}, \code{nperm} (\code{NULL} unless set),
+#'   \code{method} (\code{"fgseaMultilevel"} or \code{"fgseaSimple"}),
+#'   \code{n_genes_ranked}, \code{n_genes_dropped_na}.
 #' @slot created_at   \code{POSIXct} scalar.  Timestamp of the run.
 #'
 #' @return Objects of this class are created by \code{\link{run_fgsea}} and returned by \code{\link{get_gsea_result}}.
@@ -153,8 +155,11 @@ setMethod("show", "FgseaResult", function(object) {
       "Top pathway  : {top_row$pathway}  (NES = {round(top_row$NES, 3)}, padj = {signif(top_row$padj, 3)})"
     )
 
+  method <- object@params$method %||% "fgseaSimple"
+  if (!is.null(object@params$nperm))
+    method <- sprintf("%s, nperm = %d", method, object@params$nperm)
   .cli_aligned(
-    "Params       : minSize = {object@params$minSize}  maxSize = {object@params$maxSize}  nperm = {object@params$nperm}"
+    "Params       : minSize = {object@params$minSize}  maxSize = {object@params$maxSize}  method = {method}"
   )
   cli::cli_rule()
   invisible(object)
@@ -179,7 +184,9 @@ setMethod("show", "FgseaResult", function(object) {
 #'     A named delta computed as the up-seed metric minus the down-seed metric
 #'     from \code{cross_gene_summary}. Positive values indicate a larger
 #'     static predicted neighbourhood metric for the up-labelled seeds;
-#'     negative values indicate the opposite.
+#'     negative values indicate the opposite. Node, edge and gene counts
+#'     include the seeds themselves, so a direction with more seeds counts
+#'     more; compare \code{n_up_resolved} and \code{n_down_resolved}.
 #'
 #'     Available presets:
 #'     \itemize{
@@ -217,14 +224,22 @@ setMethod("show", "FgseaResult", function(object) {
 #' GSEABase \code{GeneSetCollection}, for example a collection from the
 #' msigdb package. Gene symbols in a \code{GeneSetCollection} are mapped to
 #' Ensembl gene IDs with the Ensembl 107 annotation
-#' (\code{\link{isonet_gene_names}}).
+#' (\code{\link{isonet_gene_names}}). The gene IDs of a collection without
+#' an identifier type, such as one read with \code{GSEABase::getGmt()}, are
+#' taken as Ensembl gene IDs when they all look like Ensembl gene IDs, and as
+#' gene symbols otherwise. Gene sets are matched to the IDs of the ranked
+#' genes (the analysed gene IDs, or the names of \code{stats}): IDs that
+#' are ranked genes are kept, and other Ensembl gene IDs match the ranked
+#' genes with or without a version suffix. Gene sets with no ranked gene are
+#' an error.
 #'
 #' When \code{pathways = NULL} (default), the GO gene sets of MSigDB
 #' release 2023.1 (collection C5) are fetched with the msigdb package from
-#' ExperimentHub. \code{go_category} selects the subcollection(s):
-#' \code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
-#' \code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
-#' fgsea estimates p-values by permutation, so set the random seed before
+#' ExperimentHub and kept for the R session. \code{go_category} selects the
+#' subcollection(s): \code{"GO:BP"} (biological process), \code{"GO:MF"}
+#' (molecular function), \code{"GO:CC"} (cellular component), or
+#' \code{"ALL"} for all three.
+#' fgsea estimates p-values by random sampling, so set the random seed before
 #' this call.
 #'
 #' @param obj        An \linkS4class{IsoNetAnalyzeR} session object.
@@ -249,8 +264,12 @@ setMethod("show", "FgseaResult", function(object) {
 #' @param minSize    Integer.  Minimum gene set size after filtering to genes
 #'   present in the ranked list.  Default \code{15}.
 #' @param maxSize    Integer.  Maximum gene set size.  Default \code{500}.
-#' @param nperm      Integer.  Number of permutations for p-value estimation.
-#'   Default \code{1000}.
+#' @param nperm      Integer or \code{NULL} (default).  With \code{NULL},
+#'   fgsea estimates p-values with \code{fgseaMultilevel}, which also
+#'   estimates very small p-values (down to its \code{eps}, which can be
+#'   passed through \code{...}). A number runs \code{fgseaSimple} with that
+#'   many permutations, which cannot give a p-value below
+#'   \code{1 / (nperm + 1)}.
 #' @param ...        Additional arguments passed to \code{fgsea::fgsea()}.
 #'
 #' @return The \linkS4class{IsoNetAnalyzeR} session object, invisibly, with the
@@ -302,15 +321,10 @@ run_fgsea <- function(obj,
                       go_category  = c("GO:BP", "GO:MF", "GO:CC", "ALL"),
                       minSize      = 15L,
                       maxSize      = 500L,
-                      nperm        = 1000L,
+                      nperm        = NULL,
                       ...) {
 
   obj_name <- .obj_name(substitute(obj))
-
-  # -- Package checks ----------------------------------------------------------
-  if (!requireNamespace("fgsea",    quietly = TRUE))
-    stop("Package 'fgsea' is required. Install with:\n",
-         "  BiocManager::install('fgsea')", call. = FALSE)
 
   # -- Input validation --------------------------------------------------------
   if (!is(obj, "IsoNetAnalyzeR"))
@@ -325,7 +339,8 @@ run_fgsea <- function(obj,
   go_category <- match.arg(go_category)
   minSize <- .validate_positive_integer(minSize, "minSize")
   maxSize <- .validate_positive_integer(maxSize, "maxSize")
-  nperm   <- .validate_positive_integer(nperm, "nperm")
+  if (!is.null(nperm)) nperm <- .validate_positive_integer(nperm, "nperm")
+  method <- if (is.null(nperm)) "fgseaMultilevel" else "fgseaSimple"
   if (maxSize < minSize)
     stop("`maxSize` must be greater than or equal to `minSize`.", call. = FALSE)
 
@@ -355,7 +370,7 @@ run_fgsea <- function(obj,
 
     message(sprintf(
       "Ranking genes by preset '%s'  [%s].",
-      rank_by, .FGSEA_RANK_PRESETS[rank_by]
+      rank_by, paste(.FGSEA_RANK_PRESETS[[rank_by]], collapse = " - ")
     ))
   }
 
@@ -379,30 +394,32 @@ run_fgsea <- function(obj,
   stats_vec <- sort(stats_vec, decreasing = TRUE)
 
   # -- Build / fetch pathways --------------------------------------------------
-  network_genes <- unique(igraph::V(obj@network)$gene)
+  # Gene sets are matched to the IDs of the ranked genes
+  ranked_genes <- names(stats_vec)
   if (is.null(pathways)) {
-    pathways   <- .fetch_go_pathways(go_category, network_genes)
+    pathways   <- .fetch_go_pathways(go_category, ranked_genes)
     go_cat_str <- sprintf("%s (MSigDB %s)", go_category, .MSIGDB_VERSION)
   } else {
-    pathways   <- .as_pathway_list(pathways, network_genes)
+    pathways   <- .as_pathway_list(pathways, ranked_genes)
     go_cat_str <- NA_character_
     message(sprintf("Using user-supplied gene sets (%d).", length(pathways)))
   }
 
   # -- Run fgsea ---------------------------------------------------------------
   message(sprintf(
-    "Running fgsea: %d genes ranked, %d pathway(s), minSize = %d, maxSize = %d, nperm = %d ...",
-    length(stats_vec), length(pathways), minSize, maxSize, nperm
+    "Running fgsea (%s): %d genes ranked, %d pathway(s), minSize = %d, maxSize = %d ...",
+    method, length(stats_vec), length(pathways), minSize, maxSize
   ))
 
-  result_tbl <- fgsea::fgsea(
-    pathways = pathways,
-    stats    = stats_vec,
-    minSize  = minSize,
-    maxSize  = maxSize,
-    nperm    = nperm,
-    ...
-  )
+  # fgsea runs fgseaSimple whenever an nperm argument is passed. Two direct
+  # calls: do.call() would put the whole gene sets into warning calls
+  result_tbl <- if (is.null(nperm)) {
+    fgsea::fgsea(pathways = pathways, stats = stats_vec, minSize = minSize,
+                 maxSize = maxSize, ...)
+  } else {
+    fgsea::fgsea(pathways = pathways, stats = stats_vec, minSize = minSize,
+                 maxSize = maxSize, nperm = nperm, ...)
+  }
 
   # Sort by adjusted p-value ascending
   result_tbl <- result_tbl[order(result_tbl$padj, result_tbl$pval), ]
@@ -426,6 +443,7 @@ run_fgsea <- function(obj,
       minSize            = minSize,
       maxSize            = maxSize,
       nperm              = nperm,
+      method             = method,
       n_genes_ranked     = length(stats_vec),
       n_genes_dropped_na = n_dropped
     ),
@@ -458,21 +476,7 @@ run_fgsea <- function(obj,
 #' @noRd
 .compute_rank_preset <- function(cgs, rank_by) {
 
-  # Column pairs for each preset: list(up_col, down_col) - or a special case
-  preset_cols <- list(
-    delta_nodes           = c("up_nodes",          "down_nodes"),
-    delta_edges           = c("up_edges",          "down_edges"),
-    delta_avg_degree      = c("up_avg_degree",     "down_avg_degree"),
-    delta_density         = c("up_density",        "down_density"),
-    delta_clustering      = c("up_clustering",     "down_clustering"),
-    delta_starness        = c("up_starness",        "down_starness"),
-    delta_genes           = c("up_genes",           "down_genes"),
-    delta_seed_mean_pi    = c("up_seed_mean_pi",    "down_seed_mean_pi"),
-    delta_seed_pi_entropy = c("up_seed_pi_entropy", "down_seed_pi_entropy"),
-    edges_gained_vs_lost  = c("n_edges_gained",     "n_edges_lost")
-  )
-
-  cols <- preset_cols[[rank_by]]
+  cols <- .FGSEA_RANK_PRESETS[[rank_by]]
   up_col   <- cols[1L]
   down_col <- cols[2L]
 
@@ -497,11 +501,35 @@ run_fgsea <- function(obj,
 #' @noRd
 .MSIGDB_VERSION <- "2023.1"
 
+#' MSigDB GO gene sets, loaded once per R session
+#'
+#' The C5 GO:BP, GO:MF and GO:CC gene sets (gene symbols) of the human MSigDB
+#' collection, with the subcollection of each set. Loading the collection
+#' from ExperimentHub takes most of a minute; only its GO sets are kept.
+#' @noRd
+.msigdb_go_sets <- function() {
+  if (is.null(.annotation_cache$msigdb_go)) {
+    gsc <- msigdb::getMsigdb(org = "hs", id = "SYM",
+                             version = .MSIGDB_VERSION)
+    types <- lapply(gsc, GSEABase::collectionType)
+    category <- vapply(types, GSEABase::bcCategory, character(1L))
+    subcategory <- vapply(types, function(x) {
+      sub <- GSEABase::bcSubCategory(x)
+      if (length(sub)) sub else NA_character_
+    }, character(1L))
+    go <- category == "c5" & subcategory %in% c("GO:BP", "GO:MF", "GO:CC")
+    .annotation_cache$msigdb_go <- list(sets = gsc[go],
+                                        subcategory = subcategory[go])
+  }
+  .annotation_cache$msigdb_go
+}
+
 #' Fetch GO gene sets from MSigDB via the msigdb package
 #'
-#' Loads the human MSigDB collection (gene symbols) from ExperimentHub,
-#' keeps the requested C5 GO subcollection(s) and maps the symbols to
-#' Ensembl gene IDs.
+#' Takes the requested C5 GO subcollection(s) of the human MSigDB collection
+#' (gene symbols, see \code{.msigdb_go_sets()}) and maps the symbols to
+#' Ensembl gene IDs. The result is kept for the R session, per subcollection
+#' and set of network genes.
 #'
 #' @param go_category Character scalar. One of "GO:BP", "GO:MF", "GO:CC",
 #'   or "ALL".
@@ -521,69 +549,123 @@ run_fgsea <- function(obj,
     "Fetching GO gene sets (C5, %s) from MSigDB %s via the msigdb package ...",
     go_category, .MSIGDB_VERSION
   ))
-  gsc <- msigdb::getMsigdb(org = "hs", id = "SYM", version = .MSIGDB_VERSION)
-
-  subcollections <- if (go_category == "ALL")
-    c("GO:BP", "GO:MF", "GO:CC") else go_category
-  types <- lapply(gsc, GSEABase::collectionType)
-  category <- vapply(types, GSEABase::bcCategory, character(1L))
-  subcategory <- vapply(types, function(x) {
-    sub <- GSEABase::bcSubCategory(x)
-    if (length(sub)) sub else NA_character_
-  }, character(1L))
-  go_sets <- gsc[category == "c5" & subcategory %in% subcollections]
-
-  pathways <- .as_pathway_list(go_sets, genes)
+  # The converted sets are kept per subcollection for the network's genes
+  cached <- .annotation_cache$go_pathways[[go_category]]
+  if (!identical(cached$genes, genes)) {
+    go <- .msigdb_go_sets()
+    subcollections <- if (go_category == "ALL")
+      c("GO:BP", "GO:MF", "GO:CC") else go_category
+    sets <- GSEABase::geneIds(go$sets[go$subcategory %in% subcollections])
+    cached <- list(genes = genes,
+                   pathways = .network_gene_sets(sets, genes, symbols = TRUE))
+    .annotation_cache$go_pathways[[go_category]] <- cached
+  }
+  pathways <- cached$pathways
   if (length(pathways) == 0L)
-    stop(sprintf("No GO gene sets were found for subcollection '%s'.",
-                 go_category), call. = FALSE)
+    stop(sprintf("No %s gene set of MSigDB %s contains a network gene.",
+                 go_category, .MSIGDB_VERSION), call. = FALSE)
 
   message(sprintf("  %d gene set(s) retrieved.", length(pathways)))
   pathways
 }
 
-#' Gene sets as a named list of Ensembl gene IDs
+#' Gene sets as a named list of target gene IDs
 #'
 #' Accepts a named list of character vectors or a GSEABase
 #' \code{GeneSetCollection} whose gene IDs are Ensembl gene IDs or gene
-#' symbols. Symbols are mapped to Ensembl gene IDs with the Ensembl 107
-#' annotation (\code{isonet_gene_names()}), restricted to \code{genes} so
-#' that a symbol shared by alternative-haplotype genes maps to the network
-#' gene. Gene sets left empty are dropped.
+#' symbols. IDs of a collection without an identifier type
+#' (\code{NullIdentifier}, as from \code{GSEABase::getGmt()}) are taken as
+#' Ensembl gene IDs when every non-blank one looks like one, and as gene
+#' symbols otherwise; a named list holds IDs of the target genes. See
+#' \code{.network_gene_sets()} for the mapping. Gene sets in which no gene is
+#' a target gene are an error.
 #'
 #' @param pathways Named list or \code{GeneSetCollection}.
-#' @param genes Character vector of Ensembl gene IDs present in the network.
+#' @param genes Character vector of the target gene IDs: the ranked genes
+#'   (\code{run_fgsea()}) or the network genes (\code{run_component_ora()}).
 #' @return Named list of character vectors.
 #' @noRd
 .as_pathway_list <- function(pathways, genes) {
+  symbols <- FALSE
   if (is(pathways, "GeneSetCollection")) {
     if (!requireNamespace("GSEABase", quietly = TRUE))
       stop("Package 'GSEABase' is required for GeneSetCollection input.",
            call. = FALSE)
+    if (!length(pathways))
+      stop("The GeneSetCollection contains no gene sets.", call. = FALSE)
     id_types <- unique(vapply(
       lapply(pathways, GSEABase::geneIdType), function(x) class(x)[1L],
       character(1L)
     ))
-    ids <- GSEABase::geneIds(pathways)
-    if (identical(id_types, "SymbolIdentifier")) {
-      symbols <- isonet_gene_names()
-      symbols <- symbols[!is.na(symbols$gene_name) &
-                           symbols$gene_id %in% genes, ]
-      by_symbol <- split(symbols$gene_id, symbols$gene_name)
-      ids <- lapply(ids, function(x) unique(unlist(by_symbol[x],
-                                                   use.names = FALSE)))
-    } else if (!identical(id_types, "ENSEMBLIdentifier")) {
+    # IDs without a declared type (as from GSEABase::getGmt()) are Ensembl
+    # gene IDs when every non-blank one looks like one, and symbols otherwise
+    untyped <- identical(id_types, "NullIdentifier")
+    all_ids <- unlist(GSEABase::geneIds(pathways), use.names = FALSE)
+    ensembl <- identical(id_types, "ENSEMBLIdentifier") ||
+      (untyped &&
+         all(grepl("^ENS[A-Z]*G[0-9]+", all_ids[nzchar(all_ids)])))
+    if (!ensembl && !untyped && !identical(id_types, "SymbolIdentifier"))
       stop("GeneSetCollection gene IDs must be gene symbols or Ensembl gene ",
            "IDs; found ", paste(id_types, collapse = ", "), ". Convert them ",
            "with GSEABase::mapIdentifiers().", call. = FALSE)
-    }
-    ids <- ids[lengths(ids) > 0L]
-    return(ids)
-  }
-  if (!is.list(pathways) || is.null(names(pathways)))
+    symbols <- !ensembl
+  } else if (!is.list(pathways) || is.null(names(pathways))) {
     stop("`pathways` must be a named list of character vectors or a ",
          "GeneSetCollection.", call. = FALSE)
-  pathways
+  }
+  collection <- is(pathways, "GeneSetCollection")
+  if (collection) pathways <- GSEABase::geneIds(pathways)
+  ids <- .network_gene_sets(pathways, genes, symbols)
+  if (!any(unlist(ids, use.names = FALSE) %in% genes)) {
+    if (collection)
+      stop("No gene of the gene sets is a network gene; gene sets must hold ",
+           "gene symbols or the network's Ensembl gene IDs.", call. = FALSE)
+    stop("No gene of the named list is a gene of the analysis; a named list ",
+         "must hold the same gene IDs (for the bundled network, Ensembl gene ",
+         "IDs). For gene symbols, pass a GeneSetCollection.", call. = FALSE)
+  }
+  ids
+}
+
+#' Gene sets mapped to the target gene IDs
+#'
+#' Gene symbols are mapped with the Ensembl 107 annotation
+#' (\code{isonet_gene_names()}) to every target gene with that symbol. An ID
+#' that is a target gene is kept; another Ensembl gene ID matches every
+#' target gene with the same ID without version or GENCODE suffix (as for
+#' labels), returned as the target has it; other IDs are kept. Gene sets left
+#' empty are dropped.
+#'
+#' @param ids Named list of character vectors.
+#' @param genes Character vector of the target gene IDs.
+#' @param symbols Logical; \code{ids} are gene symbols.
+#' @return Named list of character vectors.
+#' @noRd
+.network_gene_sets <- function(ids, genes, symbols) {
+  # Factor-valued sets (e.g. from split() on a factor) would index by level
+  ids <- lapply(ids, as.character)
+  stable <- .strip_gene_version(genes)
+  if (symbols) {
+    # Each target gene under its symbol, so a symbol maps to all its genes
+    ann <- isonet_gene_names()
+    ann <- ann[!is.na(ann$gene_name), ]
+    hit <- stable %in% ann$gene_id
+    by_symbol <- split(genes[hit],
+                       ann$gene_name[match(stable[hit], ann$gene_id)])
+    ids <- lapply(ids, function(x) unique(unlist(by_symbol[x],
+                                                 use.names = FALSE)))
+  } else {
+    # Exact target IDs stay; other Ensembl gene IDs match every target gene
+    # with the same ID without version or suffix; the rest stay as given
+    ids <- lapply(ids, function(x) {
+      exact <- x %in% genes
+      cut <- !exact & grepl("^ENS[A-Z]*G[0-9]+", x)
+      key <- .strip_gene_version(x[cut])
+      unique(c(x[exact], genes[stable %in% key], x[cut][!key %in% stable],
+               x[!exact & !cut]))
+    })
+  }
+  ids[lengths(ids) > 0L]
 }
 
 

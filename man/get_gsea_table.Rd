@@ -24,8 +24,9 @@ with \code{padj <= padj_cutoff} are returned.  Default \code{NULL}
 }
 \value{
 A \code{DataFrame} with columns \code{pathway}, \code{pval},
-\code{padj}, \code{ES}, \code{NES}, \code{nMoreExtreme}, \code{size},
-\code{leadingEdge}, sorted by \code{padj} ascending.
+\code{padj}, \code{ES}, \code{NES}, \code{size}, \code{leadingEdge},
+and \code{log2err} (\code{fgseaMultilevel}) or \code{nMoreExtreme}
+(\code{fgseaSimple}), sorted by \code{padj} ascending.
 }
 \description{
 Returns the \code{fgsea::fgsea()} result table stored in a

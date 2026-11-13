@@ -96,8 +96,8 @@
 #' multiple seed vertices, their names are collapsed into a single
 #' comma-separated string.
 #'
-#' @param vp_list A named list of igraph objects, typically the output of
-#'   repeated calls to \code{\link{virtual_pulldown}}.
+#' @param vp_list A list of igraph objects, typically the output of
+#'   repeated calls to \code{\link{virtual_pulldown}}. Names are optional.
 #'
 #' @return A \code{DataFrame} with one row per subgraph and the following
 #'   columns:
@@ -125,12 +125,12 @@ summarize_subgraphs <- function(vp_list) {
     stop("`vp_list` must be a non-empty list of igraph objects.", call. = FALSE)
   }
 
-  .as_DataFrame(do.call(rbind, lapply(names(vp_list), function(nm) {
-    g <- vp_list[[nm]]
+  .as_DataFrame(do.call(rbind, lapply(seq_along(vp_list), function(i) {
+    g <- vp_list[[i]]
 
     if (!inherits(g, "igraph")) {
       stop(
-        "Element '", nm, "' in `vp_list` is not an igraph object.",
+        "Element ", i, " of `vp_list` is not an igraph object.",
         call. = FALSE
       )
     }
@@ -160,7 +160,7 @@ summarize_subgraphs <- function(vp_list) {
 #'
 #' Returns node-level statistics for every vertex in a virtual pulldown
 #' subgraph. When multiple seed vertices are present, \code{distance_from_seed}
-#' is the average shortest-path distance across all seeds.
+#' is the shortest-path distance to the nearest seed.
 #'
 #' Pi statistics (\code{mean_pi}, \code{pi_entropy}) are computed only for
 #' seed vertices (order == 0), where they characterise the confidence profile
@@ -179,8 +179,9 @@ summarize_subgraphs <- function(vp_list) {
 #'     \code{order == 0} annotation.}
 #'   \item{degree}{Number of edges connected to the vertex.}
 #'   \item{clustering}{Local clustering coefficient.}
-#'   \item{distance_from_seed}{Average shortest-path distance from all seeds.
-#'     \code{Inf} indicates the vertex is unreachable from the seed(s).}
+#'   \item{distance_from_seed}{Shortest-path distance from the nearest seed
+#'     (0 for a seed). \code{Inf} indicates the vertex is unreachable from
+#'     every seed.}
 #'   \item{mean_pi}{Mean of the \code{pi} edge-attribute values across all
 #'     incident edges.  \code{NA} for non-seed vertices.}
 #'   \item{pi_entropy}{Shannon entropy of the normalised \code{pi} values
@@ -202,10 +203,10 @@ analyze_subgraph <- function(graph) {
 
   seeds <- .get_seeds(graph)
 
-  # Compute shortest-path distances from every seed; result is a
-  # (n_seeds x n_vertices) matrix — average across seeds column-wise
-  dist_matrix        <- igraph::distances(graph, v = seeds)
-  avg_dist_from_seed <- colMeans(dist_matrix)
+  # Shortest-path distances from every seed, a (n_seeds x n_vertices)
+  # matrix; the column-wise minimum is the distance from the nearest seed
+  dist_matrix    <- igraph::distances(graph, v = seeds)
+  dist_from_seed <- apply(dist_matrix, 2L, min)
 
   # Pi statistics for seed vertices only
   has_pi      <- !is.null(igraph::edge_attr(graph, "pi"))
@@ -227,7 +228,7 @@ analyze_subgraph <- function(graph) {
     clustering         = igraph::transitivity(
       graph, type = "local", isolates = "zero"
     ),
-    distance_from_seed = avg_dist_from_seed,
+    distance_from_seed = dist_from_seed,
     mean_pi            = vapply(pi_stats, `[[`, numeric(1), "mean_pi"),
     pi_entropy         = vapply(pi_stats, `[[`, numeric(1), "pi_entropy"),
     stringsAsFactors   = FALSE

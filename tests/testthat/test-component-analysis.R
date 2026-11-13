@@ -67,3 +67,18 @@ test_that("isoform-level component summaries keep ENST matching", {
   expect_equal(component_table$n_genes_down, 1L)
   expect_true(component_table$mixed)
 })
+
+test_that("merged graphs record which seed genes reach each node", {
+  fx <- make_multi_gene_fixture()
+  results <- get_analysis(fx$obj, "a")@gene_results
+  source_of <- function(level, nodes) {
+    g <- .build_cross_gene_graph(results, "both", level)$graph
+    igraph::V(g)$source_gene[match(nodes, igraph::V(g)$name)]
+  }
+  # N4 is reached only from GB's seeds and N7 only from GC's; N1 from GA's
+  # seeds and GF's down seed; GA's seeds only from GA
+  expect_identical(source_of("isoform", c("tx_N4", "tx_N7", "tx_N1", "GA_up")),
+                   c("GB", "GC", "multi-gene", "GA"))
+  expect_identical(source_of("gene", c("N4", "N7", "N1", "GA")),
+                   c("GB", "GC", "multi-gene", "GA"))
+})

@@ -27,9 +27,10 @@ map to 0 (no change) and no genes are dropped.}
 \item{label_n}{Integer.  Maximum total genes to label per panel.  Default \code{0}.}
 
 \item{label}{Character vector.  One or more of \code{"delta"}
-(largest absolute delta), \code{"up"} (largest positive delta, orange
-points), \code{"down"} (largest negative delta,
-largest negative delta, blue points).  Default \code{"delta"}.}
+(largest absolute delta), \code{"up"} (largest positive delta, green
+points), \code{"down"} (largest negative delta, orange points).  With
+several strategies, their top genes are labelled in turn.
+Default \code{"delta"}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 }

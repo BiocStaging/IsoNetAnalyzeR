@@ -45,8 +45,9 @@ NULL
 #'   (return all pathways).
 #'
 #' @return A \code{DataFrame} with columns \code{pathway}, \code{pval},
-#'   \code{padj}, \code{ES}, \code{NES}, \code{nMoreExtreme}, \code{size},
-#'   \code{leadingEdge}, sorted by \code{padj} ascending.
+#'   \code{padj}, \code{ES}, \code{NES}, \code{size}, \code{leadingEdge},
+#'   and \code{log2err} (\code{fgseaMultilevel}) or \code{nMoreExtreme}
+#'   (\code{fgseaSimple}), sorted by \code{padj} ascending.
 #'
 #' @examples
 #' seeds <- read.csv(system.file("extdata", "gse141432_t2d_vs_lean_seeds.csv",

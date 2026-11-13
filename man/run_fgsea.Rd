@@ -14,7 +14,7 @@ run_fgsea(
   go_category = c("GO:BP", "GO:MF", "GO:CC", "ALL"),
   minSize = 15L,
   maxSize = 500L,
-  nperm = 1000L,
+  nperm = NULL,
   ...
 )
 }
@@ -50,8 +50,12 @@ present in the ranked list.  Default \code{15}.}
 
 \item{maxSize}{Integer.  Maximum gene set size.  Default \code{500}.}
 
-\item{nperm}{Integer.  Number of permutations for p-value estimation.
-Default \code{1000}.}
+\item{nperm}{Integer or \code{NULL} (default).  With \code{NULL},
+fgsea estimates p-values with \code{fgseaMultilevel}, which also
+estimates very small p-values (down to its \code{eps}, which can be
+passed through \code{...}). A number runs \code{fgseaSimple} with that
+many permutations, which cannot give a p-value below
+\code{1 / (nperm + 1)}.}
 
 \item{...}{Additional arguments passed to \code{fgsea::fgsea()}.}
 }
@@ -74,7 +78,9 @@ against GO gene sets (or a user-supplied pathway list) using
 A named delta computed as the up-seed metric minus the down-seed metric
 from \code{cross_gene_summary}. Positive values indicate a larger
 static predicted neighbourhood metric for the up-labelled seeds;
-negative values indicate the opposite.
+negative values indicate the opposite. Node, edge and gene counts
+include the seeds themselves, so a direction with more seeds counts
+more; compare \code{n_up_resolved} and \code{n_down_resolved}.
 
 \if{html}{\out{<div class="sourceCode">}}\preformatted{Available presets:
 \\itemize\{
@@ -118,14 +124,22 @@ logic and \code{rank_by} is ignored.  Useful for complex custom rankings:
 GSEABase \code{GeneSetCollection}, for example a collection from the
 msigdb package. Gene symbols in a \code{GeneSetCollection} are mapped to
 Ensembl gene IDs with the Ensembl 107 annotation
-(\code{\link{isonet_gene_names}}).
+(\code{\link{isonet_gene_names}}). The gene IDs of a collection without
+an identifier type, such as one read with \code{GSEABase::getGmt()}, are
+taken as Ensembl gene IDs when they all look like Ensembl gene IDs, and as
+gene symbols otherwise. Gene sets are matched to the IDs of the ranked
+genes (the analysed gene IDs, or the names of \code{stats}): IDs that
+are ranked genes are kept, and other Ensembl gene IDs match the ranked
+genes with or without a version suffix. Gene sets with no ranked gene are
+an error.
 
 When \code{pathways = NULL} (default), the GO gene sets of MSigDB
 release 2023.1 (collection C5) are fetched with the msigdb package from
-ExperimentHub. \code{go_category} selects the subcollection(s):
-\code{"GO:BP"} (biological process), \code{"GO:MF"} (molecular function),
-\code{"GO:CC"} (cellular component), or \code{"ALL"} for all three.
-fgsea estimates p-values by permutation, so set the random seed before
+ExperimentHub and kept for the R session. \code{go_category} selects the
+subcollection(s): \code{"GO:BP"} (biological process), \code{"GO:MF"}
+(molecular function), \code{"GO:CC"} (cellular component), or
+\code{"ALL"} for all three.
+fgsea estimates p-values by random sampling, so set the random seed before
 this call.
 }
 

@@ -28,7 +28,10 @@ NULL
 #'   \code{DataFrame} in
 #' \strong{long format} with exactly the following columns (any order):
 #' \describe{
-#'   \item{gene_id}{Gene identifier (e.g. Ensembl gene ID or gene symbol).}
+#'   \item{gene_id}{Gene identifier matching the network's \code{gene}
+#'     vertex attribute; an Ensembl gene ID for the bundled network. A
+#'     version suffix (\code{ENSG00000070371.16}) is removed unless the
+#'     network uses the versioned ID.}
 #'   \item{isoform_id}{Isoform / transcript identifier matching vertex names
 #'     in the session network.}
 #'   \item{direction}{Must be exactly \code{"up"} or \code{"down"} (case
@@ -188,7 +191,7 @@ run_differential_pulldown <- function(obj,
     stop("`resolve_duplicates` must be a single non-NA logical value.",
          call. = FALSE)
 
-  # -- Check for future packages when parallel = TRUE -------------------------
+  # -- Check for future packages (Suggests) when parallel = TRUE ---------------
   if (parallel) {
     if (!requireNamespace("future",       quietly = TRUE) ||
         !requireNamespace("future.apply", quietly = TRUE))
@@ -239,10 +242,15 @@ run_differential_pulldown <- function(obj,
   duplicate_resolution <- attr(tbl, "dedup_resolution")
   biotype_exclusions <- attr(tbl, "biotype_exclusions")
   attr(tbl, "biotype_exclusions") <- NULL
-  obj@metadata$analysis_biotype_exclusions[[label]] <- biotype_exclusions
+  attr(tbl, "dedup_resolution") <- NULL
+  # A zero-row table records that no seed was excluded
+  obj@metadata$analysis_biotype_exclusions[[label]] <-
+    biotype_exclusions %||% tbl[0L, , drop = FALSE]
   submitted_tbl <- if (is.null(duplicate_resolution)) tbl else
     duplicate_resolution$submitted_table
-  attr(tbl, "dedup_resolution") <- NULL
+  # Audits of an earlier run under this label do not describe this one
+  obj@metadata$analysis_seed_support[[label]] <- NULL
+  obj@metadata$analysis_duplicate_resolution[[label]] <- NULL
   if (!is.null(seed_padj_col)) {
     support <- .filter_supported_seed_sets(tbl, obj@network, seed_padj_col, seed_fdr)
     obj@metadata$analysis_seed_support[[label]] <- support[c("gene_audit", "row_audit", "padj_column", "alpha")]
@@ -604,9 +612,11 @@ run_differential_pulldown <- function(obj,
   gene_summary <- data.frame(
     n_genes_input = as.integer(n_genes_total),
     n_genes_analyzed = as.integer(length(gene_ids)),
-    n_genes_dropped_opposite_collision = as.integer(
-      length(setdiff(submitted_gene_ids, gene_ids))
-    ),
+    n_genes_dropped_opposite_collision = as.integer(length(unique(
+      resolution_rows$gene_id[
+        resolution_rows$action == "dropped_opposite_direction"
+      ]
+    ))),
     n_genes_with_mapped_isoform = as.integer(n_genes_covered),
     n_genes_without_mapped_isoform = as.integer(n_genes_total - n_genes_covered),
     pct_genes_with_mapped_isoform = as.numeric(pct_genes),
@@ -735,6 +745,13 @@ run_differential_pulldown <- function(obj,
   tbl$isoform_id <- trimws(as.character(tbl$isoform_id))
   tbl$direction  <- tolower(trimws(as.character(tbl$direction)))
 
+  # Ensembl gene versions are removed, as for transcripts, unless the network
+  # uses the versioned ID
+  versioned <- grepl("^ENS[A-Z]*G[0-9]+\\.[0-9]+$", tbl$gene_id)
+  if (!is.null(network))
+    versioned <- versioned & !tbl$gene_id %in% igraph::V(network)$gene
+  tbl$gene_id[versioned] <- .strip_version(tbl$gene_id[versioned])
+
   blank_gene    <- is.na(tbl$gene_id) | !nzchar(tbl$gene_id)
   blank_isoform <- is.na(tbl$isoform_id) | !nzchar(tbl$isoform_id)
 
@@ -784,7 +801,7 @@ run_differential_pulldown <- function(obj,
     ), call. = FALSE)
 
   excluded_ids <- .excluded_decay_ids(network)
-  excluded <- sub("\\.[0-9]+$", "", tbl$isoform_id) %in% excluded_ids
+  excluded <- .strip_version(tbl$isoform_id) %in% excluded_ids
   biotype_exclusions <- tbl[excluded, , drop = FALSE]
   if (any(excluded)) {
     message(sprintf("Excluded %d submitted seed row(s) by transcript-biotype policy.", sum(excluded)))

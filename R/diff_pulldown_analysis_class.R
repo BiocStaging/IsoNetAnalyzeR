@@ -35,10 +35,11 @@ NULL
 #'     isoforms),
 #'   \code{n_up_resolved}, \code{n_down_resolved} (resolved protein
 #'     representatives analyzed),
-#'   \code{n_up_found}, \code{n_down_found} (input isoforms present in the
-#'     network before BFS expansion),
-#'   \code{pct_up_found}, \code{pct_down_found} (percentage of input isoforms
-#'     found in the network; \code{NA} when \code{n_input == 0}),
+#'   \code{n_up_found}, \code{n_down_found} (resolved representatives
+#'     present in the network before BFS expansion),
+#'   \code{pct_up_found}, \code{pct_down_found} (percentage of resolved
+#'     representatives found in the network; \code{NA} when
+#'     \code{n_resolved == 0}),
 #'   \code{up_nodes}, \code{up_edges}, \code{up_density},
 #'   \code{up_avg_degree}, \code{up_clustering},
 #'   \code{up_starness} (degree centralization of the up subgraph; 0 = uniform,
@@ -68,6 +69,9 @@ NULL
 #'   \code{down_seed_mean_pi}, \code{down_seed_pi_entropy} (analogous metrics
 #'     for the down seed set).  All four columns are \code{NA} when the
 #'     corresponding subgraph is absent or carries no \code{pi} edge attribute.
+#'   Node, edge and gene counts, their overlaps and \code{jaccard} include the
+#'   seeds, so a direction with more seeds counts more even when both reach
+#'   the same partners.
 #' @slot gsea_results  Named list of \linkS4class{FgseaResult} objects,
 #'   keyed by user-supplied label.  Populated by \code{\link{run_fgsea}}.
 #'   Empty list by default.
@@ -240,12 +244,12 @@ setValidity("DifferentialPulldownAnalysis", function(object) {
     up_row   <- gdf[gdf$direction == "up",   , drop = FALSE]
     down_row <- gdf[gdf$direction == "down", , drop = FALSE]
 
-    # Percentage of input isoforms that were found in the network (pre-BFS).
-    # NA when a direction had no input isoforms to avoid a 0/0 division.
-    pct_up_found   <- if (gs$n_up_input   > 0L)
-      round(100 * gs$n_up_found   / gs$n_up_input,   1L) else NA_real_
-    pct_down_found <- if (gs$n_down_input > 0L)
-      round(100 * gs$n_down_found / gs$n_down_input, 1L) else NA_real_
+    # Percentage of resolved representatives found in the network (pre-BFS);
+    # protein-identical seeds count once. NA when a direction has none.
+    pct_up_found   <- if (gs$n_up_resolved   > 0L)
+      round(100 * gs$n_up_found   / gs$n_up_resolved,   1L) else NA_real_
+    pct_down_found <- if (gs$n_down_resolved > 0L)
+      round(100 * gs$n_down_found / gs$n_down_resolved, 1L) else NA_real_
 
     # ---- Jaccard node-set overlap between up and down subgraphs -------------
     # Computed from the igraph objects directly so the three counts are always
@@ -408,7 +412,7 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
   if (!is(obj, "IsoNetAnalyzeR"))
     stop("`obj` must be an IsoNetAnalyzeR object.", call. = FALSE)
 
-  if (!is.character(analysis) || length(analysis) != 1L ||
+  if (!is.character(analysis) || length(analysis) != 1L || is.na(analysis) ||
       nchar(trimws(analysis)) == 0L)
     stop("`analysis` must be a single non-empty character string.", call. = FALSE)
 
@@ -426,10 +430,8 @@ setMethod("show", "DifferentialPulldownAnalysis", function(object) {
     ), call. = FALSE)
 
   if (nrow(result@cross_gene_summary) == 0L)
-    warning(sprintf(
-      "Analysis '%s' has an empty cross-gene summary. ",
-      "The pulldown may have produced no results.", analysis
-    ), call. = FALSE)
+    warning("Analysis '", analysis, "' has an empty cross-gene summary. ",
+            "The pulldown may have produced no results.", call. = FALSE)
 
   result
 }
@@ -536,7 +538,8 @@ setMethod("get_gene_result", "IsoNetAnalyzeR",
 #' a single gene into one long-format \code{DataFrame}, with a \code{direction}
 #' column (\code{"up"} / \code{"down"}) identifying the condition.  A
 #' \code{is_seed} column flags isoforms that were supplied as seeds, using the
-#' explicit seed annotation stored by \code{analyze_subgraph()}.
+#' explicit seed annotation stored by \code{analyze_subgraph()}; for results
+#' saved without it, the gene's stored up and down seed isoforms.
 #' Isoforms that appear in only one condition are
 #' represented in that condition's rows only; no artificial NAs are introduced
 #' for the missing direction.
@@ -573,23 +576,21 @@ setMethod("get_isoform_stats", "IsoNetAnalyzeR",
           function(obj, analysis, gene_id) {
             gr <- get_gene_result(obj, analysis, gene_id)
 
-            .prep <- function(stats_df, direction) {
+            .prep <- function(stats_df, direction, seeds) {
               if (nrow(stats_df) == 0L) return(NULL)
               df            <- stats_df
               df$direction  <- direction
-              if (!"is_seed" %in% names(df)) {
-                df$is_seed <- df$distance_from_seed == 0
-              } else {
-                df$is_seed <- as.logical(df$is_seed)
-              }
+              # Results saved before is_seed was stored: the gene's seed list
+              df$is_seed    <- if (is.null(df$is_seed))
+                df$isoform %in% seeds else as.logical(df$is_seed)
               # Return with direction and is_seed as the first columns for readability
               df[, c("direction", "isoform", "is_seed",
                      "degree", "clustering", "distance_from_seed",
                      "mean_pi", "pi_entropy")]
             }
 
-            up_df   <- .prep(.df(gr@up_stats),   "up")
-            down_df <- .prep(.df(gr@down_stats), "down")
+            up_df   <- .prep(.df(gr@up_stats),   "up",   gr@up_isoforms)
+            down_df <- .prep(.df(gr@down_stats), "down", gr@down_isoforms)
 
             result <- do.call(rbind, list(up_df, down_df))
 

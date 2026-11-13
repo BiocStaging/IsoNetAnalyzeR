@@ -1,6 +1,6 @@
 Package: IsoNetAnalyzeR
 Title: Isoform-Level Protein Interaction Network Analysis
-Version: 0.99.1
+Version: 0.99.2
 Authors@R: c(
     person("Dimitrios S.", "Kanakoglou",
            email = "dimkan@dtu.dk", role = c("aut", "cre"),
@@ -49,8 +49,6 @@ Imports:
     patchwork,
     rlang,
     fgsea,
-    future,
-    future.apply,
     ggrepel,
     progressr,
     withr,
@@ -64,6 +62,8 @@ Suggests:
     msigdb,
     GSEABase,
     colorspace,
+    future,
+    future.apply,
     readxl,
     SummarizedExperiment,
     testthat (>= 3.0.0)

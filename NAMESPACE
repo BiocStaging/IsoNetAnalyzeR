@@ -64,9 +64,7 @@ importFrom(methods,
   setValidity,
   validObject
 )
+importFrom(patchwork,plot_annotation)
 importFrom(rlang,.data)
-importFrom(stats,
-  p.adjust,
-  setNames
-)
+importFrom(stats,setNames)
 importFrom(utils,head)

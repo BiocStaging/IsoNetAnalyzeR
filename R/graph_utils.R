@@ -77,22 +77,17 @@ NULL
       seed_names = character(0)
     ))
 
-  # Map each vertex to the gene(s) it belongs to
-  vertex_gene_list <- stats::setNames(
-    vector("list", length(all_vnames)),
-    all_vnames
-  )
+  # One row per (pulldown gene, vertex) pair; vertices are unique per gene
+  member_gene   <- rep(names(per_gene_vnames), lengths(per_gene_vnames))
+  member_vertex <- unlist(per_gene_vnames, use.names = FALSE)
 
-  for (gid in names(per_gene_vnames)) {
-    for (v in per_gene_vnames[[gid]]) {
-      vertex_gene_list[[v]] <- c(vertex_gene_list[[v]], gid)
-    }
+  # A vertex reached from exactly one gene's pulldown keeps that gene
+  .source_of <- function(key, member, levels) {
+    n <- tabulate(match(key, levels), length(levels))
+    stats::setNames(ifelse(n == 1L, member[match(levels, key)], "multi-gene"),
+                    levels)
   }
-
-  source_gene <- vapply(vertex_gene_list, function(gids) {
-    gids <- unique(gids)
-    if (length(gids) == 1L) gids else "multi-gene"
-  }, character(1))
+  source_gene <- .source_of(member_vertex, member_gene, all_vnames)
 
   # Carry the gene (parent gene) vertex attribute through if available --------
   gene_attr <- rep(NA_character_, length(all_vnames))
@@ -142,19 +137,13 @@ NULL
     # Re-derive source_gene at gene level: a gene node is "multi-gene" if
     # isoforms from different pulldown genes contributed to it
     gv_names <- igraph::V(g)$name
+    parent <- unique(data.frame(gene = unname(gene_attr[member_vertex]),
+                                member = member_gene))
+    parent <- parent[!is.na(parent$gene), , drop = FALSE]
 
-    gene_source <- vapply(gv_names, function(gn) {
-      # Which pulldown genes contributed isoforms for this parent gene?
-      contributing <- names(per_gene_vnames)[
-        vapply(per_gene_vnames, function(vn) {
-          any(gene_attr[vn] == gn, na.rm = TRUE)
-        }, logical(1))
-      ]
-      contributing <- unique(contributing)
-      if (length(contributing) == 1L) contributing else "multi-gene"
-    }, character(1))
-
-    igraph::V(g)$source_gene <- gene_source
+    igraph::V(g)$source_gene <- unname(
+      .source_of(parent$gene, parent$member, gv_names)
+    )
 
     # Re-derive is_seed at gene level
     seed_genes <- unique(stats::na.omit(

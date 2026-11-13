@@ -27,9 +27,10 @@ test_that("supplied networks are simplified when a session is created", {
   # S-N: both copies predicted, pi 0.2 and 0.6
   expect_equal(igraph::E(net)$interact[sn], 1)
   expect_equal(igraph::E(net)$pi[sn], 0.4)
-  # N-X2: one copy predicted, pi 0.1 and 0.3
+  # N-X2: the predicted copy (pi 0.3) is kept and the non-predicted copy
+  # (pi 0.1) dropped, as in inst/scripts/reduce_network.R
   expect_equal(igraph::E(net)$interact[nx2], 1)
-  expect_equal(igraph::E(net)$pi[nx2], 0.2)
+  expect_equal(igraph::E(net)$pi[nx2], 0.3)
 })
 
 test_that("repeated edges and self-loops do not move the neighbourhood cutoff", {
@@ -55,4 +56,21 @@ test_that("simple networks are used unchanged", {
   fx <- make_isolated_seed_fixture()
   expect_true(igraph::is_simple(get_network(fx$obj)))
   expect_equal(igraph::ecount(get_network(fx$obj)), 2)
+})
+
+test_that("pulldowns follow predicted edges only", {
+  # S-A is predicted and S-B is not: S's order-1 neighbourhood is {S, A}
+  network <- igraph::graph_from_data_frame(
+    data.frame(from = "S", to = c("A", "B"), interact = c(1L, 0L)),
+    directed = FALSE,
+    vertices = data.frame(name = c("S", "A", "B"), gene = c("G1", "G2", "G3"),
+                          transcript_biotype = "protein_coding")
+  )
+  obj <- suppressMessages(IsoNetAnalyzeR(
+    "predicted", network = network, metadata = list(network_cutoff = 0)
+  ))
+  g <- virtual_pulldown(obj, "S", order = 2)
+  expect_setequal(igraph::V(g)$name, c("S", "A"))
+  expect_equal(igraph::V(g)$order[match(c("S", "A"), igraph::V(g)$name)],
+               c(0, 1))
 })

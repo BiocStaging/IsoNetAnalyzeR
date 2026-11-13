@@ -10,6 +10,7 @@
 #' @include diff_pulldown_gene_class.R
 #' @include diff_pulldown_analysis_class.R
 #' @include graph_utils.R
+#' @include plot_diff_pulldown.R
 NULL
 
 # ==============================================================================
@@ -27,10 +28,8 @@ NULL
 #' @param level Character scalar.  \code{"isoform"} (default) plots every
 #'   isoform vertex.  \code{"gene"} collapses isoforms to a single node per
 #'   gene, retaining only unique gene-gene edges (unweighted).
-#' @param all_edges Logical.  \code{FALSE} (default) respects the
-#'   \code{pi_threshold} stored in the object.  \code{TRUE} shows all edges
-#'   present in the graph regardless of their \code{pi_score} attribute.
-#'   See Details.
+#' @param all_edges Deprecated and ignored; a value other than the default
+#'   \code{NULL} gives a warning.
 #' @param group_by_gene Logical.  Only used when \code{level = "isoform"}.
 #'   Colours nodes by their parent gene when \code{TRUE}.  Default
 #'   \code{FALSE}.
@@ -51,13 +50,6 @@ NULL
 #' @param ... Additional arguments forwarded to \code{ggraph::ggraph()}.
 #'
 #' @details
-#' **\code{all_edges}**: For \linkS4class{IsoNetAnalyzeR} the stored network
-#' is already filtered at construction time, so \code{all_edges = TRUE} only
-#' has an effect when a \code{pi_score} edge attribute is still present on the
-#' graph.  For \linkS4class{VirtualPulldownLookup} \code{all_edges = TRUE}
-#' re-displays edges whose \code{pi_score} falls below \code{@@params$cutoff},
-#' which is meaningful for inspecting nodes that were filtered out.
-#'
 #' **Gene-level plot**: Isoforms are contracted by the \code{gene} vertex
 #' attribute.  Isoforms with a missing \code{gene} attribute are grouped as
 #' \code{"NA_gene"}. Isolated seed nodes are retained and rendered as valid
@@ -86,7 +78,7 @@ setGeneric(
   "plot_network",
   function(object,
            level         = "isoform",
-           all_edges     = FALSE,
+           all_edges     = NULL,
            group_by_gene = FALSE,
            layout        = "stress",
            node_size     = 3,
@@ -111,7 +103,7 @@ setMethod(
   "IsoNetAnalyzeR",
   function(object,
            level         = "isoform",
-           all_edges     = FALSE,
+           all_edges     = NULL,
            group_by_gene = FALSE,
            layout        = "stress",
            node_size     = 3,
@@ -144,22 +136,16 @@ setMethod(
 
     level <- match.arg(level, c("isoform", "gene"))
     node_labels <- match.arg(node_labels)
-    .check_plot_args(all_edges, group_by_gene, level)
-    .check_plot_pkgs()
+    .check_plot_args(group_by_gene, level, all_edges)
 
-    # Pull the graph and threshold out of the session object, then delegate
     g <- .build_plot_graph(
       graph     = object@network,
       level     = level,
-      all_edges = all_edges,
-      threshold = object@metadata[["pi_threshold"]],
       seed_vertices = character(0)
     )
 
-    if (is.null(title)) {
-      edge_label <- if (all_edges) "all edges" else "interaction edges"
-      title <- sprintf("%s  -  %s level  (%s)", object@name, level, edge_label)
-    }
+    if (is.null(title))
+      title <- sprintf("%s  -  %s level", object@name, level)
 
     .render_plot(
       g             = g,
@@ -190,7 +176,7 @@ setMethod(
   "VirtualPulldownLookup",
   function(object,
            level         = "isoform",
-           all_edges     = FALSE,
+           all_edges     = NULL,
            group_by_gene = FALSE,
            layout        = "stress",
            node_size     = 3,
@@ -202,8 +188,7 @@ setMethod(
 
     level <- match.arg(level, c("isoform", "gene"))
     node_labels <- match.arg(node_labels)
-    .check_plot_args(all_edges, group_by_gene, level)
-    .check_plot_pkgs()
+    .check_plot_args(group_by_gene, level, all_edges)
 
     # Resolve the actual order-0 seed vertices before filtering/contraction so
     # isolated seeds can be protected by .build_plot_graph().
@@ -212,22 +197,14 @@ setMethod(
         igraph::V(object@subgraph)$order == 0
     ]
 
-    # For a lookup the threshold comes from params, not session metadata
     g <- .build_plot_graph(
       graph     = object@subgraph,
       level     = level,
-      all_edges = all_edges,
-      threshold = object@params[["cutoff"]],
       seed_vertices = raw_seed_vertices
     )
 
-    if (is.null(title)) {
-      edge_label <- if (all_edges) "all edges" else "interaction edges"
-      title <- sprintf(
-        "Lookup: %s  -  %s level  (%s)",
-        object@seed, level, edge_label
-      )
-    }
+    if (is.null(title))
+      title <- sprintf("Lookup: %s  -  %s level", object@seed, level)
 
     # Resolve seed vertex name(s) after possible gene contraction
     seed_vertices <- if (level == "gene") {
@@ -334,39 +311,21 @@ setMethod(
 
 #' Prepare an igraph for plotting
 #'
-#' Applies optional pi_score edge filtering and gene-level contraction.
-#' Accepts a plain igraph and a threshold scalar, no dependency on any S4
-#' class, so it can be called from any method.
+#' Applies gene-level contraction. Accepts a plain igraph, no dependency on
+#' any S4 class, so it can be called from any method.
 #'
 #' @param graph     An igraph object.
 #' @param level     "isoform" or "gene".
-#' @param all_edges Logical; if TRUE skip pi_score filtering.
-#' @param threshold Numeric scalar or NULL; the pi_score cutoff to apply when
-#'   \code{all_edges = FALSE}.
-#'
 #' @param seed_vertices Character vector of seed vertex names in the input
 #'   graph. Isolated vertices in this set are protected from cleanup.
 #'
 #' @return A prepared igraph object. Isolated seed vertices are retained;
 #'   isolated non-seed vertices are removed.
 #' @noRd
-.build_plot_graph <- function(graph, level, all_edges, threshold = NULL,
-                              seed_vertices = character(0)) {
+.build_plot_graph <- function(graph, level, seed_vertices = character(0)) {
 
   g <- graph
   protected_seeds <- intersect(seed_vertices, igraph::V(g)$name)
-
-  # -- Edge filtering ----------------------------------------------------------
-  # Only acts when the pi_score attribute exists AND all_edges is FALSE AND a
-  # threshold is available.  If the graph is already fully filtered (no
-  # pi_score attribute) this block is a no-op.
-  if (!all_edges &&
-      !is.null(igraph::edge_attr(g, "pi_score")) &&
-      !is.null(threshold) && !is.na(threshold)) {
-    keep <- igraph::E(g)$pi_score >= threshold
-    g    <- igraph::subgraph_from_edges(g, igraph::E(g)[keep],
-                                        delete.vertices = FALSE)
-  }
 
   # -- Gene-level contraction --------------------------------------------------
   if (level == "gene") {
@@ -459,13 +418,13 @@ setMethod(
 
 #' Direction palette for neighbourhood membership
 #'
-#' Matches the analysis figures: green for up, orange for down, and blue for
-#' membership in both directional neighbourhoods.
+#' The package's up and down colours (\code{.col_up}, \code{.col_down}), and
+#' blue for membership in both directional neighbourhoods.
 #' @noRd
 .membership_palette <- c(
-  up_only   = "#009E73",   # green
+  up_only   = .col_up,
   shared    = "#0072B2",   # blue
-  down_only = "#D55E00"    # orange
+  down_only = .col_down
 )
 
 #' Edge colours matching the membership palette
@@ -629,24 +588,15 @@ setMethod(
 # ==============================================================================
 
 #' @noRd
-.check_plot_args <- function(all_edges, group_by_gene, level) {
-  if (!is.logical(all_edges)     || length(all_edges)     != 1L)
-    stop("`all_edges` must be a single logical value.",     call. = FALSE)
-  if (!is.logical(group_by_gene) || length(group_by_gene) != 1L)
+.check_plot_args <- function(group_by_gene, level, all_edges = NULL) {
+  if (!is.null(all_edges))
+    warning("`all_edges` is deprecated and has no effect.", call. = FALSE)
+  if (!is.logical(group_by_gene) || length(group_by_gene) != 1L ||
+      is.na(group_by_gene))
     stop("`group_by_gene` must be a single logical value.", call. = FALSE)
   if (level == "gene" && group_by_gene)
     warning("`group_by_gene` is ignored when `level = 'gene'`.",
             call. = FALSE)
-}
-
-#' @noRd
-.check_plot_pkgs <- function() {
-  if (!requireNamespace("ggraph",  quietly = TRUE))
-    stop("Package 'ggraph' is required: install.packages('ggraph').",
-         call. = FALSE)
-  if (!requireNamespace("ggplot2", quietly = TRUE))
-    stop("Package 'ggplot2' is required: install.packages('ggplot2').",
-         call. = FALSE)
 }
 
 # ==============================================================================
@@ -723,7 +673,7 @@ setMethod(
   "GeneDiffPulldown",
   function(object,
            level         = "isoform",
-           all_edges     = FALSE,
+           all_edges     = NULL,
            group_by_gene = FALSE,
            layout        = "stress",
            node_size     = 3,
@@ -737,8 +687,8 @@ setMethod(
     direction   <- match.arg(direction)
     level       <- match.arg(level, c("isoform", "gene"))
     node_labels <- match.arg(node_labels)
-    .check_plot_args(all_edges = FALSE, group_by_gene = group_by_gene, level = level)
-    .check_plot_pkgs()
+    .check_plot_args(group_by_gene = group_by_gene, level = level,
+                     all_edges = all_edges)
 
     if (direction == "side_by_side") {
       return(.plot_gene_side_by_side(object, level, group_by_gene, layout,
@@ -765,8 +715,6 @@ setMethod(
     g <- .build_plot_graph(
       graph     = g_slot,
       level     = level,
-      all_edges = FALSE,
-      threshold = NULL,       # graph is already interaction-filtered
       seed_vertices = iso_seed
     )
 
@@ -821,10 +769,6 @@ setMethod(
 
   gene_title <- .gene_title(object@gene_id)
 
-  if (!requireNamespace("patchwork", quietly = TRUE))
-    stop("Package 'patchwork' is required for direction = 'side_by_side': ",
-         "install.packages('patchwork').", call. = FALSE)
-
   make_panel <- function(g_slot, iso_seed, dir_label) {
     if (is.null(g_slot)) {
       # Return an empty annotated ggplot when the direction has no subgraph
@@ -841,8 +785,6 @@ setMethod(
     g <- .build_plot_graph(
       graph     = g_slot,
       level     = level,
-      all_edges = FALSE,
-      threshold = NULL,
       seed_vertices = iso_seed
     )
 
@@ -1477,7 +1419,7 @@ setMethod(
   "DifferentialPulldownAnalysis",
   function(object,
            level      = "isoform",
-           all_edges  = FALSE,
+           all_edges  = NULL,
            group_by_gene = FALSE,
            layout     = "stress",
            node_size  = 3,
@@ -1498,7 +1440,7 @@ setMethod(
     level       <- match.arg(level, c("isoform", "gene"))
     colour_by   <- match.arg(colour_by)
     node_labels <- match.arg(node_labels)
-    .check_plot_pkgs()
+    .check_plot_args(group_by_gene, level, all_edges)
 
     # -- Validate filter arguments ---------------------------------------------
     .check_filter_arg <- function(x, name) {

@@ -21,7 +21,8 @@ IsoNetAnalyzeR(
 Pass \code{NULL} (the default) to load the package's built-in network.
 Repeated edges between the same two transcripts are merged into one
 (\code{interact} is 1 when any copy is 1; numeric attributes such as
-\code{pi} are averaged) and self-loops are removed, because they would
+\code{pi} are averaged over the predicted copies, or over all copies
+when none is predicted) and self-loops are removed, because they would
 inflate the degrees used by the neighbourhood cutoff.}
 
 \item{metadata}{Named list of additional metadata to attach to the session.
@@ -38,13 +39,23 @@ unfiltered network.}
 \item{transcript_biotypes}{Optional transcript annotation: a
 \code{data.frame} or \code{DataFrame} with \code{isoform_id} and
 \code{transcript_biotype} columns, which overrides vertex annotations,
-or an \code{EnsDb} object. When neither the network nor this argument
-annotates every vertex and a decay exclusion is enabled, biotypes come
-from Ensembl release 107 (the GENCODE v41 gene build of the bundled
-network), loaded once per R session from AnnotationHub record AH104864
-and cached on disk by AnnotationHub. Unknown vertex biotypes are an
-error when either decay exclusion is enabled. Gene-level biotypes are
-not used.}
+or an \code{EnsDb} object. A network with Ensembl transcript IDs
+(\code{ENST}) is always annotated from Ensembl release 107 (the GENCODE
+v41 gene build of the bundled network), loaded once per R session from
+AnnotationHub record AH104864 and cached on disk by AnnotationHub, or
+from the \code{EnsDb} given here; a \code{transcript_biotype} vertex
+attribute and a table override it for their transcripts. The full
+annotation is needed so that seeds outside the network that are decay
+transcripts are excluded too. If it cannot be loaded (for example
+offline), a session is still created when both \code{include_nmd} and
+\code{include_nsd} are \code{TRUE} (without biotypes and gene symbols),
+or when every vertex has a biotype from the attribute or table (with a
+warning that decay transcripts outside the network cannot be blocked).
+Networks without Ensembl transcript IDs do not load the annotation
+when the session is created; gene-symbol labels of Ensembl gene IDs in
+plots and printed summaries can still load it.
+Unknown vertex biotypes are an error when either decay exclusion is
+enabled. Gene-level biotypes are not used.}
 }
 \value{
 An \linkS4class{IsoNetAnalyzeR} object. The exclusion audit is stored

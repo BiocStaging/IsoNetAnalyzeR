@@ -38,7 +38,8 @@ object can be stored per user-supplied label inside a
 
 \item{\code{result_table}}{\code{DataFrame}.  Output of \code{fgsea::fgsea()} with
 standard columns: \code{pathway}, \code{pval}, \code{padj}, \code{ES},
-\code{NES}, \code{nMoreExtreme}, \code{size}, \code{leadingEdge}.
+\code{NES}, \code{size}, \code{leadingEdge}, and \code{log2err}
+(\code{fgseaMultilevel}) or \code{nMoreExtreme} (\code{fgseaSimple}).
 Sorted by \code{padj} ascending.  Access via
 \code{get_gsea_table(obj, analysis, gsea_label)}.}
 
@@ -56,8 +57,9 @@ release fetched with the msigdb package, or \code{NA} when gene sets
 were supplied.}
 
 \item{\code{params}}{Named list.  Run parameters: \code{minSize},
-\code{maxSize}, \code{nperm}, \code{n_genes_ranked},
-\code{n_genes_dropped_na}.}
+\code{maxSize}, \code{nperm} (\code{NULL} unless set),
+\code{method} (\code{"fgseaMultilevel"} or \code{"fgseaSimple"}),
+\code{n_genes_ranked}, \code{n_genes_dropped_na}.}
 
 \item{\code{created_at}}{\code{POSIXct} scalar.  Timestamp of the run.}
 }}

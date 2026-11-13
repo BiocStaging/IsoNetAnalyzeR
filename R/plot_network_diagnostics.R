@@ -401,14 +401,6 @@ plot_network_diagnostics <- function(obj, title = NULL) {
       call. = FALSE
     )
 
-  if (!requireNamespace("ggplot2",   quietly = TRUE))
-    stop("Package 'ggplot2' is required. Install with install.packages('ggplot2').",
-         call. = FALSE)
-
-  if (!requireNamespace("patchwork", quietly = TRUE))
-    stop("Package 'patchwork' is required. Install with install.packages('patchwork').",
-         call. = FALSE)
-
   diag <- obj@network_diagnostics
 
   p_iso_degree   <- .panel_isoform_degree(diag)        # A

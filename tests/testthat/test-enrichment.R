@@ -42,13 +42,39 @@ test_that("run_fgsea ranks genes by a preset and stores the result", {
 
   expect_identical(nrow(get_gsea_table(obj, "a", "nodes", padj_cutoff = 1)),
                    nrow(tbl))
-  # With nperm = 1000 no p-value can fall below 1 / 1001
-  expect_message(none <- get_gsea_table(obj, "a", "nodes", padj_cutoff = 1e-6),
-                 "No pathways")
-  expect_identical(nrow(none), 0L)
 
   out <- cli::cli_fmt(show(res))
   expect_true(any(grepl("Rank by *: delta_nodes", out)))
+})
+
+test_that("run_fgsea uses fgseaMultilevel unless nperm is given", {
+  fx <- make_multi_gene_fixture()
+  withr::local_seed(1)
+  warnings <- character()
+  obj <- withCallingHandlers(
+    suppressMessages(run_fgsea(fx$obj, "a", label = "multilevel",
+                               pathways = fx$pathways, minSize = 2)),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_false(any(grepl("fgseaSimple", warnings)))
+  params <- get_gsea_result(obj, "a", "multilevel")@params
+  expect_null(params$nperm)
+  expect_identical(params$method, "fgseaMultilevel")
+
+  obj <- suppressWarnings(suppressMessages(run_fgsea(
+    obj, "a", label = "simple", pathways = fx$pathways, minSize = 2,
+    nperm = 1000
+  )))
+  res <- get_gsea_result(obj, "a", "simple")
+  expect_identical(res@params$method, "fgseaSimple")
+  # With nperm = 1000 no p-value can fall below 1 / 1001
+  expect_message(none <- get_gsea_table(obj, "a", "simple", padj_cutoff = 1e-6),
+                 "No pathways")
+  expect_identical(nrow(none), 0L)
+  expect_true(any(grepl("fgseaSimple, nperm = 1000", cli::cli_fmt(show(res)))))
 })
 
 test_that("run_fgsea accepts other presets and custom statistics", {
@@ -116,15 +142,12 @@ test_that("component ORA reproduces hypergeometric p-values", {
   # Component 3 is GE's isolated down isoform: one gene drawn from 14,
   # tested against the three up_set genes.
   ge <- rt[rt$component_id == 3 & rt$pathway == "up_set", ]
-  # p-values are stored to six decimals
-  expect_equal(ge$pval, stats::phyper(0, 3, 11, 1, lower.tail = FALSE),
-               tolerance = 1e-5)
+  expect_equal(ge$pval, stats::phyper(0, 3, 11, 1, lower.tail = FALSE))
   expect_equal(ge$overlap, 1)
 
   # Component 1 holds 11 genes, including all four mixed_set genes.
   mixed <- rt[rt$component_id == 1 & rt$pathway == "mixed_set", ]
-  expect_equal(mixed$pval, stats::phyper(3, 4, 10, 11, lower.tail = FALSE),
-               tolerance = 1e-5)
+  expect_equal(mixed$pval, stats::phyper(3, 4, 10, 11, lower.tail = FALSE))
   expect_setequal(mixed$overlap_genes[[1]], c("GA", "GB", "GD", "N4"))
   expect_equal(unique(rt$n_genes_tested[rt$component_id == 1]), 11)
 
@@ -187,7 +210,8 @@ test_that("gene sets can be a GeneSetCollection of Ensembl IDs", {
   gsc <- GSEABase::GeneSetCollection(lapply(names(fx$pathways), function(n)
     GSEABase::GeneSet(fx$pathways[[n]], setName = n,
                       geneIdType = GSEABase::ENSEMBLIdentifier())))
-  expect_identical(.as_pathway_list(gsc, genes = character()), fx$pathways)
+  genes <- unique(igraph::V(get_network(fx$obj))$gene)
+  expect_identical(.as_pathway_list(gsc, genes = genes), fx$pathways)
 
   run <- function(pathways) {
     withr::local_seed(1)
@@ -209,6 +233,7 @@ test_that("gene sets can be a GeneSetCollection of Ensembl IDs", {
 
 test_that("gene symbols in a GeneSetCollection map to network genes", {
   skip_if_not_installed("GSEABase")
+  skip_if_no_ensembl()
   sym <- GSEABase::SymbolIdentifier()
   gsc <- GSEABase::GeneSetCollection(list(
     GSEABase::GeneSet(c("CLTCL1", "APAF1", "NOT_A_GENE"), setName = "s",
@@ -222,6 +247,12 @@ test_that("gene symbols in a GeneSetCollection map to network genes", {
   # Symbols map only to the genes given, here the network's
   expect_identical(.as_pathway_list(gsc, genes = "ENSG00000070371"),
                    list(s = "ENSG00000070371"))
+  # Versioned network gene IDs match and are returned as the network has them
+  expect_identical(
+    .as_pathway_list(gsc, genes = c("ENSG00000070371.16",
+                                    "ENSG00000120868.13")),
+    list(s = c("ENSG00000070371.16", "ENSG00000120868.13"))
+  )
 
   entrez <- GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
     "1213", setName = "e", geneIdType = GSEABase::EntrezIdentifier()
@@ -230,12 +261,199 @@ test_that("gene symbols in a GeneSetCollection map to network genes", {
   expect_error(.as_pathway_list(c(a = "x"), genes = "x"), "named list")
 })
 
-test_that("GO gene sets are fetched from MSigDB with the msigdb package", {
+test_that("collections without an identifier type are read as IDs or symbols", {
+  skip_if_not_installed("GSEABase")
+  expect_error(.as_pathway_list(GSEABase::GeneSetCollection(list()),
+                                genes = character()), "no gene sets")
+  # GeneSet() and GSEABase::getGmt() give NullIdentifier gene sets. IDs that
+  # all start with ENSG are Ensembl gene IDs
+  cltcl1_apaf1 <- c("ENSG00000070371", "ENSG00000120868")
+  ensembl <- GSEABase::GeneSetCollection(list(
+    GSEABase::GeneSet(cltcl1_apaf1, setName = "e")))
+  expect_identical(.as_pathway_list(ensembl, genes = cltcl1_apaf1),
+                   list(e = cltcl1_apaf1))
+  # A collection with no network gene is an error, not zero gene sets
+  expect_error(.as_pathway_list(ensembl, genes = "ENSG00000141968"),
+               "No gene of the gene sets is a network gene")
+  # Other IDs are gene symbols: CLTCL1 and APAF1
+  skip_if_no_ensembl()
+  symbols <- GSEABase::GeneSetCollection(list(
+    GSEABase::GeneSet(c("CLTCL1", "APAF1"), setName = "s")))
+  expect_identical(.as_pathway_list(symbols, genes = cltcl1_apaf1),
+                   list(s = cltcl1_apaf1))
+  expect_error(.as_pathway_list(symbols, genes = "ENSG00000141968"),
+               "No gene of the gene sets is a network gene")
+})
+
+test_that("the MSigDB GO gene sets are loaded and converted once", {
   skip_if_not_installed("msigdb")
   skip_if_not_installed("GSEABase")
+  cached <- mget(c("msigdb_go", "go_pathways"), envir = .annotation_cache,
+                 ifnotfound = list(NULL))
+  withr::defer(list2env(cached, envir = .annotation_cache))
+  # A stand-in for the loaded collection: one GO:MF set holding CLTCL1,
+  # whose gene is ENSG00000070371
+  local_mocked_bindings(isonet_gene_names = function(edb = NULL)
+    S4Vectors::DataFrame(gene_id = "ENSG00000070371", gene_name = "CLTCL1"))
+  .annotation_cache$go_pathways <- NULL
+  .annotation_cache$msigdb_go <- list(
+    sets = GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+      "CLTCL1", setName = "GOMF_CACHED",
+      geneIdType = GSEABase::SymbolIdentifier()))),
+    subcategory = "GO:MF")
+  expect_identical(
+    suppressMessages(.fetch_go_pathways("GO:MF", "ENSG00000070371")),
+    list(GOMF_CACHED = "ENSG00000070371")
+  )
+  # For the same genes the converted sets are reused, not the collection
+  .annotation_cache$msigdb_go$sets <- GSEABase::GeneSetCollection(list())
+  expect_identical(
+    suppressMessages(.fetch_go_pathways("GO:MF", "ENSG00000070371")),
+    list(GOMF_CACHED = "ENSG00000070371")
+  )
+})
+
+test_that("GO gene sets without a network gene give a GO error", {
+  skip_if_not_installed("msigdb")
+  skip_if_not_installed("GSEABase")
+  cached <- mget(c("msigdb_go", "go_pathways"), envir = .annotation_cache,
+                 ifnotfound = list(NULL))
+  withr::defer(list2env(cached, envir = .annotation_cache))
+  local_mocked_bindings(isonet_gene_names = function(edb = NULL)
+    S4Vectors::DataFrame(gene_id = "ENSG00000070371", gene_name = "CLTCL1"))
+  # The only GO:MF set holds a symbol that is not a network gene
+  .annotation_cache$go_pathways <- NULL
+  .annotation_cache$msigdb_go <- list(
+    sets = GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+      "NOT_A_GENE", setName = "GOMF_OTHER",
+      geneIdType = GSEABase::SymbolIdentifier()))),
+    subcategory = "GO:MF")
+  expect_error(
+    suppressMessages(.fetch_go_pathways("GO:MF", "ENSG00000070371")),
+    "No GO:MF gene set of MSigDB 2023.1 contains a network gene",
+    fixed = TRUE)
+})
+
+test_that("named gene lists are matched to versioned network gene IDs", {
+  versioned <- c("ENSG00000070371.16", "ENSG00000120868.13")
+  sets <- list(s = c("ENSG00000070371", "ENSG00000120868", "ENSG_OTHER"))
+  # Matched without versions and returned as the network has them; IDs
+  # that are not network genes are kept as given
+  expect_identical(.as_pathway_list(sets, genes = versioned),
+                   list(s = c(versioned, "ENSG_OTHER")))
+  # A list with no matching gene is an error that does not advise symbols
+  msg <- tryCatch(.as_pathway_list(list(s = "ENSG00000141968"),
+                                   genes = versioned),
+                  error = conditionMessage)
+  expect_match(msg, "No gene of the named list is a gene of the analysis")
+  expect_match(msg, "For gene symbols, pass a GeneSetCollection")
+})
+
+test_that("gene-set IDs that are target genes stay themselves", {
+  # Clone-based gene names are no Ensembl IDs: both stay as given
+  clones <- c("AC000061.1", "AC000061.2")
+  expect_identical(.as_pathway_list(list(s = clones), genes = clones),
+                   list(s = clones))
+  # A network with both copies of the PAR gene ENSG00000002586 (CD99): the
+  # exact chrY copy stays, the unversioned ID matches both copies
+  copies <- c("ENSG00000002586.20", "ENSG00000002586.20_PAR_Y")
+  expect_identical(.as_pathway_list(list(y = copies[2]), genes = copies),
+                   list(y = copies[2]))
+  expect_identical(.as_pathway_list(list(u = "ENSG00000002586"),
+                                    genes = copies),
+                   list(u = copies))
+  # The symbol CD99 maps to both copies too
+  skip_if_not_installed("GSEABase")
+  local_mocked_bindings(isonet_gene_names = function(edb = NULL)
+    S4Vectors::DataFrame(gene_id = "ENSG00000002586", gene_name = "CD99"))
+  cd99 <- GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+    "CD99", setName = "s", geneIdType = GSEABase::SymbolIdentifier())))
+  expect_identical(.as_pathway_list(cd99, genes = copies), list(s = copies))
+})
+
+test_that("untyped collections of other species' Ensembl IDs stay IDs", {
+  skip_if_not_installed("GSEABase")
+  # ENSMUSG IDs, with a blank entry, are Ensembl gene IDs, not symbols
+  mouse <- c("ENSMUSG00000000001", "ENSMUSG00000000028")
+  gsc <- GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+    c(mouse, ""), setName = "m")))
+  expect_identical(.as_pathway_list(gsc, genes = mouse),
+                   list(m = c(mouse, "")))
+})
+
+test_that("run_fgsea matches gene sets to the ranked genes' IDs", {
+  fx <- make_multi_gene_fixture()
+  withr::local_seed(1)
+  # Statistics keyed by symbols, and a named list of the same symbols
+  stats <- c(SYM_A = 3, SYM_B = 2, SYM_C = 1, SYM_D = -1, SYM_E = -2,
+             SYM_F = -3)
+  sets <- list(top = c("SYM_A", "SYM_B", "SYM_C"),
+               bottom = c("SYM_E", "SYM_F"))
+  obj <- suppressWarnings(suppressMessages(run_fgsea(
+    fx$obj, "a", label = "symbols", stats = stats, pathways = sets,
+    minSize = 2)))
+  tbl <- get_gsea_table(obj, "a", "symbols")
+  # Every member is ranked: sizes 3 and 2; "top" holds the three highest
+  expect_equal(tbl$size[match(c("top", "bottom"), tbl$pathway)], c(3, 2))
+  expect_gt(tbl$NES[tbl$pathway == "top"], 0)
+})
+
+test_that("gene sets match GENCODE PAR_Y network gene IDs", {
+  skip_if_not_installed("GSEABase")
+  # ENSG00000002586 is CD99; GENCODE marks its Y copy with _PAR_Y
+  par_y <- "ENSG00000002586.20_PAR_Y"
+  gsc <- GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+    "ENSG00000002586", setName = "e",
+    geneIdType = GSEABase::ENSEMBLIdentifier())))
+  expect_identical(.as_pathway_list(gsc, genes = par_y), list(e = par_y))
+})
+
+test_that("Ensembl gene sets match versioned network gene IDs", {
+  skip_if_not_installed("GSEABase")
+  versioned <- c("ENSG00000070371.16", "ENSG00000120868.13")
+  for (type in c(GSEABase::ENSEMBLIdentifier(), GSEABase::NullIdentifier())) {
+    gsc <- GSEABase::GeneSetCollection(list(GSEABase::GeneSet(
+      c("ENSG00000070371", "ENSG00000120868"), setName = "e",
+      geneIdType = type)))
+    # Matched without the versions and returned as the network has them
+    expect_identical(.as_pathway_list(gsc, genes = versioned),
+                     list(e = versioned))
+  }
+})
+
+test_that("component ORA resolves its analysis once", {
+  fx <- make_multi_gene_fixture()
+  obj <- suppressMessages(run_component_analysis(fx$obj, "a", label = "comp"))
+  obj@analyses$a@cross_gene_summary <- obj@analyses$a@cross_gene_summary[0, ]
+  # One warning for the empty cross-gene summary
+  warnings <- character()
+  withCallingHandlers(
+    suppressMessages(run_component_ora(obj, "a", "comp", label = "ora",
+                                       pathways = fx$pathways, minSize = 2)),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  expect_identical(sum(grepl("empty cross-gene summary", warnings)), 1L)
+})
+
+test_that("GO gene sets are fetched from MSigDB with the msigdb package", {
+  skip_if_no_ensembl()
+  skip_if_no_msigdb()
   genes <- c("ENSG00000070371", "ENSG00000120868", "ENSG00000141968")
   go <- suppressMessages(.fetch_go_pathways("GO:MF", genes))
   expect_true(length(go) > 0L)
   expect_true(all(startsWith(names(go), "GOMF_")))
   expect_true(all(unlist(go) %in% genes))
+})
+
+test_that("factor-valued gene sets keep their genes", {
+  fx <- make_multi_gene_fixture()
+  genes <- c("GA", "GB", "GC", "GD", "GE", "GF", paste0("N", 1:8))
+  as_factors <- lapply(fx$pathways, factor)
+  # A factor's labels are its genes; its level numbers are not
+  expect_identical(.network_gene_sets(as_factors, genes, symbols = FALSE),
+                   .network_gene_sets(fx$pathways, genes, symbols = FALSE))
+  expect_identical(.network_gene_sets(as_factors, genes, symbols = FALSE),
+                   fx$pathways)
 })

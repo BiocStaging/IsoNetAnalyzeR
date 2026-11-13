@@ -39,9 +39,10 @@ Default \code{FALSE}.}
 Default \code{10}.  Set \code{0} to suppress all labels.}
 
 \item{label}{Character vector.  One or more of \code{"delta"}
-(largest absolute delta), \code{"up"} (largest positive delta, orange
-points), \code{"down"} (largest negative delta,
-largest negative delta, blue points).  Default \code{"delta"}.}
+(largest absolute delta), \code{"up"} (largest positive delta, green
+points), \code{"down"} (largest negative delta, orange points).  With
+several strategies, their top genes are labelled in turn.
+Default \code{"delta"}.}
 
 \item{title}{Character scalar or \code{NULL} (auto-generated).}
 }
@@ -53,8 +54,8 @@ For each gene computes a per-gene delta (\code{x_col - y_col}, or the
 log10 fold-change \code{log10(x_col / y_col)} when \code{log_ratio = TRUE})
 and displays the distribution as a boxplot with individual gene points
 overlaid as a jitter strip.  A horizontal reference line at zero marks no
-difference between the two columns.  Orange points have a positive delta
-(x_col > y_col); blue have a negative delta.
+difference between the two columns.  Green points have a positive delta
+(x_col > y_col), orange a negative one and grey none.
 }
 \section{Log-ratio mode}{
 

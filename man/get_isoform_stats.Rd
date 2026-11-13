@@ -31,7 +31,8 @@ Merges the per-node statistics from the up- and down-labelled subgraphs of
 a single gene into one long-format \code{DataFrame}, with a \code{direction}
 column (\code{"up"} / \code{"down"}) identifying the condition.  A
 \code{is_seed} column flags isoforms that were supplied as seeds, using the
-explicit seed annotation stored by \code{analyze_subgraph()}.
+explicit seed annotation stored by \code{analyze_subgraph()}; for results
+saved without it, the gene's stored up and down seed isoforms.
 Isoforms that appear in only one condition are
 represented in that condition's rows only; no artificial NAs are introduced
 for the missing direction.

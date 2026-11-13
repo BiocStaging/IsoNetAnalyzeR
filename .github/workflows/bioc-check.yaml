@@ -18,10 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Set hub cache month
+        run: echo "HUB_CACHE_MONTH=$(date +%Y-%m)" >> "$GITHUB_ENV"
+
+      # A new key each month saves the refreshed hub metadata; earlier
+      # months' caches are restored as a starting point
       - uses: actions/cache@v4
         with:
           path: /tmp/hubs
-          key: hubs-bioc-devel-AH104864-msigdb-2023.1
+          key: hubs-bioc-devel-AH104864-msigdb-2023.1-${{ env.HUB_CACHE_MONTH }}
+          restore-keys: hubs-bioc-devel-AH104864-msigdb-2023.1-
 
       - name: Install dependencies
         run: |

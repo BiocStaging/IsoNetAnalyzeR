@@ -2,15 +2,13 @@
 
 .dup_map_cache <- new.env(parent = emptyenv())
 
-.normalize_transcript_ids <- function(x) {
-  sub("\\.[0-9]+$", "", as.character(x))
-}
-
 .validate_duplicate_map <- function(map) {
   required <- c(
     "kept_ENSG", "redundant_ENSG", "kept_ENSP", "kept_ENST",
     "redundant_ENSP", "redundant_ENST", "network_applicable"
   )
+  provenance <- if (is(map, "DataFrame"))
+    S4Vectors::metadata(map)$provenance else attr(map, "provenance")
   if (.is_table(map)) map <- .as_data_frame(map, "duplicate_map")
   if (!is.data.frame(map) || !all(required %in% names(map))) {
     stop(
@@ -31,6 +29,7 @@
   if (anyDuplicated(map$redundant_ENST)) {
     stop("`duplicate_map` has ambiguous redundant ENSTs.", call. = FALSE)
   }
+  attr(map, "provenance") <- provenance
   map
 }
 
@@ -125,12 +124,14 @@ isonet_duplicate_map <- function(refresh = FALSE) {
     if (length(genes) != length(ids)) {
       stop("Gene and transcript vectors must have equal length.", call. = FALSE)
     }
+    # The map's gene IDs have no version suffix
+    gene_base <- .strip_version(genes)
   }
   map <- .validate_duplicate_map(
     if (is.null(duplicate_map)) .read_duplicate_map() else duplicate_map
   )
   context <- .network_resolution_context(network)
-  normalized <- .normalize_transcript_ids(ids)
+  normalized <- .strip_version(ids)
   excluded <- .excluded_decay_ids(network)
   red_index <- match(normalized, map$redundant_ENST)
   kept_index <- match(normalized, map$kept_ENST)
@@ -165,7 +166,7 @@ isonet_duplicate_map <- function(refresh = FALSE) {
       target_gene <- map$kept_ENSG[[red]]
       kept_gene[[i]] <- target_gene
       if (!is.null(genes) && !is.na(genes[[i]]) && nzchar(genes[[i]]) &&
-          !identical(genes[[i]], map$redundant_ENSG[[red]])) {
+          !identical(gene_base[[i]], map$redundant_ENSG[[red]])) {
         stop(
           "Submitted redundant transcript '", original, "' belongs to gene '",
           genes[[i]], "', but the duplicate map assigns it to '",
@@ -177,7 +178,8 @@ isonet_duplicate_map <- function(refresh = FALSE) {
         status[[i]] <- "duplicate_remapped"
       } else if (!(base %in% context$vertices) &&
                  target %in% context$vertices &&
-                 identical(unname(context$gene[[target]]), target_gene)) {
+                 identical(.strip_version(context$gene[[target]]),
+                           target_gene)) {
         resolved[[i]] <- target
         status[[i]] <- "duplicate_remapped"
       } else if (!(target %in% context$vertices)) {
@@ -192,7 +194,7 @@ isonet_duplicate_map <- function(refresh = FALSE) {
       target_gene <- map$kept_ENSG[[kept]]
       kept_gene[[i]] <- target_gene
       if (!is.null(genes) && !is.na(genes[[i]]) && nzchar(genes[[i]]) &&
-          !identical(genes[[i]], target_gene)) {
+          !identical(gene_base[[i]], target_gene)) {
         stop(
           "Submitted representative transcript '", original,
           "' disagrees with duplicate-map gene '", target_gene, "'.",
@@ -332,7 +334,7 @@ resolve_duplicate_isoforms <- function(
     stop("Count row names must use one consistent identifier style.",
          call. = FALSE)
   }
-  normalized <- .normalize_transcript_ids(rn)
+  normalized <- .strip_version(rn)
   red <- match(normalized, map$redundant_ENST)
   kept <- match(normalized, map$kept_ENST)
   gene <- rep(NA_character_, length(rn))
@@ -358,7 +360,7 @@ resolve_duplicate_isoforms <- function(
   feature_data <- .feature_data_from_counts(matrix_counts, feature_data, map)
   ids <- as.character(feature_data$isoform_id)
   genes <- as.character(feature_data$gene_id)
-  normalized <- .normalize_transcript_ids(ids)
+  normalized <- .strip_version(ids)
   red <- match(normalized, map$redundant_ENST)
   kept <- match(normalized, map$kept_ENST)
   mapped <- !is.na(red) | !is.na(kept)
@@ -366,7 +368,8 @@ resolve_duplicate_isoforms <- function(
   expected_gene[!is.na(red)] <- map$redundant_ENSG[red[!is.na(red)]]
   expected_gene[is.na(red) & !is.na(kept)] <-
     map$kept_ENSG[kept[is.na(red) & !is.na(kept)]]
-  conflict <- mapped & !is.na(genes) & nzchar(genes) & genes != expected_gene
+  conflict <- mapped & !is.na(genes) & nzchar(genes) &
+    .strip_version(genes) != expected_gene
   if (any(conflict)) {
     stop(
       "Count feature gene assignment disagrees with the duplicate map for: ",
@@ -394,7 +397,10 @@ resolve_duplicate_isoforms <- function(
     if (length(existing)) existing[[1L]] else index[[1L]]
   }, integer(1L))
   out_features <- feature_data[representative, , drop = FALSE]
-  out_features$gene_id <- resolved_gene[representative]
+  # The map only groups rows; gene IDs are output as given (e.g. versioned),
+  # so a gene never appears under two IDs
+  given <- !is.na(genes) & nzchar(genes)
+  out_features$gene_id <- ifelse(given, genes, resolved_gene)[representative]
   out_features$isoform_id <- resolved_id[representative]
   composite_style <- all(grepl(":", rownames(matrix_counts), fixed = TRUE))
   output_names <- if (composite_style) {
@@ -461,8 +467,12 @@ resolve_duplicate_isoforms <- function(
 #'   counts, or a single-assay \code{SummarizedExperiment}.
 #' @param feature_data Optional \code{data.frame} or \code{DataFrame} aligned
 #'   to count rows, containing at least \code{gene_id} and
-#'   \code{isoform_id}. When omitted, identifiers
-#'   are parsed from ENST or \code{gene:ENST} row names.
+#'   \code{isoform_id}. When omitted, the \code{rowData} of a
+#'   \code{SummarizedExperiment} is used; an ID column it lacks is taken
+#'   from ENST or \code{gene:ENST} row names (genes of mapped transcripts
+#'   from the duplicate map). A list-valued \code{gene_id}, as in tximeta
+#'   objects, gives each row its first gene. Gene and transcript IDs may carry
+#'   Ensembl version suffixes.
 #' @param assay Assay name used for a \code{SummarizedExperiment}; defaults to
 #'   \code{"counts"}.
 #' @param duplicate_map Optional validated custom map.
@@ -495,12 +505,8 @@ aggregate_duplicate_counts <- function(
   )
   is_se <- inherits(x, "SummarizedExperiment")
   if (is_se) {
-    if (!requireNamespace("SummarizedExperiment", quietly = TRUE) ||
-        !requireNamespace("S4Vectors", quietly = TRUE)) {
-      stop(
-        "SummarizedExperiment and S4Vectors are required for this input.",
-        call. = FALSE
-      )
+    if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+      stop("SummarizedExperiment is required for this input.", call. = FALSE)
     }
     assay_names <- SummarizedExperiment::assayNames(x)
     if (length(assay_names) != 1L) {
@@ -514,9 +520,30 @@ aggregate_duplicate_counts <- function(
         !assay %in% assay_names) {
       stop("`assay` is not present in the SummarizedExperiment.", call. = FALSE)
     }
-    se_feature_data <- as.data.frame(SummarizedExperiment::rowData(x))
+    if (is.null(feature_data)) {
+      row_data <- as.data.frame(SummarizedExperiment::rowData(x))
+      id_cols <- c("gene_id", "isoform_id")
+      # tximeta stores gene_id as a list per row: take the first gene
+      if (is.list(row_data$gene_id))
+        row_data$gene_id <- vapply(row_data$gene_id,
+                                   function(g) as.character(g)[1L], "")
+      # Without both ID columns, the missing one comes from the row names (or,
+      # for genes, the map); the rowData ID columns and others are kept
+      feature_data <- if (all(id_cols %in% names(row_data))) row_data else {
+        parsed <- .feature_data_from_counts(
+          SummarizedExperiment::assay(x, assay), NULL, map)
+        if ("isoform_id" %in% names(row_data)) {
+          parsed$isoform_id <- row_data$isoform_id
+          # Genes then come from the map, unless row names are gene:transcript
+          if (!all(grepl(":", rownames(x), fixed = TRUE)))
+            parsed$gene_id <- NA_character_
+        }
+        if ("gene_id" %in% names(row_data)) parsed$gene_id <- row_data$gene_id
+        cbind(parsed, row_data[setdiff(names(row_data), id_cols)])
+      }
+    }
     result <- .aggregate_duplicate_matrix(
-      SummarizedExperiment::assay(x, assay), se_feature_data, map
+      SummarizedExperiment::assay(x, assay), feature_data, map
     )
     rebuilt <- SummarizedExperiment::SummarizedExperiment(
       assays = stats::setNames(list(result$object), assay),

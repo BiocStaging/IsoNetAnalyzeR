@@ -17,8 +17,12 @@ counts, or a single-assay \code{SummarizedExperiment}.}
 
 \item{feature_data}{Optional \code{data.frame} or \code{DataFrame} aligned
 to count rows, containing at least \code{gene_id} and
-\code{isoform_id}. When omitted, identifiers
-are parsed from ENST or \code{gene:ENST} row names.}
+\code{isoform_id}. When omitted, the \code{rowData} of a
+\code{SummarizedExperiment} is used; an ID column it lacks is taken
+from ENST or \code{gene:ENST} row names (genes of mapped transcripts
+from the duplicate map). A list-valued \code{gene_id}, as in tximeta
+objects, gives each row its first gene. Gene and transcript IDs may carry
+Ensembl version suffixes.}
 
 \item{assay}{Assay name used for a \code{SummarizedExperiment}; defaults to
 \code{"counts"}.}
